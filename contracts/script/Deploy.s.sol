@@ -4,10 +4,12 @@ pragma solidity 0.8.27;
 import {Script, console} from "forge-std/Script.sol";
 import {WorkStream, IERC20} from "../src/WorkStream.sol";
 
-/// Deploys WorkStream to Arc Testnet and funds it in the same broadcast.
-/// The broadcast sender becomes the employer/treasury and must hold at least
-/// INITIAL_FUNDING in ERC-20 USDC. Run by the human — see README for the
-/// exact command; actor addresses come from the repo-root .env.
+/// Deploys WorkStream to Arc Testnet. Deploy ONLY — funding happens after,
+/// via two `cast send` calls (approve, then fund), because forge script
+/// executes its body in a local EVM that lacks Arc's USDC blocklist
+/// precompile, so any USDC call inside the script reverts before broadcast.
+/// The broadcast sender becomes the employer/treasury. Run by the human —
+/// see STATE.md for the exact commands; actor addresses come from .env.
 contract Deploy is Script {
     // ERC-20 USDC on Arc Testnet (6 dp)
     IERC20 constant USDC = IERC20(0x3600000000000000000000000000000000000000);
@@ -39,12 +41,10 @@ contract Deploy is Script {
             MILESTONE,
             WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_UNLOCK_CAP, payee: contributor})
         );
-        USDC.approve(address(ws), INITIAL_FUNDING);
-        ws.fund(INITIAL_FUNDING);
         vm.stopBroadcast();
 
         console.log("WorkStream deployed:", address(ws));
         console.log("employer/treasury:  ", ws.employer());
-        console.log("funded (6dp USDC):  ", INITIAL_FUNDING);
+        console.log("next: approve + fund", INITIAL_FUNDING);
     }
 }

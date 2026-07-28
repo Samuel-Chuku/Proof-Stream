@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@circle-fin/developer-controlled-wallets':
+        specifier: ^10.8.0
+        version: 10.8.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(debug@4.4.3)
       '@proofstream/config':
         specifier: workspace:*
         version: link:config
@@ -85,6 +88,21 @@ packages:
 
   '@base-org/account@2.4.0':
     resolution: {integrity: sha512-A4Umpi8B9/pqR78D1Yoze4xHyQaujioVRqqO3d6xuDFw9VRtjg6tK3bPlwE0aW+nVH/ntllCpPa2PbI8Rnjcug==}
+
+  '@circle-fin/developer-controlled-wallets@10.8.0':
+    resolution: {integrity: sha512-eOqhUj6H8FrLh0803DAui15a2qikiqX5e4hzlTVAamq7MQnvPfIbTblO4av+wT499ld4+NWXgxKgAUjV1ouwsw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@solana/codecs-strings': ^2.0.0
+      '@solana/kit': ^2.1.0 || ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0
+      '@solana/web3.js': ^1.63.0
+    peerDependenciesMeta:
+      '@solana/codecs-strings':
+        optional: true
+      '@solana/kit':
+        optional: true
+      '@solana/web3.js':
+        optional: true
 
   '@coinbase/cdp-sdk@1.54.0':
     resolution: {integrity: sha512-FfIJVEKAXgmr+dkXn/NBQO04/pps+oIgqEIdcmG67WZh+m07OsVnvSBEqEvbFO+VjSdaQAKu69EpO3NdHJd2Iw==}
@@ -2499,6 +2517,14 @@ snapshots:
       - use-sync-external-store
       - utf-8-validate
       - zod
+
+  '@circle-fin/developer-controlled-wallets@10.8.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(debug@4.4.3)':
+    dependencies:
+      axios: 1.16.0(debug@4.4.3)
+    optionalDependencies:
+      '@solana/kit': 5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+    transitivePeerDependencies:
+      - debug
 
   '@coinbase/cdp-sdk@1.54.0(bufferutil@4.1.0)(debug@4.4.3)(typescript@5.9.3)(utf-8-validate@5.0.10)':
     dependencies:

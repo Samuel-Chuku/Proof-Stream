@@ -8,6 +8,8 @@
   },
   "scripts": {
     "check:chain": "tsx --env-file=.env scripts/check-chain.ts",
+    "circle:setup": "tsx --env-file=.env scripts/circle-setup.ts",
+    "preflight:deploy": "tsx --env-file=.env scripts/preflight-deploy.ts",
     "test:amounts": "tsx --test config/test/amounts.test.ts"
   },
   "devDependencies": {
@@ -16,6 +18,7 @@
     "typescript": "^5.6.0"
   },
   "dependencies": {
+    "@circle-fin/developer-controlled-wallets": "^10.8.0",
     "@proofstream/config": "workspace:*",
     "viem": "^2.21.0"
   }
