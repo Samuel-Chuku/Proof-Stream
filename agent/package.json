@@ -1,0 +1,9 @@
+{
+  "name": "@proofstream/agent",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@proofstream/config": "workspace:*",
+    "viem": "^2.21.0"
+  }
+}
