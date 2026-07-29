@@ -25,7 +25,9 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
   }
 }
 
-export const WORK_STREAM_ABI = [
+// Deliberately NOT exported. This file runs its checks at import time and
+// exits, so anything importing from it never reaches its own code.
+const WORK_STREAM_ABI = [
   { type: 'function', name: 'withdrawable', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'contributor', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   { type: 'function', name: 'contributorCredited', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
@@ -101,7 +103,7 @@ try {
         args: [account.address, withdrawable],
         account,
       });
-      add('withdraw simulates cleanly', true, `${formatUsdc(withdrawable)} USDC → ${account.address}`);
+      add('withdraw WOULD succeed (simulated, NOT sent)', true, `${formatUsdc(withdrawable)} USDC → ${account.address}`);
     } catch (err) {
       // Arc's USDC precompile can defeat simulation; report it as unknown
       // rather than failing a payout that would actually succeed.
@@ -124,6 +126,10 @@ function report(): never {
     if (!c.ok) allOk = false;
     console.log(`${c.ok ? 'PASS' : 'FAIL'}  ${c.name.padEnd(42)} ${c.detail}`);
   }
-  console.log(allOk ? '\nALL GREEN — run pnpm withdraw.' : '\nNOT READY — fix the FAIL lines first.');
+  console.log(
+    allOk
+      ? '\nALL GREEN — nothing has moved yet. Now run: pnpm withdraw'
+      : '\nNOT READY — fix the FAIL lines first.',
+  );
   process.exit(allOk ? 0 : 1);
 }

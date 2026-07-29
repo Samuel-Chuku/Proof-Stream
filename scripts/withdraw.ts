@@ -14,7 +14,30 @@ import { EXPLORER_URL, formatUsdc, parseUsdc } from '@proofstream/config';
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arcTestnet } from 'viem/chains';
-import { WORK_STREAM_ABI } from './preflight-withdraw';
+
+// Declared here rather than imported from the preflight: that file runs its
+// checks and process.exit()s at import time, so importing it silently turned
+// this script into the preflight and withdrew nothing.
+const WORK_STREAM_ABI = [
+  { type: 'function', name: 'withdrawable', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  {
+    type: 'function',
+    name: 'policy',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'address' }],
+  },
+  {
+    type: 'function',
+    name: 'withdraw',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+] as const;
 
 const workStream = process.env.WORKSTREAM_ADDRESS as `0x${string}`;
 if (!workStream) throw new Error('WORKSTREAM_ADDRESS is not set — see .env.example');
