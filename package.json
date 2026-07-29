@@ -10,6 +10,9 @@
     "check:chain": "tsx --env-file=.env scripts/check-chain.ts",
     "circle:setup": "tsx --env-file=.env scripts/circle-setup.ts",
     "preflight:deploy": "tsx --env-file=.env scripts/preflight-deploy.ts",
+    "preflight:agent": "tsx --env-file=.env scripts/preflight-agent.ts",
+    "agent:dev": "tsx --env-file=.env agent/src/index.ts",
+    "verdict:test": "tsx --env-file=.env scripts/test-verdict.ts",
     "test:amounts": "tsx --test config/test/amounts.test.ts"
   },
   "devDependencies": {
