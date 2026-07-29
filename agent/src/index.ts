@@ -4,6 +4,7 @@ import { formatUsdc } from '@proofstream/config';
 import { readStream, sendUnlock, signAttestation, type Attestation } from './chain';
 import { env } from './env';
 import { fetchDiff, parseMergedPr, verifySignature } from './github';
+import { buySecondOpinion } from './pay';
 import { judge } from './verdict';
 
 const LOG_PATH = new URL('../verdicts.jsonl', import.meta.url).pathname;
@@ -54,14 +55,54 @@ async function handleMerge(payload: unknown) {
     return;
   }
 
-  // tranche_fraction scales the policy ceiling, then the stream's own accrual
-  // caps it — the agent can never certify money that has not been earned yet.
+  // The attestor is convinced. Before it acts on its own conviction it buys an
+  // independent second opinion and pays for it out of its own wallet. Fails
+  // closed: if the verifier cannot be paid or does not answer, nothing unlocks.
+  let purchase: Awaited<ReturnType<typeof buySecondOpinion>>;
+  try {
+    purchase = await buySecondOpinion(pr.number);
+  } catch (err) {
+    log({
+      event: 'escalated',
+      ...base,
+      reason: `second opinion unavailable: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    return;
+  }
+
+  const { opinion, feePaid, transfer } = purchase;
+  const verification = {
+    verifier: opinion,
+    verificationFeeUsdc: formatUsdc(feePaid),
+    gatewayTransfer: transfer,
+  };
+
+  if (!opinion.satisfies_milestone) {
+    log({ event: 'vetoed', ...base, ...verification, reason: 'verifier disagrees that the work satisfies the milestone' });
+    return;
+  }
+  if (opinion.confidence < env.confidenceThreshold) {
+    log({
+      event: 'escalated',
+      ...base,
+      ...verification,
+      reason: `verifier confidence ${opinion.confidence} below threshold ${env.confidenceThreshold}`,
+    });
+    return;
+  }
+
+  // Both agree. Take the LOWER of the two fractions — the second opinion can
+  // shrink the payout, which is what makes buying it worth anything.
+  const agreedFraction = Math.min(verdict.tranche_fraction, opinion.tranche_fraction);
+
+  // The fraction scales the policy ceiling, then the stream's own accrual caps
+  // it — the agent can never certify money that has not been earned yet.
   const available = stream.accrued - stream.unlocked;
-  const desired = (stream.maxTranche * BigInt(Math.round(verdict.tranche_fraction * 10_000))) / 10_000n;
+  const desired = (stream.maxTranche * BigInt(Math.round(agreedFraction * 10_000))) / 10_000n;
   const tranche = desired < available ? desired : available;
 
   if (tranche <= 0n) {
-    log({ event: 'skipped', ...base, reason: 'nothing accrued to unlock yet' });
+    log({ event: 'skipped', ...base, ...verification, reason: 'nothing accrued to unlock yet' });
     return;
   }
 
@@ -81,6 +122,8 @@ async function handleMerge(payload: unknown) {
   log({
     event: result.state === 'COMPLETE' ? 'unlocked' : 'unlock_failed',
     ...base,
+    ...verification,
+    agreedFraction,
     trancheUsdc: formatUsdc(tranche),
     nonce: Number(attestation.nonce),
     circleTransactionId: result.transactionId,

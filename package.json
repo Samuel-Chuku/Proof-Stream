@@ -11,18 +11,30 @@
     "circle:setup": "tsx --env-file=.env scripts/circle-setup.ts",
     "preflight:deploy": "tsx --env-file=.env scripts/preflight-deploy.ts",
     "preflight:agent": "tsx --env-file=.env scripts/preflight-agent.ts",
+    "preflight:verifier": "tsx --env-file=.env scripts/preflight-verifier.ts",
+    "preflight:withdraw": "tsx --env-file=.env scripts/preflight-withdraw.ts",
+    "withdraw": "tsx --env-file=.env scripts/withdraw.ts",
     "agent:dev": "tsx --env-file=.env agent/src/index.ts",
+    "verifier:dev": "tsx --env-file=.env agent/src/verifier/index.ts",
+    "gateway:deposit": "tsx --env-file=.env scripts/gateway-deposit.ts",
+    "verify:once": "tsx --env-file=.env scripts/buy-verification.ts",
     "verdict:test": "tsx --env-file=.env scripts/test-verdict.ts",
+    "review:test": "tsx --env-file=.env scripts/test-review.ts",
     "test:amounts": "tsx --test config/test/amounts.test.ts"
   },
   "devDependencies": {
+    "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   },
   "dependencies": {
     "@circle-fin/developer-controlled-wallets": "^10.8.0",
+    "@circle-fin/x402-batching": "^3.2.0",
     "@proofstream/config": "workspace:*",
+    "@x402/core": "^2.20.0",
+    "@x402/evm": "^2.20.0",
+    "express": "^5.2.1",
     "viem": "^2.21.0"
   }
 }

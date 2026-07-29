@@ -29,4 +29,15 @@ export const env = {
 
   // Below this the agent escalates to a human instead of unlocking (T5d).
   confidenceThreshold: Number(process.env.AGENT_CONFIDENCE_THRESHOLD || 0.7),
+
+  // --- verifier agent (Phase 3) -------------------------------------------
+  // Its own Circle wallet, its own process, its own model. The seller side
+  // only ever needs the address: Gateway credits it, it holds no key here.
+  verifierAddress: required('VERIFIER_ADDRESS') as `0x${string}`,
+  verifierPort: Number(process.env.VERIFIER_PORT || 8788),
+  verifierUrl: process.env.VERIFIER_URL || 'http://localhost:8788/verify',
+
+  // A different vendor on purpose — a second opinion from the same model is
+  // not a second opinion.
+  verifierModel: process.env.VERIFIER_MODEL || 'google/gemini-2.5-pro',
 };
