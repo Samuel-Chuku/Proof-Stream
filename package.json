@@ -18,9 +18,13 @@
     "verifier:dev": "tsx --env-file=.env agent/src/verifier/index.ts",
     "gateway:deposit": "tsx --env-file=.env scripts/gateway-deposit.ts",
     "verify:once": "tsx --env-file=.env scripts/buy-verification.ts",
+    "web:dev": "bash -c 'set -a; source .env; set +a; cd web && exec ./node_modules/.bin/next dev'",
+    "web:build": "bash -c 'set -a; source .env; set +a; cd web && exec ./node_modules/.bin/next build'",
     "verdict:test": "tsx --env-file=.env scripts/test-verdict.ts",
     "review:test": "tsx --env-file=.env scripts/test-review.ts",
-    "test:amounts": "tsx --test config/test/amounts.test.ts"
+    "test:amounts": "tsx --test config/test/amounts.test.ts",
+    "seed": "tsx --env-file=.env scripts/demo-seed.ts",
+    "evidence": "tsx --env-file=.env scripts/evidence.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

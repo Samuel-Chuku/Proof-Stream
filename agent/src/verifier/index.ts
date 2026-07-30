@@ -62,7 +62,7 @@ app.post('/verify', gateway.require(VERIFICATION_FEE), async (req: PaidRequest, 
 
   try {
     const stream = await readStream();
-    const diff = await fetchDiff(prNumber);
+    const diff = await fetchDiff(stream.repo, prNumber);
     const { review: verdict, costUsd, model } = await review(prNumber, stream.milestone, diff);
 
     log({

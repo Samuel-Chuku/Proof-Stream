@@ -10,6 +10,7 @@
 // The contributor key is a demo fixture. In the real product the contributor
 // connects their own wallet; the repo holds this one only so Phase 5 can seed
 // unattended.
+import { appendFileSync } from 'node:fs';
 import { EXPLORER_URL, formatUsdc, parseUsdc } from '@proofstream/config';
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -76,6 +77,24 @@ console.log(`tx ${hash}`);
 const receipt = await publicClient.waitForTransactionReceipt({ hash });
 console.log(`status ${receipt.status}, block ${receipt.blockNumber}`);
 console.log(`${EXPLORER_URL}/tx/${hash}`);
+
+// Logged so the payout stops being invisible: without this the withdraw tx
+// never reaches the dashboard ledger or EVIDENCE.md, because payouts are not
+// agent events and never enter verdicts.jsonl.
+appendFileSync(
+  new URL('../agent/payouts.jsonl', import.meta.url).pathname,
+  `${JSON.stringify({
+    at: new Date().toISOString(),
+    workStream,
+    event: receipt.status === 'success' ? 'withdrawn' : 'withdraw_failed',
+    amountUsdc: formatUsdc(requested),
+    to: payee,
+    by: account.address,
+    txHash: hash,
+    blockNumber: Number(receipt.blockNumber),
+    explorer: `${EXPLORER_URL}/tx/${hash}`,
+  })}\n`,
+);
 
 const remaining = await read<bigint>('withdrawable');
 console.log(`\nstill withdrawable: ${formatUsdc(remaining)} USDC`);

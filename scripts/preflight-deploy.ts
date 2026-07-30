@@ -10,7 +10,12 @@ import { arcTestnet } from 'viem/chains';
 import { USDC_ADDRESS, formatNative, formatUsdc, parseNative, parseUsdc } from '@proofstream/config';
 
 // Must match Deploy.s.sol INITIAL_FUNDING.
-const INITIAL_FUNDING = parseUsdc('500');
+// The milestone budget the deployer must be able to deposit. Matches
+// Deploy.s.sol's default; override with STREAM_BUDGET (6-dp raw units) to
+// preflight a different sized job.
+const INITIAL_FUNDING = process.env.STREAM_BUDGET
+  ? BigInt(process.env.STREAM_BUDGET)
+  : parseUsdc('40');
 // Enough native gas for a deploy + a handful of txs.
 const MIN_DEPLOYER_GAS = parseNative('1');
 const MIN_AGENT_GAS = parseNative('1');
@@ -69,7 +74,7 @@ async function balanceCheck(name: string, ok: (v: bigint) => boolean, fetch: () 
 
 if (isAddress(env('DEPLOYER_ADDRESS'))) {
   const deployer = env('DEPLOYER_ADDRESS') as `0x${string}`;
-  await balanceCheck(`deployer ERC-20 USDC ≥ ${formatUsdc(INITIAL_FUNDING)}`, (v) => v >= INITIAL_FUNDING, () => usdcBalance(deployer), formatUsdc);
+  await balanceCheck(`deployer USDC ≥ budget ${formatUsdc(INITIAL_FUNDING)}`, (v) => v >= INITIAL_FUNDING, () => usdcBalance(deployer), formatUsdc);
   await balanceCheck(`deployer native gas ≥ ${formatNative(MIN_DEPLOYER_GAS)}`, (v) => v >= MIN_DEPLOYER_GAS, () => nativeBalance(deployer), formatNative);
 }
 

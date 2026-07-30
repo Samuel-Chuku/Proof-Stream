@@ -15,7 +15,7 @@ if (!Number.isInteger(prNumber)) {
 const milestoneOverride = process.argv[3];
 const stream = await readStream();
 const milestone = milestoneOverride ?? stream.milestone;
-const diff = await fetchDiff(prNumber);
+const diff = await fetchDiff(stream.repo, prNumber);
 
 console.log(`milestone: ${milestone}`);
 console.log(`diff:      ${diff.length} chars\n`);

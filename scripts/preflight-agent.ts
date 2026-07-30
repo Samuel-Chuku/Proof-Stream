@@ -132,10 +132,11 @@ if (stream) {
 
 // GitHub + OpenRouter reachable with our credentials
 try {
-  const res = await fetch(`https://api.github.com/repos/${env.githubRepo}`, {
+  const repo = stream?.repo ?? env.githubRepo;
+  const res = await fetch(`https://api.github.com/repos/${repo}`, {
     headers: { Authorization: `Bearer ${env.githubToken}`, 'User-Agent': 'proofstream-preflight' },
   });
-  add('GitHub repo readable', res.ok, `HTTP ${res.status} for ${env.githubRepo}`);
+  add('on-chain repo readable', res.ok, `HTTP ${res.status} for ${repo} (from contract)`);
 } catch (err) {
   add('GitHub repo readable', false, (err as Error).message);
 }

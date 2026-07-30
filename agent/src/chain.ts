@@ -7,6 +7,13 @@ import { env } from './env';
 const WORK_STREAM_ABI = [
   { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
   { type: 'function', name: 'milestoneHash', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
+  { type: 'function', name: 'repo', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+  { type: 'function', name: 'funded', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'budget', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'fullyFunded', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  { type: 'function', name: 'isActive', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  { type: 'function', name: 'milestoneUnlocked', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'milestoneIndex', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'nonce', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'accrued', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'unlocked', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
@@ -45,6 +52,20 @@ const WORK_STREAM_ABI = [
 export type StreamState = {
   milestone: string;
   milestoneHash: `0x${string}`;
+  /** The repo this stream is about, registered on-chain by the employer. The
+   *  agent watches what the contract tells it to, not what its own env says. */
+  repo: string;
+  /** Deposited so far toward this milestone's budget. */
+  funded: bigint;
+  /** USDC committed to this milestone. */
+  budget: bigint;
+  /** True once the whole budget is in — the milestone has started. */
+  fullyFunded: boolean;
+  /** Accruing right now: funded, started, not closed. */
+  isActive: boolean;
+  /** Released from THIS milestone (unlock is checked against this). */
+  milestoneUnlocked: bigint;
+  milestoneIndex: bigint;
   nonce: bigint;
   accrued: bigint;
   unlocked: bigint;
@@ -96,13 +117,36 @@ export async function readStream(): Promise<StreamState> {
 
   const milestone = await read<string>('milestone');
   const milestoneHash = await read<`0x${string}`>('milestoneHash');
+  const repo = await read<string>('repo');
+  const funded = await read<bigint>('funded');
+  const budget = await read<bigint>('budget');
+  const fullyFunded = await read<boolean>('fullyFunded');
+  const isActive = await read<boolean>('isActive');
+  const milestoneUnlocked = await read<bigint>('milestoneUnlocked');
+  const milestoneIndex = await read<bigint>('milestoneIndex');
   const nonce = await read<bigint>('nonce');
   const accrued = await read<bigint>('accrued');
   const unlocked = await read<bigint>('unlocked');
   const paused = await read<boolean>('paused');
   const [maxTranche, dailyUnlockCap] = await read<[bigint, bigint, string]>('policy');
 
-  return { milestone, milestoneHash, nonce, accrued, unlocked, paused, maxTranche, dailyUnlockCap };
+  return {
+    milestone,
+    milestoneHash,
+    repo,
+    funded,
+    budget,
+    fullyFunded,
+    isActive,
+    milestoneUnlocked,
+    milestoneIndex,
+    nonce,
+    accrued,
+    unlocked,
+    paused,
+    maxTranche,
+    dailyUnlockCap,
+  };
 }
 
 /// EIP-712 payload. Domain and field order must match WorkStream.sol exactly —

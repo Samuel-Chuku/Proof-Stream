@@ -17,6 +17,9 @@ export type MergedPr = {
   body: string;
   commitSha: string;
   author: string;
+  /** `owner/name` the event came from, checked against the stream's on-chain
+   *  repo so one agent can serve many streams without crossing wires. */
+  repo?: string;
 };
 
 /// Extracts what we need from a `pull_request` event, or null if it is not a
@@ -30,12 +33,15 @@ export function parseMergedPr(payload: any): MergedPr | null {
     body: pr.body ?? '',
     commitSha: pr.merge_commit_sha ?? pr.head?.sha ?? '',
     author: pr.user?.login ?? 'unknown',
+    repo: payload?.repository?.full_name,
   };
 }
 
-/// The raw unified diff — the actual evidence the agent judges (T5a).
-export async function fetchDiff(prNumber: number): Promise<string> {
-  const res = await fetch(`https://api.github.com/repos/${env.githubRepo}/pulls/${prNumber}`, {
+/// The raw unified diff — the actual evidence the agent judges (T5a). `repo`
+/// comes from the stream's on-chain `repo()`, never from this process's env:
+/// the employer decides what their agent watches.
+export async function fetchDiff(repo: string, prNumber: number): Promise<string> {
+  const res = await fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}`, {
     headers: {
       Authorization: `Bearer ${env.githubToken}`,
       Accept: 'application/vnd.github.v3.diff',

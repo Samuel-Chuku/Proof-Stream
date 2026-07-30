@@ -9,12 +9,31 @@ interface IERC20 {
 }
 
 /// @title WorkStream — USDC payroll stream unlocked by agent attestations
-/// @notice Salary accrues per second but stays locked until the attestor agent
+/// @notice Pay accrues per second but stays locked until the attestor agent
 ///         signs an EIP-712 attestation that the current milestone was
 ///         satisfied. The agent is a single trusted key (see README "Known
 ///         limitations"), so the on-chain Policy bounds what a compromised key
 ///         can drain: at most `maxTranche` per unlock and `dailyUnlockCap` per
 ///         UTC day, withdrawable only to the allowlisted payee.
+///
+/// @dev Money model, and why it is shaped this way:
+///
+///      A milestone carries its OWN budget and duration. It does not begin
+///      until the employer has deposited that budget in full — until then
+///      nothing accrues and no work is expected. That single rule is what stops
+///      an employer taking completed work against a promise they never funded:
+///      the contributor checks one boolean before starting, and an underfunded
+///      job can only ever fail to start, never strand work already done.
+///
+///      Accrual is `budget × elapsed / duration`, computed fresh each call. No
+///      per-second rate is stored, so "3,000 over 30 days" accrues to exactly
+///      3,000 with no rounding dust, and the employer never has to reason about
+///      a per-second number.
+///
+///      Because a milestone is fully funded before it starts, every tranche the
+///      agent certifies is already backed by USDC in the contract and
+///      `withdraw` can never fail for lack of funds.
+///
 /// @dev All token amounts are 6-decimal ERC-20 USDC units.
 contract WorkStream {
     // ---------------------------------------------------------------- actors
@@ -24,24 +43,48 @@ contract WorkStream {
     address public immutable agent; // attestor key that signs unlocks
     address public immutable vestingVault;
 
-    // ---------------------------------------------------------------- stream
-    uint256 public immutable ratePerSecond; // 6-dp USDC accrued per second
-    uint64 public immutable startTime;
-    uint64 public immutable endTime;
+    // ------------------------------------------------------------- milestone
+
+    /// @param text        what the agent judges work against
+    /// @param hash        keccak256(text), bound into every attestation
+    /// @param budget      USDC committed to THIS milestone
+    /// @param duration    seconds the budget accrues over, once active
+    /// @param funded      deposited so far toward `budget`
+    /// @param activatedAt when the budget was met; 0 means not started
+    /// @param unlocked    released from this milestone
+    /// @param closed      employer has settled it; a new one may open
+    struct Milestone {
+        string text;
+        bytes32 hash;
+        uint256 budget;
+        uint256 duration;
+        uint256 funded;
+        uint64 activatedAt;
+        uint256 unlocked;
+        bool closed;
+    }
+
+    Milestone internal cur;
+
+    /// @notice 1-based counter of milestones opened over the stream's life.
+    uint256 public milestoneIndex;
+
+    /// @notice The repository the agent must watch for this stream, e.g.
+    ///         "acme/widgets". Registered on-chain by the employer rather than
+    ///         configured in the agent, because every job brings its own repo:
+    ///         one agent serves many streams, and it must be told what to watch
+    ///         by the contract it is being paid to enforce.
+    string public repo;
 
     bool public paused;
     uint64 public pausedAt; // start of the current pause window
-    uint256 public pausedSeconds; // completed pause time, excluded from accrual
+    uint256 public pausedSeconds; // completed pause time in this milestone
 
     // ------------------------------------------------------------ accounting
-    uint256 public unlocked; // cumulative unlocked (contributor + vault)
+    uint256 public unlocked; // cumulative over the stream's life
     uint256 public contributorCredited; // cumulative contributor share
     uint256 public withdrawn; // paid out to the allowlisted payee
     uint256 public nonce; // next expected attestation nonce
-
-    // ------------------------------------------------------------- milestone
-    string public milestone;
-    bytes32 public milestoneHash;
 
     // ----------------------------------------------------------- policy (T1)
     struct Policy {
@@ -69,16 +112,19 @@ contract WorkStream {
         uint256 tranche; // 6-dp USDC to unlock
         uint256 prNumber;
         string commitSha;
-        uint256 confidenceBps; // agent confidence, basis points
+        uint256 confidenceBps;
         uint256 issuedAt;
         bytes32 milestoneHash; // binds the verdict to the milestone judged
     }
 
     // ---------------------------------------------------------------- events
-    event Funded(address indexed from, uint256 amount);
+    event Funded(address indexed from, uint256 amount, uint256 milestoneFunded);
+    event MilestoneOpened(uint256 indexed index, bytes32 indexed hash, string text, uint256 budget, uint256 duration);
+    event MilestoneActivated(uint256 indexed index, uint64 at, uint256 budget);
+    event MilestoneClosed(uint256 indexed index, uint256 unlockedFromMilestone, uint256 returned);
     event TrancheUnlocked(
         uint256 indexed nonce,
-        uint256 prNumber,
+        uint256 indexed prNumber,
         string commitSha,
         uint256 confidenceBps,
         uint256 tranche,
@@ -89,14 +135,13 @@ contract WorkStream {
     event StreamPaused(uint64 at);
     event StreamResumed(uint64 at);
     event Reclaimed(uint256 amount);
-    event MilestoneSet(bytes32 indexed hash, string text);
+    event RepoSet(string repo);
 
     // ---------------------------------------------------------------- errors
     error NotEmployer();
     error NotContributor();
     error AlreadyPaused();
     error NotPaused();
-    error Paused();
     error BadNonce();
     error StaleAttestation();
     error FutureAttestation();
@@ -107,38 +152,36 @@ contract WorkStream {
     error MilestoneMismatch();
     error PayeeNotAllowlisted();
     error ExceedsWithdrawable();
-    error StreamNotEnded();
     error TransferFailed();
     error ZeroAddress();
-    error BadTimeRange();
+    error BadBudget();
+    error MilestoneNotFunded();
+    error MilestoneStillRunning();
+    error MilestoneNotClosed();
+    error MilestoneAlreadyOpen();
 
     constructor(
         IERC20 _usdc,
         address _contributor,
         address _agent,
         address _vestingVault,
-        uint256 _ratePerSecond,
-        uint64 _startTime,
-        uint64 _endTime,
         string memory _milestone,
+        uint256 _budget,
+        uint256 _duration,
+        string memory _repo,
         Policy memory _policy
     ) {
         if (
             _contributor == address(0) || _agent == address(0) || _vestingVault == address(0)
                 || _policy.payee == address(0)
         ) revert ZeroAddress();
-        if (_endTime <= _startTime) revert BadTimeRange();
 
         usdc = _usdc;
         employer = msg.sender;
         contributor = _contributor;
         agent = _agent;
         vestingVault = _vestingVault;
-        ratePerSecond = _ratePerSecond;
-        startTime = _startTime;
-        endTime = _endTime;
-        milestone = _milestone;
-        milestoneHash = keccak256(bytes(_milestone));
+        repo = _repo;
         policy = _policy;
 
         DOMAIN_SEPARATOR = keccak256(
@@ -150,17 +193,88 @@ contract WorkStream {
                 address(this)
             )
         );
+
+        _openMilestone(_milestone, _budget, _duration);
     }
 
     // ---------------------------------------------------------------- views
 
-    /// @notice USDC earned so far: active seconds × rate, where paused time
-    ///         does not count and accrual stops at `endTime`.
+    /// @notice What the agent judges work against.
+    function milestone() external view returns (string memory) {
+        return cur.text;
+    }
+
+    /// @notice keccak256 of the milestone text, bound into every attestation.
+    function milestoneHash() external view returns (bytes32) {
+        return cur.hash;
+    }
+
+    /// @notice USDC committed to the current milestone.
+    function budget() external view returns (uint256) {
+        return cur.budget;
+    }
+
+    /// @notice Seconds the current milestone's budget accrues over.
+    function duration() external view returns (uint256) {
+        return cur.duration;
+    }
+
+    /// @notice Deposited so far toward the current milestone's budget.
+    function funded() external view returns (uint256) {
+        return cur.funded;
+    }
+
+    /// @notice When the current milestone started; 0 means it has not.
+    function activatedAt() external view returns (uint64) {
+        return cur.activatedAt;
+    }
+
+    /// @notice Released from the current milestone.
+    function milestoneUnlocked() external view returns (uint256) {
+        return cur.unlocked;
+    }
+
+    /// @notice Whether the current milestone has been settled.
+    function milestoneClosed() external view returns (bool) {
+        return cur.closed;
+    }
+
+    /// @notice THE CHECK A CONTRIBUTOR MAKES BEFORE STARTING WORK. True only
+    ///         when the employer has deposited the whole milestone budget.
+    function fullyFunded() public view returns (bool) {
+        return cur.funded >= cur.budget;
+    }
+
+    /// @notice Accruing right now: funded, started, not closed.
+    function isActive() public view returns (bool) {
+        return cur.activatedAt != 0 && !cur.closed;
+    }
+
+    /// @notice When the current milestone stops accruing. 0 if not started.
+    function milestoneEndsAt() public view returns (uint256) {
+        return cur.activatedAt == 0 ? 0 : uint256(cur.activatedAt) + cur.duration;
+    }
+
+    /// @notice USDC earned so far on the current milestone:
+    ///         `budget × elapsed / duration`, excluding paused time and
+    ///         stopping at the milestone's end. Exact at the end — no dust.
     function accrued() public view returns (uint256) {
+        if (cur.activatedAt == 0 || cur.duration == 0) return 0;
+
+        uint256 endsAt = milestoneEndsAt();
         uint256 upTo = paused ? pausedAt : block.timestamp;
-        if (upTo > endTime) upTo = endTime;
-        if (upTo <= startTime) return 0;
-        return (upTo - startTime - pausedSeconds) * ratePerSecond;
+        if (upTo > endsAt) upTo = endsAt;
+        if (upTo <= cur.activatedAt) return 0;
+
+        uint256 elapsed = upTo - cur.activatedAt;
+        if (elapsed <= pausedSeconds) return 0;
+        elapsed -= pausedSeconds;
+        if (elapsed > cur.duration) elapsed = cur.duration;
+
+        uint256 byClock = (cur.budget * elapsed) / cur.duration;
+        // Belt and braces: activation already guarantees funded >= budget, so
+        // this only ever binds on a partially funded milestone.
+        return byClock > cur.funded ? cur.funded : byClock;
     }
 
     /// @notice Contributor share unlocked but not yet withdrawn.
@@ -170,22 +284,66 @@ contract WorkStream {
 
     // ------------------------------------------------------------- mutations
 
-    /// @notice Pull USDC from the employer into the stream (approve first).
+    /// @notice Deposit toward the current milestone's budget. The milestone
+    ///         activates automatically the moment the budget is met — that is
+    ///         the anti-rug gate, so funding is not a formality.
     function fund(uint256 amount) external {
         if (msg.sender != employer) revert NotEmployer();
         if (!usdc.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
-        emit Funded(msg.sender, amount);
+
+        cur.funded += amount;
+        emit Funded(msg.sender, amount, cur.funded);
+
+        if (cur.activatedAt == 0 && fullyFunded()) {
+            cur.activatedAt = uint64(block.timestamp);
+            pausedSeconds = 0;
+            emit MilestoneActivated(milestoneIndex, cur.activatedAt, cur.budget);
+        }
+    }
+
+    /// @notice Open the next milestone with its own budget and duration. It
+    ///         will not start accruing until `fund` covers that budget.
+    function openMilestone(string calldata text, uint256 newBudget, uint256 newDuration) external {
+        if (msg.sender != employer) revert NotEmployer();
+        if (!cur.closed) revert MilestoneAlreadyOpen();
+        _openMilestone(text, newBudget, newDuration);
+    }
+
+    /// @notice Settle the current milestone so the next can open, and release
+    ///         whatever it never paid out back to the employer.
+    /// @dev Only once the milestone has run its course, or if it never started.
+    ///      Otherwise an employer could close mid-work and reclaim money the
+    ///      contributor had already earned but the agent had not yet certified.
+    function closeMilestone() external {
+        if (msg.sender != employer) revert NotEmployer();
+        if (cur.closed) revert MilestoneNotClosed();
+        if (cur.activatedAt != 0 && block.timestamp < milestoneEndsAt()) revert MilestoneStillRunning();
+
+        cur.closed = true;
+
+        // Everything not owed to the contributor goes home.
+        uint256 held = usdc.balanceOf(address(this));
+        uint256 owed = withdrawable();
+        uint256 refund = held > owed ? held - owed : 0;
+        if (refund > 0 && !usdc.transfer(employer, refund)) revert TransferFailed();
+
+        emit MilestoneClosed(milestoneIndex, cur.unlocked, refund);
+        emit Reclaimed(refund);
     }
 
     /// @notice Unlock a tranche against a signed agent attestation. Callable
     ///         by anyone carrying a valid signature; in practice the agent
     ///         sends it from its own wallet and pays its own gas.
+    /// @dev Deliberately NOT blocked while paused. Pause stops the clock, so no
+    ///      new money is earned — but work already earned must stay certifiable,
+    ///      otherwise an employer could watch work land, pause, and freeze the
+    ///      agent out of releasing pay the contributor had already earned.
     function unlock(Attestation calldata a, bytes calldata signature) external {
-        if (paused) revert Paused();
+        if (cur.activatedAt == 0) revert MilestoneNotFunded();
         if (a.nonce != nonce) revert BadNonce();
         if (a.issuedAt > block.timestamp) revert FutureAttestation();
         if (block.timestamp > a.issuedAt + ATTESTATION_TTL) revert StaleAttestation();
-        if (a.milestoneHash != milestoneHash) revert MilestoneMismatch();
+        if (a.milestoneHash != cur.hash) revert MilestoneMismatch();
         if (a.tranche > policy.maxTranche) revert OverMaxTranche();
 
         uint256 today = block.timestamp / 1 days;
@@ -195,7 +353,8 @@ contract WorkStream {
         }
         if (unlockedToday + a.tranche > policy.dailyUnlockCap) revert DailyCapExceeded();
 
-        if (unlocked + a.tranche > accrued()) revert ExceedsAccrued();
+        // Against THIS milestone's accrual, not the stream's lifetime total.
+        if (cur.unlocked + a.tranche > accrued()) revert ExceedsAccrued();
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -221,6 +380,7 @@ contract WorkStream {
         nonce = a.nonce + 1;
         unlockedToday += a.tranche;
         unlocked += a.tranche;
+        cur.unlocked += a.tranche;
 
         uint256 vaultShare = (a.tranche * VAULT_BPS) / BPS;
         uint256 contributorShare = a.tranche - vaultShare;
@@ -244,8 +404,8 @@ contract WorkStream {
         emit Withdrawn(to, amount);
     }
 
-    /// @notice Employer pauses accrual and unlocks (stop shipping → money
-    ///         pauses itself).
+    /// @notice Employer stops the clock (stop shipping → money pauses itself).
+    ///         Certification of already-earned work continues; see `unlock`.
     function pause() external {
         if (msg.sender != employer) revert NotEmployer();
         if (paused) revert AlreadyPaused();
@@ -257,34 +417,44 @@ contract WorkStream {
     function resume() external {
         if (msg.sender != employer) revert NotEmployer();
         if (!paused) revert NotPaused();
-        // Pause time past endTime does not count: accrual had already stopped.
-        uint256 windowEnd = block.timestamp > endTime ? endTime : block.timestamp;
+        // Pause time past the milestone's end does not count: accrual had
+        // already stopped.
+        uint256 endsAt = milestoneEndsAt();
+        uint256 windowEnd = block.timestamp;
+        if (endsAt != 0 && windowEnd > endsAt) windowEnd = endsAt;
         if (windowEnd > pausedAt) pausedSeconds += windowEnd - pausedAt;
         paused = false;
         pausedAt = 0;
         emit StreamResumed(uint64(block.timestamp));
     }
 
-    /// @notice Employer moves to the next milestone after a tranche unlocks.
-    function setMilestone(string calldata text) external {
+    /// @notice Point the agent at a different repository for this job.
+    function setRepo(string calldata newRepo) external {
         if (msg.sender != employer) revert NotEmployer();
-        milestone = text;
-        milestoneHash = keccak256(bytes(text));
-        emit MilestoneSet(milestoneHash, text);
-    }
-
-    /// @notice After the stream ends, the employer reclaims everything that
-    ///         was never unlocked. Funds already credited to the contributor
-    ///         stay withdrawable.
-    function reclaimUnattested() external {
-        if (msg.sender != employer) revert NotEmployer();
-        if (block.timestamp <= endTime) revert StreamNotEnded();
-        uint256 amount = usdc.balanceOf(address(this)) - withdrawable();
-        if (!usdc.transfer(employer, amount)) revert TransferFailed();
-        emit Reclaimed(amount);
+        repo = newRepo;
+        emit RepoSet(newRepo);
     }
 
     // ------------------------------------------------------------- internals
+
+    function _openMilestone(string memory text, uint256 newBudget, uint256 newDuration) internal {
+        if (newBudget == 0 || newDuration == 0) revert BadBudget();
+
+        milestoneIndex += 1;
+        cur = Milestone({
+            text: text,
+            hash: keccak256(bytes(text)),
+            budget: newBudget,
+            duration: newDuration,
+            funded: 0,
+            activatedAt: 0,
+            unlocked: 0,
+            closed: false
+        });
+        pausedSeconds = 0;
+
+        emit MilestoneOpened(milestoneIndex, cur.hash, text, newBudget, newDuration);
+    }
 
     function recover(bytes32 digest, bytes calldata signature) internal pure returns (address) {
         if (signature.length != 65) return address(0);
