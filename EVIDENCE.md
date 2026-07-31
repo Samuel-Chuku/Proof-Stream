@@ -17,32 +17,73 @@ Every hash below is a real transaction on Arc Testnet (chain `5042002`).
 
 | Field | Value |
 | --- | --- |
-| Accrued | 3.414814 USDC |
-| Unlocked | 2.437037 USDC |
-| Credited to contributor | 2.071482 USDC |
-| Paid out | 0 USDC |
-| Still withdrawable | 2.071482 USDC |
-| Held by contract | 39.634445 USDC |
-| Attestation nonce | 2 |
+| Accrued | 40 USDC |
+| Unlocked | 40 USDC |
+| Credited to contributor | 34.000012 USDC |
+| Paid out | 34.000012 USDC |
+| Still withdrawable | 0 USDC |
+| Held by contract | 0 USDC |
+| Attestation nonce | 28 |
 
 ## Direct on-chain transactions
 
 Each row is one transaction on Arc, sent either by the **agent's own wallet**
 (unlocks) or by the contributor (payouts).
 
-**Count: 2**
+**Count: 43**
 
 | When (UTC) | Kind | PR | USDC | Agreed fraction | Transaction |
 | --- | --- | --- | --- | --- | --- |
 | 2026-07-30 15:25:54 | unlock | #12 | 2.331481 | 90% | [`0xe52bc27e…5e5e56`](https://testnet.arcscan.app/tx/0xe52bc27e94f60ae2fad0b5a61a11f2647f55edda5cfe6ffb62f6da6d8c5e5e56) |
 | 2026-07-30 15:26:54 | unlock | #14 | 0.105556 | 75% | [`0x4ea907a5…de3e7c`](https://testnet.arcscan.app/tx/0x4ea907a59f3d83bc83730cc9a625a2ed7813675dc234c1031038d65190de3e7c) |
+| 2026-07-30 16:00:35 | unlock | #20 | 3.6 | 90% | [`0xebd7fb62…5f4f71`](https://testnet.arcscan.app/tx/0xebd7fb62495c90176ab5c04cc425bc7f509c8be56b090804d077d792aa5f4f71) |
+| 2026-07-30 16:02:16 | payout | — | 5.131482 | — | [`0xed0a70d5…233995`](https://testnet.arcscan.app/tx/0xed0a70d548b78ae2569200565e240983aa2f478fb8f8aaec6aee3c0eae233995) |
+| 2026-07-30 16:19:08 | unlock | #28 | 2.183333 | 90% | [`0xc0c28c7f…52f36a`](https://testnet.arcscan.app/tx/0xc0c28c7fe2f22161dd2867a7ec2accfa120060ff366dd7c12a4492665452f36a) |
+| 2026-07-30 16:20:51 | payout | — | 1.855834 | — | [`0x41fe218e…1566f4`](https://testnet.arcscan.app/tx/0x41fe218e0cf949b93bcb4672e3d40f1620c06a84e0312cd4ee055474551566f4) |
+| 2026-07-30 16:37:28 | unlock | #36 | 2.059259 | 90% | [`0x21db65d3…73f429`](https://testnet.arcscan.app/tx/0x21db65d39b1cb9a6f4a0abc156a602916e0b3c68bf9ca16c80c45425bd73f429) |
+| 2026-07-30 16:38:31 | unlock | #38 | 0.111111 | 90% | [`0xea643777…fd7e9b`](https://testnet.arcscan.app/tx/0xea6437775f00a811d5cf37be27bbfc3b0b586e4807ff1a255fbf3a9ef6fd7e9b) |
+| 2026-07-30 16:39:17 | payout | — | 1.844816 | — | [`0x21f699d5…570062`](https://testnet.arcscan.app/tx/0x21f699d5ec38a46dd8537f8993f4b11ff48714ee15cae853160783ecb2570062) |
+| 2026-07-30 16:55:57 | unlock | #44 | 1.942593 | 85% | [`0x7afaf8c5…84f5f2`](https://testnet.arcscan.app/tx/0x7afaf8c5beda900b184e9e62be6127d99ddaccf95da0e41176dde8608a84f5f2) |
+| 2026-07-30 16:56:59 | unlock | #46 | 0.111111 | 75% | [`0xab739d4c…b24455`](https://testnet.arcscan.app/tx/0xab739d4c82e86eb3ad24dc94c1678cdb1312f5cdd0fea5046d420a5049b24455) |
+| 2026-07-30 16:57:46 | payout | — | 1.74565 | — | [`0xeae7614a…e3938c`](https://testnet.arcscan.app/tx/0xeae7614ab3f1bd5b4fd54df5e5897dca24d33875ed5f9689b0e03fee34e3938c) |
+| 2026-07-30 17:14:24 | unlock | #52 | 1.940741 | 85% | [`0x1e8a3f42…54c87f`](https://testnet.arcscan.app/tx/0x1e8a3f42cd76b964ed26abe8e0192aa9ffd752c57c092eb3d5b1d129be54c87f) |
+| 2026-07-30 17:15:35 | unlock | #54 | 0.124074 | 85% | [`0x16a30969…c937d6`](https://testnet.arcscan.app/tx/0x16a30969174bc0faafd25a2250049edc181c8ae083d00b6fdebb0d1016c937d6) |
+| 2026-07-30 17:16:23 | payout | — | 1.755093 | — | [`0x5632c228…06601a`](https://testnet.arcscan.app/tx/0x5632c2288fc81914748e493e8adead3329610fa3618e1f54ac3730be3d06601a) |
+| 2026-07-30 17:33:00 | unlock | #60 | 1.942592 | 90% | [`0x10f447b5…7e8193`](https://testnet.arcscan.app/tx/0x10f447b52433c0fc4b4c25c0f0bce12c8ca4418a9b51770b33315762627e8193) |
+| 2026-07-30 17:34:01 | unlock | #62 | 0.105556 | 85% | [`0xe8986366…5394a7`](https://testnet.arcscan.app/tx/0xe89863665b59257f1118ac1e9b45f99cfddf1efb621dfa3a0c3259847b5394a7) |
+| 2026-07-30 17:34:47 | payout | — | 1.740927 | — | [`0x212f6686…eb7efb`](https://testnet.arcscan.app/tx/0x212f6686c16a5eeb77644e2c98098b0a903b52bc76ac7dec72eb38ed31eb7efb) |
+| 2026-07-30 17:51:18 | unlock | #67 | 1.922222 | 85% | [`0xd6dd6326…d20041`](https://testnet.arcscan.app/tx/0xd6dd63265cba920b361c1c3eab5a08c03c0acf825c3c6ab4ff7cccea9ad20041) |
+| 2026-07-30 17:52:17 | unlock | #69 | 0.112963 | 75% | [`0xc5b894d8…5b7575`](https://testnet.arcscan.app/tx/0xc5b894d87f45d915b4b5ee3976cb85ae9a21097c587ea551e1c1803b1a5b7575) |
+| 2026-07-30 17:53:05 | payout | — | 1.729908 | — | [`0x7cd4646a…e45542`](https://testnet.arcscan.app/tx/0x7cd4646aedf90ee8ffde5287e9f928b2f5a84109bdc04565b0f0a6fbb8e45542) |
+| 2026-07-30 18:09:48 | unlock | #75 | 1.940741 | 90% | [`0xb2bb5d94…f7fd47`](https://testnet.arcscan.app/tx/0xb2bb5d947f717bece5d74a4de1fe0f6c3e001cad936f54df0c7e2b1f3bf7fd47) |
+| 2026-07-30 18:10:48 | unlock | #77 | 0.116667 | 85% | [`0x023e144c…a5b10c`](https://testnet.arcscan.app/tx/0x023e144c4900b999c2dbfe4ba8e427276a62fad808ae14d79e51837ec4a5b10c) |
+| 2026-07-30 18:11:40 | payout | — | 1.748797 | — | [`0xa628a941…6dbb8b`](https://testnet.arcscan.app/tx/0xa628a941768d5fecc8e25c62199a5c9bfc2c834f5de353ec35d820c7f26dbb8b) |
+| 2026-07-30 18:28:17 | unlock | #83 | 1.944444 | 85% | [`0xd22973f5…50139b`](https://testnet.arcscan.app/tx/0xd22973f5e39e020b8a42ab06064ede87a37e8078b7be66fcd76b24832750139b) |
+| 2026-07-30 18:29:19 | unlock | #85 | 0.111111 | 85% | [`0x0b1a5aee…d67ae5`](https://testnet.arcscan.app/tx/0x0b1a5aeef6674b443ca681c7007c5b4f11940208c4e620b1c8cdb1e049d67ae5) |
+| 2026-07-30 18:30:07 | payout | — | 1.747223 | — | [`0xbc1d633d…ebf514`](https://testnet.arcscan.app/tx/0xbc1d633ddbac3f8b20b257a98cfe0fd91d3d8df8649d27fc04f9097730ebf514) |
+| 2026-07-30 18:46:46 | unlock | #91 | 1.942593 | 85% | [`0x6e38bcce…2e6388`](https://testnet.arcscan.app/tx/0x6e38bcce84708d8a4b91619c9e0ed20af6211a5c7a6bf84d2fc017e4f12e6388) |
+| 2026-07-30 18:47:44 | unlock | #93 | 0.107407 | 85% | [`0x00cd39ff…02bfeb`](https://testnet.arcscan.app/tx/0x00cd39ffec63b635012e700a1c9ef310aa5d78f5b37c84e9a368f9aac002bfeb) |
+| 2026-07-30 18:48:33 | payout | — | 1.742501 | — | [`0x01e57aa3…40fe70`](https://testnet.arcscan.app/tx/0x01e57aa367de972928159ac2011a3766b245c473669aca5c59850db58940fe70) |
+| 2026-07-30 20:14:17 | unlock | #99 | 3.4 | 85% | [`0xadd577bc…8cca23`](https://testnet.arcscan.app/tx/0xadd577bcebaa2efefe85334a9df7d41e7f4a39789d44622b848956c26b8cca23) |
+| 2026-07-30 20:15:30 | unlock | #101 | 3.4 | 85% | [`0x5b3b028a…89d087`](https://testnet.arcscan.app/tx/0x5b3b028ae51f50be4a32ef38c7c72e3a94569658b34422b6f13f8afd6089d087) |
+| 2026-07-30 20:16:16 | payout | — | 5.78 | — | [`0x52600433…5553bf`](https://testnet.arcscan.app/tx/0x52600433045d6e09b56d0868a7aef9be16db11e589c26c10cadf78ca415553bf) |
+| 2026-07-30 20:27:52 | unlock | #107 | 3.4 | 85% | [`0x3d84efb9…3ffc41`](https://testnet.arcscan.app/tx/0x3d84efb95547eac9d50f6615f6f8f445f1e68d7093264eed15aff1d4cc3ffc41) |
+| 2026-07-30 20:28:54 | unlock | #109 | 1.037037 | 85% | [`0x8a9bffb3…75e607`](https://testnet.arcscan.app/tx/0x8a9bffb3c73bade74cf90f81685b791e3780b868d67cce086c757add3675e607) |
+| 2026-07-30 20:29:42 | payout | — | 3.771482 | — | [`0x36618d66…96f061`](https://testnet.arcscan.app/tx/0x36618d66075b26a99bd3154de881bdafa725f6953622d9c3e1ba458b8096f061) |
+| 2026-07-30 20:41:20 | unlock | #115 | 1.383333 | 85% | [`0xd33abaec…08a757`](https://testnet.arcscan.app/tx/0xd33abaecc85fa31df791f67f01ffebc9ec1d7555cd2e6b26b5ba674dbd08a757) |
+| 2026-07-30 20:42:46 | payout | — | 1.175834 | — | [`0xc1e558bc…002733`](https://testnet.arcscan.app/tx/0xc1e558bc1a6c53b170ff365c6f0422ecc22b0fcf6cfdce9470a35f021d002733) |
+| 2026-07-30 20:54:28 | unlock | #123 | 1.462963 | 90% | [`0xb824f2b7…83c79b`](https://testnet.arcscan.app/tx/0xb824f2b728a313d3f675514a84ed83e0cc327931429ab606e22b22fbb783c79b) |
+| 2026-07-30 20:55:31 | unlock | #125 | 0.10926 | 85% | [`0x00a44ba4…33316d`](https://testnet.arcscan.app/tx/0x00a44ba4394368e06f1c160154e0fc35960e4eca0cca555ecab1f63cf433316d) |
+| 2026-07-30 20:56:18 | payout | — | 1.33639 | — | [`0x1f98f96a…b2fe5f`](https://testnet.arcscan.app/tx/0x1f98f96ae04c306802b50c315e18920a0f1af016b762baa5c9bc3ef76ab2fe5f) |
+| 2026-07-30 21:07:59 | unlock | #131 | 1.051852 | 85% | [`0x462b01fb…439c84`](https://testnet.arcscan.app/tx/0x462b01fb6c98af88942e35aab35b2172c052d7cbb18c73521695f24f46439c84) |
+| 2026-07-30 21:09:36 | payout | — | 0.894075 | — | [`0x7cd89eb2…621780`](https://testnet.arcscan.app/tx/0x7cd89eb2d9ce41ea83b2e86344fbb16c547450eb5a64bfc117e5dd7907621780) |
 
 ## Decisions that moved no money
 
 The agent refusing to pay is as much a result as the agent paying. These cost
 inference only.
 
-**Count: 10**
+**Count: 158**
 
 | When (UTC) | PR | Outcome | Attestor confidence | Why |
 | --- | --- | --- | --- | --- |
@@ -56,6 +97,154 @@ inference only.
 | 2026-07-30 15:26:11 | #13 | declined | 98% | work does not satisfy the milestone |
 | 2026-07-30 15:27:13 | #15 | declined | 95% | work does not satisfy the milestone |
 | 2026-07-30 15:27:32 | #16 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 15:59:17 | #17 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 15:59:37 | #18 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 16:00:54 | #21 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:01:25 | #22 | escalated | 75% | second opinion unavailable: verifier returned HTTP 500: {"error":"Review was not valid JSO |
+| 2026-07-30 16:01:48 | #23 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:02:07 | #24 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:17:34 | #25 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 16:17:54 | #26 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 16:18:13 | #27 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:19:27 | #29 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:19:48 | #30 | escalated | 60% | confidence 0.6 below threshold 0.7 |
+| 2026-07-30 16:20:13 | #31 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 16:20:42 | #32 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:36:09 | #33 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:36:27 | #34 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 16:36:45 | #35 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:37:46 | #37 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:38:49 | #39 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 16:39:08 | #40 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:54:37 | #41 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 16:54:56 | #42 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 16:55:15 | #43 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:56:15 | #45 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:57:18 | #47 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:57:36 | #48 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 17:13:05 | #49 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 17:13:24 | #50 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 17:13:42 | #51 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:14:42 | #53 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:15:54 | #55 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 17:16:13 | #56 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 17:31:41 | #57 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 17:32:00 | #58 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 17:32:18 | #59 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:33:16 | #61 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:34:20 | #63 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 17:34:38 | #64 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 17:50:16 | #65 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 17:50:35 | #66 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:51:35 | #68 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:52:37 | #70 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 17:52:56 | #71 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 18:08:25 | #72 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:08:45 | #73 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 18:09:03 | #74 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:10:06 | #76 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:11:08 | #78 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:11:26 | #79 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 18:26:59 | #80 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:27:17 | #81 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:27:35 | #82 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:28:36 | #84 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:29:39 | #86 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:29:58 | #87 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 18:45:26 | #88 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:45:45 | #89 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:46:05 | #90 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:47:04 | #92 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:48:05 | #94 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:48:24 | #95 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 20:12:49 | #96 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:13:09 | #97 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 20:13:36 | #98 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:14:38 | #100 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:15:49 | #102 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:16:06 | #103 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 20:26:33 | #104 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:26:52 | #105 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 20:27:10 | #106 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:28:10 | #108 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:29:13 | #110 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:29:32 | #111 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 20:39:59 | #112 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:40:18 | #113 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 20:40:37 | #114 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:41:37 | #116 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:41:59 | #117 | escalated | 65% | confidence 0.65 below threshold 0.7 |
+| 2026-07-30 20:42:17 | #118 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:42:36 | #119 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 20:53:05 | #120 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:53:26 | #121 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 20:53:44 | #122 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:54:47 | #124 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:55:50 | #126 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:56:08 | #127 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:06:35 | #128 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:06:57 | #129 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:07:20 | #130 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:08:16 | #132 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:08:51 | #133 | skipped | 75% | nothing accrued to unlock yet |
+| 2026-07-30 21:09:09 | #134 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:09:27 | #135 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 21:19:52 | #136 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:20:09 | #137 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:20:28 | #138 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:21:02 | #139 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 21:21:19 | #140 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:21:56 | #141 | skipped | 82% | nothing accrued to unlock yet |
+| 2026-07-30 21:22:16 | #142 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:22:34 | #143 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 21:32:55 | #144 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:33:16 | #145 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 21:33:34 | #146 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:34:13 | #147 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 21:34:31 | #148 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:35:07 | #149 | skipped | 75% | nothing accrued to unlock yet |
+| 2026-07-30 21:35:27 | #150 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:35:45 | #151 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 21:46:10 | #152 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:46:28 | #153 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:46:50 | #154 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:47:24 | #155 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 21:47:42 | #156 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:48:01 | #157 | escalated | 65% | confidence 0.65 below threshold 0.7 |
+| 2026-07-30 21:48:20 | #158 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:48:38 | #159 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 21:59:00 | #160 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:59:17 | #161 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:59:35 | #162 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:00:14 | #163 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:00:31 | #164 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:01:08 | #165 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:01:28 | #166 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:01:49 | #167 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:12:13 | #168 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:12:31 | #169 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 22:12:49 | #170 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:13:24 | #171 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:13:42 | #172 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:14:01 | #173 | escalated | 55% | confidence 0.55 below threshold 0.7 |
+| 2026-07-30 22:14:19 | #174 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:14:42 | #175 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:25:06 | #176 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:25:24 | #177 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 22:25:42 | #178 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:26:23 | #179 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:26:41 | #180 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:27:24 | #181 | skipped | 75% | nothing accrued to unlock yet |
+| 2026-07-30 22:27:44 | #182 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:28:04 | #183 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:38:28 | #184 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:38:46 | #185 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 22:39:03 | #186 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:39:41 | #187 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:39:59 | #188 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:40:37 | #189 | skipped | 75% | nothing accrued to unlock yet |
+| 2026-07-30 22:40:57 | #190 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:41:15 | #191 | declined | 97% | work does not satisfy the milestone |
 
 ## Gateway nanopayments — batched, NOT one Arc transaction each
 
@@ -70,15 +259,15 @@ balance rising.
 
 | Verification fees paid | Paid reviews | Fee per call |
 | --- | --- | --- |
-| 0.010 USDC | 7 | 0.005 USDC |
+| 0.205 USDC | 47 | 0.005 USDC |
 
 **On-chain Gateway balances** (via `availableBalance` on
 [`0x0077777d7EBA4688BDeF3E311b846F25870A19B9`](https://testnet.arcscan.app/address/0x0077777d7EBA4688BDeF3E311b846F25870A19B9)):
 
 | Party | Gateway balance |
 | --- | --- |
-| Attestor (buyer) | 4.965 USDC |
-| Verifier (seller) | 0.035 USDC |
+| Attestor (buyer) | 4.765 USDC |
+| Verifier (seller) | 0.235 USDC |
 
 **Transfer receipts:**
 
@@ -89,15 +278,55 @@ balance rising.
 - `87f089fb-65f6-473b-992c-0b7df1402774` — PR #4, 0.005 USDC
 - `054bc4d9-3aaa-4cf5-9b1c-dc10a041ca8f` — PR #12, 0.005 USDC
 - `aa1b7bda-bbe7-47ae-a6ff-138f53de5d35` — PR #14, 0.005 USDC
+- `ee50eae7-c727-4a03-9bf7-46bc003383db` — PR #20, 0.005 USDC
+- `9a9cb157-2cc2-4517-843b-a1399130f78d` — PR #22, 0.005 USDC
+- `0f25a810-9315-47f9-96c5-584623af91f8` — PR #28, 0.005 USDC
+- `7f556f81-bc89-4e46-9452-5e4a0a84e519` — PR #36, 0.005 USDC
+- `865484dc-1194-49e5-a164-f7c63b17a90e` — PR #38, 0.005 USDC
+- `27ba559e-d81b-4c96-b8b0-9796d198c4a8` — PR #44, 0.005 USDC
+- `b38a12c0-cf46-4663-9f71-00a213d45586` — PR #46, 0.005 USDC
+- `7e864054-2990-4c33-8bb1-c7a3a8c368a5` — PR #52, 0.005 USDC
+- `f8c385e4-674e-4be1-a23d-9b962238e1f7` — PR #54, 0.005 USDC
+- `2f92d46a-f6a7-4969-b569-9fcaf51e21e0` — PR #60, 0.005 USDC
+- `c899b088-6f34-4016-bf7d-d8453ac63129` — PR #62, 0.005 USDC
+- `60565db3-45e0-4cfb-b19a-2bd47f7e34ef` — PR #67, 0.005 USDC
+- `452f30c7-07af-4776-99bb-971f423909bf` — PR #69, 0.005 USDC
+- `b9b7f04d-3fbe-4435-984f-e00e8d77c803` — PR #75, 0.005 USDC
+- `e1777a0e-e462-48c7-90da-7e7be35f086a` — PR #77, 0.005 USDC
+- `20a0ff66-0a6b-4a5d-9a6a-caa0593f633f` — PR #83, 0.005 USDC
+- `2b140bd6-41d8-4137-accf-f6a91def1cde` — PR #85, 0.005 USDC
+- `7d716365-be1d-484b-821f-7d2bec27ff87` — PR #91, 0.005 USDC
+- `e976d37b-8802-4e80-91db-0aa0bf8f834a` — PR #93, 0.005 USDC
+- `ccf2a90a-3b24-489e-b3cf-c6d99827172f` — PR #99, 0.005 USDC
+- `e7858e9c-24c6-4892-a1bf-0b170b4f6521` — PR #101, 0.005 USDC
+- `51ea7a59-333f-4cf0-ba24-382c2684f5a5` — PR #107, 0.005 USDC
+- `d227befd-1603-4cf6-b6d7-1530c416d0c0` — PR #109, 0.005 USDC
+- `03b10c94-e3b2-4b8f-a64e-9f91f3ca2589` — PR #115, 0.005 USDC
+- `70013e97-56bf-43ae-bf87-969c36a22e4e` — PR #123, 0.005 USDC
+- `046c0f7e-59c9-40ff-a3f5-97b932485ed3` — PR #125, 0.005 USDC
+- `a804e51c-9521-414d-a00b-ca9c80797801` — PR #131, 0.005 USDC
+- `04d8f672-70ed-4e7b-894c-5c7ff912156a` — PR #133, 0.005 USDC
+- `a6543437-d637-4223-a69c-45d5bd77ae4e` — PR #139, 0.005 USDC
+- `7face96f-ccf1-4273-9a17-df21e967d0d6` — PR #141, 0.005 USDC
+- `87902035-459e-46af-a785-f1568f2cfabe` — PR #147, 0.005 USDC
+- `63ed2f9f-6f97-406d-828b-a40870cf013f` — PR #149, 0.005 USDC
+- `18057fbb-5252-4bab-9b96-c0891d5cceed` — PR #155, 0.005 USDC
+- `ac727630-8589-453c-b051-b12eec33294f` — PR #163, 0.005 USDC
+- `d76de791-ee3a-489e-8527-238c1dc2a4ad` — PR #165, 0.005 USDC
+- `6535b22f-2cce-41d8-bf5e-09304002d65b` — PR #171, 0.005 USDC
+- `4d68bb57-081f-4a77-85d4-94635b93a4ec` — PR #179, 0.005 USDC
+- `9de7b02b-f7a3-4a82-b444-279616011121` — PR #181, 0.005 USDC
+- `76a5778e-f947-46be-b3a6-64b9b3f220c9` — PR #187, 0.005 USDC
+- `4918e647-4340-4d28-9b85-79c1974c0713` — PR #189, 0.005 USDC
 
 ## What the judgment cost
 
 | Item | USD |
 | --- | --- |
-| Attestor inference | $0.0578 |
-| Verifier inference | $0.0536 |
-| Verification fees | $0.0100 |
-| **Total** | **$0.1214 across 12 decisions** |
+| Attestor inference | $0.9089 |
+| Verifier inference | $0.5369 |
+| Verification fees | $0.2050 |
+| **Total** | **$1.6509 across 186 decisions** |
 
 Gas is excluded here because Arc charges it in USDC directly from the agent's
 wallet; see the transactions above for per-transaction cost.

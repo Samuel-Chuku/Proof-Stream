@@ -22,7 +22,13 @@ export const env = {
   webhookSecret: required('GITHUB_WEBHOOK_SECRET'),
 
   openRouterKey: required('OPENROUTER_API_KEY'),
-  model: process.env.AGENT_MODEL || 'anthropic/claude-sonnet-5',
+
+  // FREE by default. Development and seeding replay the same judgments many
+  // times over; paying frontier prices for that is waste. Both free models were
+  // checked against a known-good and a known-bad diff and matched
+  // claude-sonnet-5's verdicts. Override with a paid model for the recorded
+  // demo, where reasoning quality is what is on screen.
+  model: process.env.AGENT_MODEL || 'openai/gpt-oss-20b:free',
 
   port: Number(process.env.PORT || 8787),
   ingressUrl: process.env.AGENT_INGRESS_URL || '(not set — tunnel URL goes here)',
@@ -38,6 +44,6 @@ export const env = {
   verifierUrl: process.env.VERIFIER_URL || 'http://localhost:8788/verify',
 
   // A different vendor on purpose — a second opinion from the same model is
-  // not a second opinion.
-  verifierModel: process.env.VERIFIER_MODEL || 'google/gemini-2.5-pro',
+  // not a second opinion. Free tier by default, same reasoning as above.
+  verifierModel: process.env.VERIFIER_MODEL || 'cohere/north-mini-code:free',
 };

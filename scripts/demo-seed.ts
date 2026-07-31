@@ -31,6 +31,9 @@ import { processPr, type PipelineOutcome } from '../agent/src/pipeline';
 
 const SEED_LOG = new URL('../agent/seed.jsonl', import.meta.url).pathname;
 
+/// Distinct per invocation, so an interrupted run can simply be re-run.
+const RUN_ID = Math.floor(Date.now() / 1000).toString(36);
+
 const WITHDRAW_ABI = [
   { type: 'function', name: 'withdrawable', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   {
@@ -69,6 +72,28 @@ export type Account = { id: string; balance: number };
 export function balanceOf(account: Account): number {
   return account.balance;
 }
+
+export function canCover(account: Account, amount: number): boolean {
+  return account.balance >= amount;
+}
+
+export function transfer(from: Account, to: Account, amount: number): [Account, Account] {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error(\`transfer amount must be a positive number, got \${amount}\`);
+  }
+  if (from.id === to.id) {
+    throw new Error(\`cannot transfer from \${from.id} to itself\`);
+  }
+  if (!canCover(from, amount)) {
+    throw new Error(
+      \`overdraft blocked: \${from.id} holds \${from.balance} but \${amount} was requested\`,
+    );
+  }
+  return [
+    { ...from, balance: from.balance - amount },
+    { ...to, balance: to.balance + amount },
+  ];
+}
 `;
 
 type Changeset = {
@@ -90,93 +115,81 @@ type Changeset = {
 // Some genuinely do it, some only look like they do, some do it partially.
 // The agents are expected to refuse several — that variance IS the demo, so
 // nothing here is tuned to be approved.
+// Same as BASE but WITHOUT the old bare transfer(), because these changesets
+// replace it with one that records. Leaving both exported is exactly what the
+// judge refused: a caller could move value without a record.
+const BASE_NO_TRANSFER = BASE.slice(0, BASE.indexOf('export function transfer('));
+
 const PLAN: Changeset[] = [
   {
-    title: 'feat: add canCover balance helper',
+    title: 'feat: TransferRecord type',
     path: 'src/ledger.ts',
-    body: 'Adds a canCover() helper that reports whether an account can fund an amount. Groundwork for transfer.',
+    body: 'Adds the TransferRecord shape the history will be built from. Groundwork only.',
     content: `${BASE}
-export function canCover(account: Account, amount: number): boolean {
-  return account.balance >= amount;
-}
+export type TransferRecord = {
+  from: string;
+  to: string;
+  amount: number;
+  timestamp: number;
+};
 `,
   },
   {
-    title: 'feat: implement transfer()',
+    title: 'feat: record transfers and expose history',
     path: 'src/ledger.ts',
-    body: 'Implements transfer() moving value between two accounts and returning the updated pair.',
+    body: 'Records each transfer and exposes history(). Uses `at` as the time field.',
     content: `${BASE}
-export function transfer(from: Account, to: Account, amount: number): [Account, Account] {
-  return [
-    { ...from, balance: from.balance - amount },
-    { ...to, balance: to.balance + amount },
-  ];
-}
-`,
-  },
-  {
-    title: 'docs: describe the intended ledger API',
-    path: 'docs/ledger.md',
-    body: 'Documentation only. Describes transfer(), balance checks and overdraft behaviour.',
-    content: `# Ledger
+export type TransferRecord = { from: string; to: string; amount: number; at: number };
 
-\`transfer(from, to, amount)\` moves value between accounts.
-
-It must reject a transfer that would overdraw the sending account, and must
-reject non-positive amounts.
-`,
-  },
-  {
-    title: 'feat: transfer() with balance and overdraft checks',
-    path: 'src/ledger.ts',
-    body: 'Implements transfer() with an explicit balance check that blocks overdrafts, plus positive-amount and self-transfer guards.',
-    content: `${BASE}
-export function canCover(account: Account, amount: number): boolean {
-  return account.balance >= amount;
+export function recordTransfer(
+  records: TransferRecord[],
+  from: Account,
+  to: Account,
+  amount: number,
+  at: number = Date.now(),
+): TransferRecord[] {
+  return [...records, { from: from.id, to: to.id, amount, at }];
 }
 
-export function transfer(from: Account, to: Account, amount: number): [Account, Account] {
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error(\`transfer amount must be a positive number, got \${amount}\`);
-  }
-  if (from.id === to.id) {
-    throw new Error(\`cannot transfer from \${from.id} to itself\`);
-  }
-  if (!canCover(from, amount)) {
-    throw new Error(
-      \`overdraft blocked: \${from.id} holds \${from.balance} but \${amount} was requested\`,
-    );
-  }
-  return [
-    { ...from, balance: from.balance - amount },
-    { ...to, balance: to.balance + amount },
-  ];
+export function history(records: TransferRecord[], accountId: string): TransferRecord[] {
+  return records.filter((r) => r.from === accountId || r.to === accountId);
 }
 `,
   },
   {
-    title: 'chore: formatting helper',
-    path: 'src/format.ts',
-    body: 'Cosmetic. Formats amounts for display.',
-    content: `export function formatAmount(amount: number): string {
-  return amount.toFixed(2);
-}
+    title: 'docs: describe the transfer history',
+    path: 'docs/history.md',
+    body: 'Documentation only.',
+    content: `# Transfer history
+
+Every successful transfer is appended to a log. Blocked transfers leave no record.
 `,
   },
   {
-    title: 'feat: transfer() with overdraft checks and unit tests',
+    title: 'feat: append-only transfer history wired into transfer',
     path: 'src/ledger.ts',
-    body: 'Implements transfer() with balance and overdraft checks. Companion tests land in src/ledger.test.ts in this same PR.',
-    content: `${BASE}
-export function canCover(account: Account, amount: number): boolean {
-  return account.balance >= amount;
-}
+    body: 'Records each successful transfer as a TransferRecord with from, to, amount and timestamp, and exposes history(records, accountId). Recording is unavoidable: transfer() is the single entry point and appends as it moves, so no caller can move value without a record.',
+    content: `${BASE_NO_TRANSFER}
+export type TransferRecord = {
+  from: string;
+  to: string;
+  amount: number;
+  timestamp: number;
+};
 
 /**
- * Move value between two accounts. Rejects non-positive amounts, self
- * transfers, and any transfer that would overdraw the sender.
+ * The only way to move value. Validates, moves, and appends to the history in
+ * one step, so every successful transfer is recorded by construction. Throws on
+ * a rejected transfer, so the append is never reached and a blocked overdraft
+ * leaves no record.
  */
-export function transfer(from: Account, to: Account, amount: number): [Account, Account] {
+export function transfer(
+  records: TransferRecord[],
+  from: Account,
+  to: Account,
+  amount: number,
+  timestamp: number = Date.now(),
+): { from: Account; to: Account; records: TransferRecord[] } {
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error(\`transfer amount must be a positive number, got \${amount}\`);
   }
@@ -188,36 +201,116 @@ export function transfer(from: Account, to: Account, amount: number): [Account, 
       \`overdraft blocked: \${from.id} holds \${from.balance} but \${amount} was requested\`,
     );
   }
-  return [
-    { ...from, balance: from.balance - amount },
-    { ...to, balance: to.balance + amount },
-  ];
+  return {
+    from: { ...from, balance: from.balance - amount },
+    to: { ...to, balance: to.balance + amount },
+    records: [...records, { from: from.id, to: to.id, amount, timestamp }],
+  };
+}
+
+/** Every record this account either sent or received, oldest first. */
+export function history(records: TransferRecord[], accountId: string): TransferRecord[] {
+  return records.filter((r) => r.from === accountId || r.to === accountId);
 }
 `,
   },
   {
-    title: 'test: cover transfer balance and overdraft behaviour',
+    title: 'chore: bump a comment',
+    path: 'src/notes.ts',
+    body: 'No behaviour change.',
+    content: `// Future work: integer minor units so rounding cannot creep into balances.
+export const LEDGER_NOTES = 'see docs/history.md';
+`,
+  },
+  {
+    title: 'feat: transfer history with unit tests',
+    path: 'src/ledger.ts',
+    body: 'Full append-only history. transfer() is the single entry point and records as it moves, so every successful transfer is captured and a blocked overdraft leaves no record. Tests cover a successful transfer and a blocked overdraft.',
+    content: `${BASE_NO_TRANSFER}
+export type TransferRecord = {
+  from: string;
+  to: string;
+  amount: number;
+  timestamp: number;
+};
+
+/**
+ * The only way to move value. Validates, moves, and appends to the history in
+ * one step, so every successful transfer is recorded by construction. Throws on
+ * a rejected transfer, so the append is never reached and a blocked overdraft
+ * leaves no record.
+ */
+export function transfer(
+  records: TransferRecord[],
+  from: Account,
+  to: Account,
+  amount: number,
+  timestamp: number = Date.now(),
+): { from: Account; to: Account; records: TransferRecord[] } {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error(\`transfer amount must be a positive number, got \${amount}\`);
+  }
+  if (from.id === to.id) {
+    throw new Error(\`cannot transfer from \${from.id} to itself\`);
+  }
+  if (!canCover(from, amount)) {
+    throw new Error(
+      \`overdraft blocked: \${from.id} holds \${from.balance} but \${amount} was requested\`,
+    );
+  }
+  return {
+    from: { ...from, balance: from.balance - amount },
+    to: { ...to, balance: to.balance + amount },
+    records: [...records, { from: from.id, to: to.id, amount, timestamp }],
+  };
+}
+
+/** Every record this account either sent or received, oldest first. */
+export function history(records: TransferRecord[], accountId: string): TransferRecord[] {
+  return records.filter((r) => r.from === accountId || r.to === accountId);
+}
+`,
+  },
+  {
+    title: 'feat: history() returns the whole log',
+    path: 'src/ledger.ts',
+    body: 'Adds history(records, accountId) returning that account\'s transfer records.',
+    content: `${BASE}
+export type TransferRecord = {
+  from: string;
+  to: string;
+  amount: number;
+  timestamp: number;
+};
+
+export function recordTransfer(
+  records: TransferRecord[],
+  from: Account,
+  to: Account,
+  amount: number,
+  timestamp: number = Date.now(),
+): TransferRecord[] {
+  return [...records, { from: from.id, to: to.id, amount, timestamp }];
+}
+
+/** Returns the account's records. */
+export function history(records: TransferRecord[], _accountId: string): TransferRecord[] {
+  return records;
+}
+`,
+  },
+  {
+    title: 'test: add a ledger test file',
     path: 'src/ledger.test.ts',
-    body: 'Unit tests asserting a successful transfer moves both balances and that an overdraft is blocked.',
+    body: 'Adds unit tests covering the transfer history.',
     content: `import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { balanceOf, type Account } from './ledger';
 
-const alice = (): Account => ({ id: 'alice', balance: 100 });
-
-test('balanceOf reports the account balance', () => {
-  assert.equal(balanceOf(alice()), 100);
+test('balanceOf reports the balance', () => {
+  const a: Account = { id: 'alice', balance: 10 };
+  assert.equal(balanceOf(a), 10);
 });
-`,
-  },
-  {
-    title: 'refactor: rename helpers in ledger',
-    path: 'src/ledger.ts',
-    body: 'Renames internal helpers for readability. No behaviour change.',
-    content: `${BASE}
-export function accountBalance(account: Account): number {
-  return balanceOf(account);
-}
 `,
   },
 ];
@@ -247,7 +340,10 @@ async function gh(method: string, path: string, body?: unknown) {
 
 /** Branch, commit, open PR. Returns what the pipeline needs. */
 async function openChangeset(cs: Changeset, index: number, pass: number): Promise<MergedPr> {
-  const branch = `seed/p${pass}-${index}-${cs.path.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+  // RUN_ID keeps branches unique across restarts. Without it a resumed run
+  // collides with the branches an interrupted run already created, and every
+  // repeated pass dies on "a pull request already exists".
+  const branch = `seed/${RUN_ID}-p${pass}-${index}-${cs.path.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
   const main = await gh('GET', '/git/ref/heads/main');
 
   try {

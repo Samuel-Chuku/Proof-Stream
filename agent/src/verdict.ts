@@ -61,13 +61,8 @@ Merge commit: ${pr.commitSha}
 UNIFIED DIFF:
 ${truncated}`;
 
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.openRouterKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  const body: any = await callOpenRouter(
+    {
       model: env.model,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
@@ -75,11 +70,10 @@ ${truncated}`;
       ],
       max_tokens: 1200,
       temperature: 0,
-    }),
-  });
+    },
+    env.openRouterKey,
+  );
 
-  if (!res.ok) throw new Error(`OpenRouter call failed: ${res.status} ${await res.text()}`);
-  const body: any = await res.json();
   const content: string = body.choices?.[0]?.message?.content ?? '';
 
   // Models occasionally wrap JSON in fences despite instructions.
@@ -107,4 +101,24 @@ ${truncated}`;
 function clamp01(n: unknown): number {
   const v = Number(n);
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
+}
+
+/// Free model pools are shared and return 429 under load. One retry with a
+/// pause costs nothing and saves a long unattended run from dying.
+async function callOpenRouter(body: unknown, key: string): Promise<any> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) return res.json();
+
+    const text = await res.text();
+    if (res.status === 429 && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 5_000 * 2 ** attempt));
+      continue;
+    }
+    throw new Error(`OpenRouter call failed: ${res.status} ${text}`);
+  }
 }
