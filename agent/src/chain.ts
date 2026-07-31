@@ -5,6 +5,7 @@ import { arcTestnet } from 'viem/chains';
 import { env } from './env';
 
 const WORK_STREAM_ABI = [
+  { type: 'function', name: 'agent', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
   { type: 'function', name: 'milestoneHash', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
   { type: 'function', name: 'repo', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
@@ -104,12 +105,37 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
   }
 }
 
-export async function readStream(): Promise<StreamState> {
+/// Who a stream appointed and what repo it watches — the two facts the registry
+/// needs to route an event, without paying for the full 15-read state.
+///
+/// Both come from the CHAIN, never from the registry's event payload. `setRepo`
+/// can move a stream to a new repo without any re-registration, so the log
+/// tells us which streams exist and the contract tells us what they currently
+/// watch. Trusting the log's copy would route events to a stale repo.
+export async function readIdentity(
+  streamAddress: `0x${string}`,
+): Promise<{ agent: `0x${string}`; repo: string }> {
   const read = <T>(functionName: string) =>
     withRetry(
       () =>
         publicClient.readContract({
-          address: env.workStream,
+          address: streamAddress,
+          abi: WORK_STREAM_ABI,
+          functionName: functionName as never,
+        }) as Promise<T>,
+    );
+
+  const agent = await read<`0x${string}`>('agent');
+  const repo = await read<string>('repo');
+  return { agent, repo };
+}
+
+export async function readStream(streamAddress: `0x${string}`): Promise<StreamState> {
+  const read = <T>(functionName: string) =>
+    withRetry(
+      () =>
+        publicClient.readContract({
+          address: streamAddress,
           abi: WORK_STREAM_ABI,
           functionName: functionName as never,
         }) as Promise<T>,
@@ -151,7 +177,13 @@ export async function readStream(): Promise<StreamState> {
 
 /// EIP-712 payload. Domain and field order must match WorkStream.sol exactly —
 /// any drift and the contract recovers a different signer and reverts.
-function typedData(a: Attestation) {
+///
+/// `verifyingContract` is THE STREAM BEING UNLOCKED, not a global address. Each
+/// WorkStream builds its DOMAIN_SEPARATOR from `address(this)` at construction,
+/// so a signature made against stream A is rejected by stream B — which is the
+/// point: it stops an attestation being replayed across a multi-tenant fleet.
+/// Hardcoding one address here would silently break every stream but that one.
+function typedData(streamAddress: `0x${string}`, a: Attestation) {
   return {
     types: {
       EIP712Domain: [
@@ -175,7 +207,7 @@ function typedData(a: Attestation) {
       name: 'ProofStream',
       version: '1',
       chainId: arcTestnet.id,
-      verifyingContract: env.workStream,
+      verifyingContract: streamAddress,
     },
     message: {
       nonce: a.nonce.toString(),
@@ -190,10 +222,13 @@ function typedData(a: Attestation) {
 }
 
 /// The agent signs with its own Circle-custodied key — no private key here.
-export async function signAttestation(a: Attestation): Promise<`0x${string}`> {
+export async function signAttestation(
+  streamAddress: `0x${string}`,
+  a: Attestation,
+): Promise<`0x${string}`> {
   const res = await circle.signTypedData({
     walletId: env.agentWalletId,
-    data: JSON.stringify(typedData(a)),
+    data: JSON.stringify(typedData(streamAddress, a)),
   });
   const signature = res.data?.signature;
   if (!signature) throw new Error('Circle returned no signature');
@@ -210,7 +245,11 @@ export type UnlockResult = {
 /// Sends `unlock` from the agent's own wallet, paying its own gas in USDC.
 /// callData is viem-encoded because Circle's abiParameters cannot express a
 /// struct argument.
-export async function sendUnlock(a: Attestation, signature: `0x${string}`): Promise<UnlockResult> {
+export async function sendUnlock(
+  streamAddress: `0x${string}`,
+  a: Attestation,
+  signature: `0x${string}`,
+): Promise<UnlockResult> {
   const callData = encodeFunctionData({
     abi: WORK_STREAM_ABI,
     functionName: 'unlock',
@@ -219,7 +258,7 @@ export async function sendUnlock(a: Attestation, signature: `0x${string}`): Prom
 
   const res = await circle.createContractExecutionTransaction({
     walletId: env.agentWalletId,
-    contractAddress: env.workStream,
+    contractAddress: streamAddress,
     callData,
     fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
     idempotencyKey: randomUUID(),

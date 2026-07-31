@@ -69,11 +69,11 @@ export type SecondOpinion = {
 /// spent — settlement only happens when the signed request is actually sent —
 /// so the preflight can prove the whole buyer path works before any money
 /// exists to move.
-export async function signPaymentAuthorization(prNumber = 1) {
+export async function signPaymentAuthorization(streamAddress: `0x${string}`, prNumber = 1) {
   const unpaid = await fetch(env.verifierUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prNumber }),
+    body: JSON.stringify({ stream: streamAddress, prNumber }),
   });
   if (unpaid.status !== 402) throw new Error(`expected 402 from the verifier, got HTTP ${unpaid.status}`);
 
@@ -92,8 +92,15 @@ export type PurchaseResult = {
 
 /// Buys one independent review. Throws if the verifier cannot be paid or does
 /// not answer: the attestor fails closed rather than unlocking unreviewed.
-export async function buySecondOpinion(prNumber: number): Promise<PurchaseResult> {
-  const body = JSON.stringify({ prNumber });
+/// The stream address is a POINTER, not evidence. The verifier reads that
+/// contract's own milestone and fetches its own diff — it is told WHERE to look,
+/// never WHAT it will find. That is what keeps the second opinion independent
+/// of the agent paying for it.
+export async function buySecondOpinion(
+  streamAddress: `0x${string}`,
+  prNumber: number,
+): Promise<PurchaseResult> {
+  const body = JSON.stringify({ stream: streamAddress, prNumber });
   const headers = { 'content-type': 'application/json' };
 
   const unpaid = await fetch(env.verifierUrl, { method: 'POST', headers, body });

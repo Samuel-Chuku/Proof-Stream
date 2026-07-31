@@ -1,11 +1,29 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { env } from './env';
 
+/// Each stream gets its OWN webhook secret, derived rather than stored.
+///
+/// One endpoint cannot serve many repos under one shared secret: every employer
+/// would hold a key that forges events for every other employer's stream. The
+/// obvious fix is a secrets table, but deriving them means there is no table to
+/// leak, no migration, and no state to keep in sync — the agent can always
+/// recompute a stream's secret from the master and the address alone.
+///
+/// GITHUB_WEBHOOK_SECRET is therefore a MASTER secret. It must never be handed
+/// to an employer; give them the output of this function for their stream.
+export function webhookSecretFor(streamAddress: string): string {
+  return createHmac('sha256', env.webhookSecret).update(streamAddress.toLowerCase()).digest('hex');
+}
+
 /// Verifies GitHub's HMAC over the raw body. Without this anyone who learns
 /// the ingress URL could forge a merge event and trigger a payout.
-export function verifySignature(rawBody: string, header: string | undefined): boolean {
+export function verifySignature(
+  rawBody: string,
+  header: string | undefined,
+  secret: string = env.webhookSecret,
+): boolean {
   if (!header) return false;
-  const expected = `sha256=${createHmac('sha256', env.webhookSecret).update(rawBody).digest('hex')}`;
+  const expected = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
   const a = Buffer.from(expected);
   const b = Buffer.from(header);
   return a.length === b.length && timingSafeEqual(a, b);

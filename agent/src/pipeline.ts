@@ -8,6 +8,7 @@ import { readStream, sendUnlock, signAttestation, type Attestation } from './cha
 import { env } from './env';
 import { fetchDiff, type MergedPr } from './github';
 import { buySecondOpinion } from './pay';
+import { resolveStream } from './registry';
 import { judge } from './verdict';
 
 const LOG_PATH = new URL('../verdicts.jsonl', import.meta.url).pathname;
@@ -29,7 +30,26 @@ export type PipelineOutcome =
 /// Judge one PR and, if it earns it, unlock a tranche. Returns what happened so
 /// a caller can tally outcomes; every step is also written to verdicts.jsonl.
 export async function processPr(pr: MergedPr): Promise<PipelineOutcome> {
-  const stream = await readStream();
+  // Route the event to the stream that owns this repo. Deliberately refuses to
+  // guess: with many streams served by one agent, picking "probably that one"
+  // would mean signing an attestation against the wrong employer's money.
+  if (!pr.repo) {
+    log({ event: 'skipped', pr: pr.number, reason: 'event carries no repo — cannot route it to a stream' });
+    return 'skipped';
+  }
+
+  const entry = resolveStream(pr.repo);
+  if (!entry) {
+    log({
+      event: 'skipped',
+      pr: pr.number,
+      reason: `no registered stream watches ${pr.repo}`,
+    });
+    return 'skipped';
+  }
+
+  const streamAddress = entry.stream;
+  const stream = await readStream(streamAddress);
 
   // A milestone that the employer has not fully funded has not started, so
   // there is nothing to certify and nothing was earned. Judging it would burn
@@ -65,9 +85,11 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome> {
   const { verdict, costUsd, model } = await judge(pr, stream.milestone, diff);
 
   const base = {
-    // Which contract this judgment was made against. Without it, a redeploy
-    // silently mixes two contracts' transactions into one evidence table.
-    workStream: env.workStream,
+    // Which contract this judgment was made against. Without it, a redeploy —
+    // or now a second tenant — silently mixes two contracts' transactions into
+    // one evidence table.
+    workStream: streamAddress,
+    repo: stream.repo,
     pr: pr.number,
     title: pr.title,
     commitSha: pr.commitSha,
@@ -96,7 +118,7 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome> {
   // closed: if the verifier cannot be paid or does not answer, nothing unlocks.
   let purchase: Awaited<ReturnType<typeof buySecondOpinion>>;
   try {
-    purchase = await buySecondOpinion(pr.number);
+    purchase = await buySecondOpinion(streamAddress, pr.number);
   } catch (err) {
     log({
       event: 'escalated',
@@ -155,8 +177,11 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome> {
     milestoneHash: stream.milestoneHash,
   };
 
-  const signature = await signAttestation(attestation);
-  const result = await sendUnlock(attestation, signature);
+  // Signed against THIS stream: the EIP-712 domain's verifyingContract is the
+  // stream address, so a signature is only ever valid at the contract it was
+  // made for.
+  const signature = await signAttestation(streamAddress, attestation);
+  const result = await sendUnlock(streamAddress, attestation, signature);
   const outcome: PipelineOutcome = result.state === 'COMPLETE' ? 'unlocked' : 'unlock_failed';
 
   log({

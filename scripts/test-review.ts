@@ -3,6 +3,7 @@
 // Read-only on-chain, no x402 payment, inference cost only.
 //   pnpm review:test 2
 import { readStream } from '../agent/src/chain';
+import { env } from '../agent/src/env';
 import { fetchDiff } from '../agent/src/github';
 import { review } from '../agent/src/verifier/review';
 
@@ -12,8 +13,15 @@ if (!Number.isInteger(prNumber)) {
   process.exit(1);
 }
 
+// A single-stream debugging tool: it judges one contract's milestone, so it
+// takes the address from the env rather than routing through the registry.
+if (!env.workStream) {
+  console.error('WORKSTREAM_ADDRESS must be set to use this script');
+  process.exit(1);
+}
+
 const milestoneOverride = process.argv[3];
-const stream = await readStream();
+const stream = await readStream(env.workStream);
 const milestone = milestoneOverride ?? stream.milestone;
 const diff = await fetchDiff(stream.repo, prNumber);
 

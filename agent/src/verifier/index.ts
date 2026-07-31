@@ -10,6 +10,7 @@ import { appendFileSync } from 'node:fs';
 import { createGatewayMiddleware } from '@circle-fin/x402-batching/server';
 import { ARC_CAIP2, GATEWAY_FACILITATOR_URL, VERIFICATION_FEE, VERIFIER_MAX_TOKENS, formatUsdc } from '@proofstream/config';
 import express from 'express';
+import { isAddress } from 'viem';
 import { readStream } from '../chain';
 import { env } from '../env';
 import { fetchDiff } from '../github';
@@ -58,16 +59,29 @@ app.post('/verify', gateway.require(VERIFICATION_FEE), async (req: PaidRequest, 
     return;
   }
 
+  // The buyer names the stream; the fallback keeps single-stream setups working
+  // unchanged. This is a POINTER to evidence, not the evidence: everything
+  // judged below is read from that contract and from GitHub, never from the
+  // request body. A buyer can choose which stream it pays to have reviewed —
+  // it cannot choose what the review finds.
+  const streamAddress = (req.body?.stream ?? env.workStream) as `0x${string}` | undefined;
+  if (!streamAddress || !isAddress(streamAddress)) {
+    res.status(400).json({ error: 'stream must be a contract address' });
+    return;
+  }
+
   const payment = req.payment;
 
   try {
-    const stream = await readStream();
+    const stream = await readStream(streamAddress);
     const diff = await fetchDiff(stream.repo, prNumber);
     const { review: verdict, costUsd, model } = await review(prNumber, stream.milestone, diff);
 
     log({
       event: 'reviewed',
       pr: prNumber,
+      workStream: streamAddress,
+      repo: stream.repo,
       milestone: stream.milestone,
       model,
       inferenceCostUsd: costUsd,
@@ -88,7 +102,13 @@ app.post('/verify', gateway.require(VERIFICATION_FEE), async (req: PaidRequest, 
     // The payment has already settled at this point — say so plainly rather
     // than pretending the call was free.
     const message = err instanceof Error ? err.message : String(err);
-    log({ event: 'review_failed', pr: prNumber, message, gatewayTransfer: payment?.transaction });
+    log({
+      event: 'review_failed',
+      pr: prNumber,
+      workStream: streamAddress,
+      message,
+      gatewayTransfer: payment?.transaction,
+    });
     res.status(500).json({ error: message });
   }
 });

@@ -368,6 +368,9 @@ test('balanceOf reports the balance', () => {
 // The repo the CONTRACT names. The employer registers it on-chain; the
 // seeder must not quietly operate on something else.
 let API = '';
+/// The repo from the contract, stamped onto every seeded PR so the pipeline can
+/// route it the same way it routes a real webhook delivery.
+let SEED_REPO = '';
 
 async function gh(method: string, path: string, body?: unknown) {
   const res = await fetch(`${API}${path}`, {
@@ -431,6 +434,9 @@ async function openChangeset(cs: Changeset, index: number, pass: number): Promis
     body: cs.body,
     commitSha: commit.commit.sha,
     author: 'proofstream-seeder',
+    // The pipeline routes on this. Without it a seeded PR is unroutable and
+    // gets skipped, exactly as a real webhook for an unknown repo would be.
+    repo: SEED_REPO,
   };
 }
 
@@ -446,7 +452,17 @@ const passes = Math.max(1, Number(process.argv[3] || 1));
 const intervalMin = Number(process.argv[4] || 15);
 const plan = PLAN.slice(0, Math.max(1, Math.min(limit, PLAN.length)));
 
-const before = await readStream();
+// The seeder drives ONE stream on purpose — it is a demo tool for a single
+// contract, not the multi-tenant path. The agent's registry is what routes a
+// real webhook; here the target is named explicitly.
+if (!env.workStream) {
+  console.error('WORKSTREAM_ADDRESS must be set to seed — the seeder drives one stream');
+  process.exit(1);
+}
+const SEED_STREAM = env.workStream;
+
+const before = await readStream(SEED_STREAM);
+SEED_REPO = before.repo;
 API = `https://api.github.com/repos/${before.repo}`;
 
 console.log(`repo:      ${before.repo}  (from the contract)`);
@@ -471,20 +487,20 @@ async function sweep(): Promise<void> {
   const wallet = createWalletClient({ account, chain: arcTestnet, transport });
 
   const owed = (await pub.readContract({
-    address: env.workStream,
+    address: SEED_STREAM,
     abi: WITHDRAW_ABI,
     functionName: 'withdrawable',
   })) as bigint;
   if (owed <= 0n) return;
 
   const [, , payee] = (await pub.readContract({
-    address: env.workStream,
+    address: SEED_STREAM,
     abi: WITHDRAW_ABI,
     functionName: 'policy',
   })) as [bigint, bigint, `0x${string}`];
 
   const hash = await wallet.writeContract({
-    address: env.workStream,
+    address: SEED_STREAM,
     abi: WITHDRAW_ABI,
     functionName: 'withdraw',
     args: [payee, owed],
@@ -544,7 +560,7 @@ for (let pass = 1; pass <= passes; pass++) {
     // Unlocks are bounded by accrual, not by how many changesets we throw at
     // it — so the wait between passes IS the throughput. Nothing to gain by
     // hurrying it.
-    const s = await readStream();
+    const s = await readStream(SEED_STREAM);
     console.log(
       `\n   waiting ${intervalMin}m for accrual — ${formatUsdc(s.accrued - s.milestoneUnlocked)} USDC available now`,
     );
@@ -552,7 +568,7 @@ for (let pass = 1; pass <= passes; pass++) {
   }
 }
 
-const after = await readStream();
+const after = await readStream(SEED_STREAM);
 
 console.log('\n──────── summary');
 for (const [k, v] of Object.entries(tally)) console.log(`  ${k.padEnd(14)} ${v}`);

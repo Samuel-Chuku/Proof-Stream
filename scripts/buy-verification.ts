@@ -12,7 +12,15 @@ import { env } from '../agent/src/env';
 
 const prNumber = Number(process.argv[2]);
 if (!Number.isInteger(prNumber) || prNumber <= 0) {
-  console.error('usage: pnpm verify:once <prNumber>');
+  console.error('usage: pnpm verify:once <prNumber> [stream address]');
+  process.exit(1);
+}
+
+// The verifier is told WHICH stream to review against; it still reads that
+// contract's milestone and fetches the diff itself.
+const stream = (process.argv[3] as `0x${string}` | undefined) ?? env.workStream;
+if (!stream) {
+  console.error('pass a stream address, or set WORKSTREAM_ADDRESS');
   process.exit(1);
 }
 
@@ -21,7 +29,7 @@ console.log(`  buyer:  ${env.agentAddress} (attestor)`);
 console.log(`  seller: ${env.verifierAddress} (verifier)`);
 console.log(`  via:    ${env.verifierUrl}\n`);
 
-const { opinion, feePaid, transfer } = await buySecondOpinion(prNumber);
+const { opinion, feePaid, transfer } = await buySecondOpinion(stream, prNumber);
 
 console.log(`paid ${formatUsdc(feePaid)} USDC — Gateway transfer ${transfer ?? '(no receipt header)'}`);
 console.log('settles in a later Gateway batch, not as its own Arc transaction (T3)\n');

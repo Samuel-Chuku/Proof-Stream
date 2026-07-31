@@ -26,7 +26,6 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
 const MIN_AGENT_GAS = parseNative('1');
 
 const requiredVars = [
-  'WORKSTREAM_ADDRESS',
   'CIRCLE_API_KEY',
   'ENTITY_SECRET',
   'AGENT_WALLET_ID',
@@ -43,6 +42,20 @@ for (const name of requiredVars) {
   if (!present) envOk = false;
   add(`env ${name}`, present, present ? 'set' : 'MISSING');
 }
+
+// Either discovery mode is fine, but with neither the agent watches nothing.
+const hasSource = Boolean(process.env.REGISTRY_ADDRESS || process.env.WORKSTREAM_ADDRESS);
+if (!hasSource) envOk = false;
+add(
+  'env REGISTRY_ADDRESS or WORKSTREAM_ADDRESS',
+  hasSource,
+  process.env.REGISTRY_ADDRESS
+    ? `registry ${process.env.REGISTRY_ADDRESS}`
+    : process.env.WORKSTREAM_ADDRESS
+      ? `single stream ${process.env.WORKSTREAM_ADDRESS}`
+      : 'MISSING — set one',
+);
+
 if (!envOk) {
   report();
 }
@@ -60,36 +73,69 @@ try {
   add('agent gas', false, `RPC error: ${(err as Error).message.split('\n')[0]}`);
 }
 
-// contract reachable and sane
-let stream: Awaited<ReturnType<typeof readStream>> | undefined;
-try {
-  stream = await readStream();
-  add('WorkStream readable', true, `nonce ${stream.nonce}, milestone "${stream.milestone.slice(0, 40)}…"`);
-  add('stream not paused', !stream.paused, stream.paused ? 'PAUSED — unlocks will revert' : 'active');
-  add('stream has accrued', stream.accrued > stream.unlocked, `${formatUsdc(stream.accrued - stream.unlocked)} USDC unlockable`);
-} catch (err) {
-  add('WorkStream readable', false, (err as Error).message.split('\n')[0]);
-}
+// Which streams will this agent actually serve? Same discovery path the agent
+// uses, so a green preflight means the running agent sees the same fleet.
+const { knownStreams, refresh } = await import('../agent/src/registry');
+await refresh(() => {});
+const served = knownStreams();
 
-// contract is funded enough to pay out a max tranche
-if (stream) {
+add(
+  'streams discovered',
+  served.length > 0,
+  served.length > 0
+    ? served.map((s) => `${s.repo} → ${s.stream}`).join(', ')
+    : 'none — no registered stream appoints this agent (check REGISTRY_ADDRESS and the stream\'s agent())',
+);
+
+const ATTESTATION_TYPES = {
+  Attestation: [
+    { name: 'nonce', type: 'uint256' },
+    { name: 'tranche', type: 'uint256' },
+    { name: 'prNumber', type: 'uint256' },
+    { name: 'commitSha', type: 'string' },
+    { name: 'confidenceBps', type: 'uint256' },
+    { name: 'issuedAt', type: 'uint256' },
+    { name: 'milestoneHash', type: 'bytes32' },
+  ],
+} as const;
+
+// Every served stream gets the full battery. The signature check is run PER
+// STREAM on purpose: each WorkStream builds its EIP-712 domain separator from
+// its own address, so one shared signature would be rejected everywhere but the
+// stream it was made for. Running this across two streams is what proves the
+// multi-tenant signing path is actually per-stream and not silently hardcoded.
+for (const entry of served) {
+  const label = served.length > 1 ? ` [${entry.repo}]` : '';
+  let stream: Awaited<ReturnType<typeof readStream>> | undefined;
+
+  try {
+    stream = await readStream(entry.stream);
+    add(`WorkStream readable${label}`, true, `nonce ${stream.nonce}, milestone "${stream.milestone.slice(0, 40)}…"`);
+    add(`stream not paused${label}`, !stream.paused, stream.paused ? 'PAUSED — unlocks will revert' : 'active');
+    add(
+      `stream has accrued${label}`,
+      stream.accrued > stream.milestoneUnlocked,
+      `${formatUsdc(stream.accrued - stream.milestoneUnlocked)} USDC unlockable`,
+    );
+  } catch (err) {
+    add(`WorkStream readable${label}`, false, (err as Error).message.split('\n')[0]);
+    continue;
+  }
+
   try {
     const held = await withRetry(() =>
       client.readContract({
         address: USDC_ADDRESS,
         abi: erc20Abi,
         functionName: 'balanceOf',
-        args: [env.workStream],
+        args: [entry.stream],
       }),
     );
-    add('contract funded ≥ maxTranche', held >= stream.maxTranche, `${formatUsdc(held)} USDC held`);
+    add(`contract funded ≥ maxTranche${label}`, held >= stream.maxTranche, `${formatUsdc(held)} USDC held`);
   } catch (err) {
-    add('contract funded', false, `RPC error: ${(err as Error).message.split('\n')[0]}`);
+    add(`contract funded${label}`, false, `RPC error: ${(err as Error).message.split('\n')[0]}`);
   }
-}
 
-// THE critical check — Circle signature must recover to the agent address
-if (stream) {
   try {
     const probe = {
       nonce: stream.nonce,
@@ -100,45 +146,63 @@ if (stream) {
       issuedAt: BigInt(Math.floor(Date.now() / 1000)),
       milestoneHash: stream.milestoneHash,
     };
-    const signature = await signAttestation(probe);
+    const signature = await signAttestation(entry.stream, probe);
     const recovered = await recoverTypedDataAddress({
       domain: {
         name: 'ProofStream',
         version: '1',
         chainId: arcTestnet.id,
-        verifyingContract: env.workStream,
+        verifyingContract: entry.stream,
       },
-      types: {
-        Attestation: [
-          { name: 'nonce', type: 'uint256' },
-          { name: 'tranche', type: 'uint256' },
-          { name: 'prNumber', type: 'uint256' },
-          { name: 'commitSha', type: 'string' },
-          { name: 'confidenceBps', type: 'uint256' },
-          { name: 'issuedAt', type: 'uint256' },
-          { name: 'milestoneHash', type: 'bytes32' },
-        ],
-      },
+      types: ATTESTATION_TYPES,
       primaryType: 'Attestation',
       message: probe,
       signature,
     });
     const match = recovered.toLowerCase() === env.agentAddress.toLowerCase();
-    add('EIP-712 signature recovers to agent', match, match ? recovered : `got ${recovered}, expected ${env.agentAddress}`);
+    add(
+      `EIP-712 recovers to agent${label}`,
+      match,
+      match ? recovered : `got ${recovered}, expected ${env.agentAddress}`,
+    );
+
+    // Negative control: the SAME signature must NOT verify against a different
+    // verifyingContract. Without this, a domain that ignored the stream address
+    // would still pass the check above and quietly break every second tenant.
+    const wrongContract = await recoverTypedDataAddress({
+      domain: {
+        name: 'ProofStream',
+        version: '1',
+        chainId: arcTestnet.id,
+        verifyingContract: '0x000000000000000000000000000000000000dEaD',
+      },
+      types: ATTESTATION_TYPES,
+      primaryType: 'Attestation',
+      message: probe,
+      signature,
+    });
+    const isolated = wrongContract.toLowerCase() !== env.agentAddress.toLowerCase();
+    add(
+      `signature is bound to THIS stream${label}`,
+      isolated,
+      isolated ? 'does not verify against another address' : 'DOMAIN IGNORES THE STREAM — signatures are cross-valid',
+    );
   } catch (err) {
-    add('EIP-712 signature recovers to agent', false, (err as Error).message.split('\n')[0]);
+    add(`EIP-712 recovers to agent${label}`, false, (err as Error).message.split('\n')[0]);
   }
 }
 
-// GitHub + OpenRouter reachable with our credentials
-try {
-  const repo = stream?.repo ?? env.githubRepo;
-  const res = await fetch(`https://api.github.com/repos/${repo}`, {
-    headers: { Authorization: `Bearer ${env.githubToken}`, 'User-Agent': 'proofstream-preflight' },
-  });
-  add('on-chain repo readable', res.ok, `HTTP ${res.status} for ${repo} (from contract)`);
-} catch (err) {
-  add('GitHub repo readable', false, (err as Error).message);
+// Every served repo must be readable with our token — one unreachable repo is
+// one stream that silently never gets judged.
+for (const entry of served) {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${entry.repo}`, {
+      headers: { Authorization: `Bearer ${env.githubToken}`, 'User-Agent': 'proofstream-preflight' },
+    });
+    add(`on-chain repo readable [${entry.repo}]`, res.ok, `HTTP ${res.status} (repo from contract)`);
+  } catch (err) {
+    add(`on-chain repo readable [${entry.repo}]`, false, (err as Error).message);
+  }
 }
 
 try {

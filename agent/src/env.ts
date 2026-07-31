@@ -8,9 +8,36 @@ function required(name: string): string {
   return value;
 }
 
+// One agent serves many streams. It finds them one of two ways, and it must
+// have at least one of them or it would sit there watching nothing:
+//
+//   REGISTRY_ADDRESS   multi-tenant. Read StreamRegistered logs, filtered to
+//                      the streams that appointed THIS agent.
+//   WORKSTREAM_ADDRESS single-stream fallback, the original setup. Still
+//                      supported on purpose — a technical user with one repo
+//                      should not have to deploy a registry.
+//
+// Both may be set: the registry supplies the fleet and WORKSTREAM_ADDRESS is
+// folded in as a seed entry, so an existing deployment keeps working the day
+// the registry appears.
+function requireOneOf(...names: string[]): void {
+  if (names.some((n) => process.env[n])) return;
+  throw new Error(`set one of ${names.join(' or ')} — see .env.example`);
+}
+
+requireOneOf('REGISTRY_ADDRESS', 'WORKSTREAM_ADDRESS');
+
 export const env = {
   arcRpcUrl: process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.network',
-  workStream: required('WORKSTREAM_ADDRESS') as `0x${string}`,
+  workStream: process.env.WORKSTREAM_ADDRESS as `0x${string}` | undefined,
+
+  registryAddress: process.env.REGISTRY_ADDRESS as `0x${string}` | undefined,
+  // Where to start scanning. Genesis would be both slow and pointless, and
+  // Arc caps a getLogs window at 100k blocks (~14 hours at 0.51s blocks), so
+  // the scan is paged from here. Override when you deploy your own registry.
+  registryDeployBlock: BigInt(process.env.REGISTRY_DEPLOY_BLOCK || '54593230'),
+  // How often to re-scan for newly registered streams.
+  registryRefreshMs: Number(process.env.REGISTRY_REFRESH_MS || 60_000),
 
   circleApiKey: required('CIRCLE_API_KEY'),
   entitySecret: required('ENTITY_SECRET'),
