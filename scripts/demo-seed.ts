@@ -99,10 +99,10 @@ export function transfer(from: Account, to: Account, amount: number): [Account, 
 type Changeset = {
   /** Branch/PR title. */
   title: string;
-  /** Path in the demo repo. */
-  path: string;
-  /** Full file contents to commit. */
-  content: string;
+  /** Every file this changeset writes. A PR that claims to add tests must
+   *  actually contain the test file — the agents read the diff, not the body,
+   *  and will refuse the mismatch. */
+  files: { path: string; content: string }[];
   /** PR body — the agents read this alongside the diff. */
   body: string;
 };
@@ -123,22 +123,20 @@ const BASE_NO_TRANSFER = BASE.slice(0, BASE.indexOf('export function transfer(')
 const PLAN: Changeset[] = [
   {
     title: 'feat: TransferRecord type',
-    path: 'src/ledger.ts',
-    body: 'Adds the TransferRecord shape the history will be built from. Groundwork only.',
-    content: `${BASE}
+    body: 'Adds the TransferRecord shape the history will be built from. Groundwork only, no wiring and no tests.',
+    files: [{ path: 'src/ledger.ts', content: `${BASE}
 export type TransferRecord = {
   from: string;
   to: string;
   amount: number;
   timestamp: number;
 };
-`,
+` }],
   },
   {
     title: 'feat: record transfers and expose history',
-    path: 'src/ledger.ts',
-    body: 'Records each transfer and exposes history(). Uses `at` as the time field.',
-    content: `${BASE}
+    body: 'Records transfers and exposes history(). Uses `at` as the time field.',
+    files: [{ path: 'src/ledger.ts', content: `${BASE}
 export type TransferRecord = { from: string; to: string; amount: number; at: number };
 
 export function recordTransfer(
@@ -154,22 +152,21 @@ export function recordTransfer(
 export function history(records: TransferRecord[], accountId: string): TransferRecord[] {
   return records.filter((r) => r.from === accountId || r.to === accountId);
 }
-`,
+` }],
   },
   {
     title: 'docs: describe the transfer history',
-    path: 'docs/history.md',
     body: 'Documentation only.',
-    content: `# Transfer history
+    files: [{ path: 'docs/history.md', content: `# Transfer history
 
 Every successful transfer is appended to a log. Blocked transfers leave no record.
-`,
+` }],
   },
   {
-    title: 'feat: append-only transfer history wired into transfer',
-    path: 'src/ledger.ts',
-    body: 'Records each successful transfer as a TransferRecord with from, to, amount and timestamp, and exposes history(records, accountId). Recording is unavoidable: transfer() is the single entry point and appends as it moves, so no caller can move value without a record.',
-    content: `${BASE_NO_TRANSFER}
+    title: 'feat: append-only transfer history with unit tests',
+    body: 'Records each successful transfer as a TransferRecord with from, to, amount and timestamp, and exposes history(records, accountId). Recording is unavoidable: transfer() is the single entry point and appends as it moves. Unit tests in src/ledger.test.ts cover a successful transfer and a blocked overdraft.',
+    files: [
+      { path: 'src/ledger.ts', content: `${BASE_NO_TRANSFER}
 export type TransferRecord = {
   from: string;
   to: string;
@@ -181,7 +178,7 @@ export type TransferRecord = {
  * The only way to move value. Validates, moves, and appends to the history in
  * one step, so every successful transfer is recorded by construction. Throws on
  * a rejected transfer, so the append is never reached and a blocked overdraft
- * leaves no record.
+ * leaves no record behind.
  */
 export function transfer(
   records: TransferRecord[],
@@ -212,21 +209,52 @@ export function transfer(
 export function history(records: TransferRecord[], accountId: string): TransferRecord[] {
   return records.filter((r) => r.from === accountId || r.to === accountId);
 }
-`,
+` },
+      { path: 'src/ledger.test.ts', content: `import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { history, transfer, type Account, type TransferRecord } from './ledger';
+
+const alice = (): Account => ({ id: 'alice', balance: 100 });
+const bob = (): Account => ({ id: 'bob', balance: 10 });
+
+test('a successful transfer moves balances and is recorded', () => {
+  const r = transfer([], alice(), bob(), 40, 1_700_000_000);
+
+  assert.equal(r.from.balance, 60);
+  assert.equal(r.to.balance, 50);
+  assert.deepEqual(r.records, [
+    { from: 'alice', to: 'bob', amount: 40, timestamp: 1_700_000_000 },
+  ]);
+});
+
+test('a blocked overdraft throws and records nothing', () => {
+  const records: TransferRecord[] = [];
+  assert.throws(() => transfer(records, bob(), alice(), 999), /overdraft blocked/);
+  assert.equal(records.length, 0);
+});
+
+test('history returns only the records touching an account', () => {
+  const records: TransferRecord[] = [
+    { from: 'alice', to: 'bob', amount: 5, timestamp: 1 },
+    { from: 'carol', to: 'dave', amount: 7, timestamp: 2 },
+  ];
+  assert.deepEqual(history(records, 'bob').map((r) => r.timestamp), [1]);
+});
+` },
+    ],
   },
   {
     title: 'chore: bump a comment',
-    path: 'src/notes.ts',
     body: 'No behaviour change.',
-    content: `// Future work: integer minor units so rounding cannot creep into balances.
+    files: [{ path: 'src/notes.ts', content: `// Future work: integer minor units so rounding cannot creep into balances.
 export const LEDGER_NOTES = 'see docs/history.md';
-`,
+` }],
   },
   {
-    title: 'feat: transfer history with unit tests',
-    path: 'src/ledger.ts',
-    body: 'Full append-only history. transfer() is the single entry point and records as it moves, so every successful transfer is captured and a blocked overdraft leaves no record. Tests cover a successful transfer and a blocked overdraft.',
-    content: `${BASE_NO_TRANSFER}
+    title: 'feat: transfer history, wired in, fully tested',
+    body: 'Complete milestone: TransferRecord with timestamp, recording built into the single transfer() entry point so no caller can bypass it, history(records, accountId) filtering by account, and unit tests covering a successful transfer, a blocked overdraft, and history filtering.',
+    files: [
+      { path: 'src/ledger.ts', content: `${BASE_NO_TRANSFER}
 export type TransferRecord = {
   from: string;
   to: string;
@@ -238,7 +266,7 @@ export type TransferRecord = {
  * The only way to move value. Validates, moves, and appends to the history in
  * one step, so every successful transfer is recorded by construction. Throws on
  * a rejected transfer, so the append is never reached and a blocked overdraft
- * leaves no record.
+ * leaves no record behind.
  */
 export function transfer(
   records: TransferRecord[],
@@ -269,41 +297,61 @@ export function transfer(
 export function history(records: TransferRecord[], accountId: string): TransferRecord[] {
   return records.filter((r) => r.from === accountId || r.to === accountId);
 }
-`,
+` },
+      { path: 'src/ledger.test.ts', content: `import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { history, transfer, type Account, type TransferRecord } from './ledger';
+
+const alice = (): Account => ({ id: 'alice', balance: 100 });
+const bob = (): Account => ({ id: 'bob', balance: 10 });
+
+test('a successful transfer moves balances and is recorded', () => {
+  const r = transfer([], alice(), bob(), 40, 1_700_000_000);
+
+  assert.equal(r.from.balance, 60);
+  assert.equal(r.to.balance, 50);
+  assert.deepEqual(r.records, [
+    { from: 'alice', to: 'bob', amount: 40, timestamp: 1_700_000_000 },
+  ]);
+});
+
+test('a blocked overdraft throws and records nothing', () => {
+  const records: TransferRecord[] = [];
+  assert.throws(() => transfer(records, bob(), alice(), 999), /overdraft blocked/);
+  assert.equal(records.length, 0);
+});
+
+test('history returns only the records touching an account', () => {
+  const records: TransferRecord[] = [
+    { from: 'alice', to: 'bob', amount: 5, timestamp: 1 },
+    { from: 'carol', to: 'dave', amount: 7, timestamp: 2 },
+  ];
+  assert.deepEqual(history(records, 'bob').map((r) => r.timestamp), [1]);
+});
+` },
+    ],
   },
   {
     title: 'feat: history() returns the whole log',
-    path: 'src/ledger.ts',
     body: 'Adds history(records, accountId) returning that account\'s transfer records.',
-    content: `${BASE}
+    files: [{ path: 'src/ledger.ts', content: `${BASE}
 export type TransferRecord = {
   from: string;
   to: string;
   amount: number;
   timestamp: number;
 };
-
-export function recordTransfer(
-  records: TransferRecord[],
-  from: Account,
-  to: Account,
-  amount: number,
-  timestamp: number = Date.now(),
-): TransferRecord[] {
-  return [...records, { from: from.id, to: to.id, amount, timestamp }];
-}
 
 /** Returns the account's records. */
 export function history(records: TransferRecord[], _accountId: string): TransferRecord[] {
   return records;
 }
-`,
+` }],
   },
   {
     title: 'test: add a ledger test file',
-    path: 'src/ledger.test.ts',
     body: 'Adds unit tests covering the transfer history.',
-    content: `import assert from 'node:assert/strict';
+    files: [{ path: 'src/ledger.test.ts', content: `import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { balanceOf, type Account } from './ledger';
 
@@ -311,7 +359,7 @@ test('balanceOf reports the balance', () => {
   const a: Account = { id: 'alice', balance: 10 };
   assert.equal(balanceOf(a), 10);
 });
-`,
+` }],
   },
 ];
 
@@ -343,7 +391,7 @@ async function openChangeset(cs: Changeset, index: number, pass: number): Promis
   // RUN_ID keeps branches unique across restarts. Without it a resumed run
   // collides with the branches an interrupted run already created, and every
   // repeated pass dies on "a pull request already exists".
-  const branch = `seed/${RUN_ID}-p${pass}-${index}-${cs.path.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+  const branch = `seed/${RUN_ID}-p${pass}-${index}`;
   const main = await gh('GET', '/git/ref/heads/main');
 
   try {
@@ -352,20 +400,23 @@ async function openChangeset(cs: Changeset, index: number, pass: number): Promis
     if (!String((err as Error).message).includes('already exists')) throw err;
   }
 
-  // Existing path needs its blob sha; a new path must not send one.
-  let sha: string | undefined;
-  try {
-    sha = (await gh('GET', `/contents/${cs.path}?ref=${branch}`)).sha;
-  } catch {
-    sha = undefined;
-  }
+  let commit: any;
+  for (const file of cs.files) {
+    // Existing path needs its blob sha; a new path must not send one.
+    let sha: string | undefined;
+    try {
+      sha = (await gh('GET', `/contents/${file.path}?ref=${branch}`)).sha;
+    } catch {
+      sha = undefined;
+    }
 
-  const commit = await gh('PUT', `/contents/${cs.path}`, {
-    message: cs.title,
-    content: Buffer.from(cs.content).toString('base64'),
-    branch,
-    ...(sha ? { sha } : {}),
-  });
+    commit = await gh('PUT', `/contents/${file.path}`, {
+      message: cs.title,
+      content: Buffer.from(file.content).toString('base64'),
+      branch,
+      ...(sha ? { sha } : {}),
+    });
+  }
 
   const pr = await gh('POST', '/pulls', {
     title: cs.title,

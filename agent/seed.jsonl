@@ -218,3 +218,19 @@
 {"at":"2026-07-31T08:25:04.574Z","event":"seeded","pass":4,"index":6,"pr":221,"title":"feat: transfer history with unit tests","outcome":"declined"}
 {"at":"2026-07-31T08:25:32.081Z","event":"seeded","pass":4,"index":7,"pr":222,"title":"feat: history() returns the whole log","outcome":"declined"}
 {"at":"2026-07-31T08:25:59.269Z","event":"seeded","pass":4,"index":8,"pr":223,"title":"test: add a ledger test file","outcome":"declined"}
+{"at":"2026-07-31T08:29:54.079Z","event":"seeded","pass":1,"index":1,"pr":224,"title":"feat: TransferRecord type","outcome":"declined"}
+{"at":"2026-07-31T08:30:23.771Z","event":"seeded","pass":1,"index":2,"pr":225,"title":"feat: record transfers and expose history","outcome":"declined"}
+{"at":"2026-07-31T08:31:11.983Z","event":"seeded","pass":1,"index":3,"pr":226,"title":"docs: describe the transfer history","outcome":"declined"}
+{"at":"2026-07-31T08:31:39.344Z","event":"seeded","pass":1,"index":4,"pr":227,"title":"feat: append-only transfer history wired into transfer","outcome":"declined"}
+{"at":"2026-07-31T08:32:16.726Z","event":"seeded","pass":1,"index":5,"pr":228,"title":"chore: bump a comment","outcome":"declined"}
+{"at":"2026-07-31T08:32:40.072Z","event":"seeded","pass":1,"index":6,"pr":229,"title":"feat: transfer history with unit tests","outcome":"declined"}
+{"at":"2026-07-31T08:33:10.644Z","event":"seeded","pass":1,"index":7,"pr":230,"title":"feat: history() returns the whole log","outcome":"declined"}
+{"at":"2026-07-31T08:33:49.388Z","event":"seeded","pass":1,"index":8,"pr":231,"title":"test: add a ledger test file","outcome":"declined"}
+{"at":"2026-07-31T08:37:13.845Z","event":"seeded","pass":1,"index":1,"pr":232,"title":"feat: TransferRecord type","outcome":"declined"}
+{"at":"2026-07-31T08:37:39.130Z","event":"seeded","pass":1,"index":2,"pr":233,"title":"feat: record transfers and expose history","outcome":"declined"}
+{"at":"2026-07-31T08:38:12.767Z","event":"seeded","pass":1,"index":3,"pr":234,"title":"docs: describe the transfer history","outcome":"declined"}
+{"at":"2026-07-31T08:39:53.259Z","event":"seeded","pass":1,"index":4,"pr":235,"title":"feat: append-only transfer history with unit tests","outcome":"unlocked"}
+{"at":"2026-07-31T08:40:21.739Z","event":"seeded","pass":1,"index":5,"pr":236,"title":"chore: bump a comment","outcome":"declined"}
+{"at":"2026-07-31T08:41:43.321Z","event":"seeded","pass":1,"index":6,"pr":237,"title":"feat: transfer history, wired in, fully tested","outcome":"unlocked"}
+{"at":"2026-07-31T08:42:10.404Z","event":"seeded","pass":1,"index":7,"pr":238,"title":"feat: history() returns the whole log","outcome":"declined"}
+{"at":"2026-07-31T08:42:31.960Z","event":"seeded","pass":1,"index":8,"pr":239,"title":"test: add a ledger test file","outcome":"declined"}

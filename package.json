@@ -13,6 +13,7 @@
     "preflight:agent": "tsx --env-file=.env scripts/preflight-agent.ts",
     "preflight:verifier": "tsx --env-file=.env scripts/preflight-verifier.ts",
     "preflight:withdraw": "tsx --env-file=.env scripts/preflight-withdraw.ts",
+    "preflight:register": "tsx --env-file=.env scripts/preflight-register.ts",
     "withdraw": "tsx --env-file=.env scripts/withdraw.ts",
     "agent:dev": "tsx --env-file=.env agent/src/index.ts",
     "verifier:dev": "tsx --env-file=.env agent/src/verifier/index.ts",
