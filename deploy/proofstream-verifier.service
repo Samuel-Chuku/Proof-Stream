@@ -1,0 +1,32 @@
+[Unit]
+Description=ProofStream verifier agent (x402 seller)
+Documentation=https://github.com/Samuel-Chuku/Proof-Stream
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proofstream
+Group=proofstream
+WorkingDirectory=/opt/proofstream
+
+ExecStart=/opt/proofstream/node_modules/.bin/tsx --env-file=/opt/proofstream/.env /opt/proofstream/agent/src/verifier/index.ts
+
+# The attestor fails CLOSED when the verifier does not answer: no second
+# opinion, no unlock. So a dead verifier silently stops all payouts rather
+# than degrading — restart it aggressively.
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proofstream-verifier
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/proofstream/agent
+
+[Install]
+WantedBy=multi-user.target

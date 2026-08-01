@@ -22,6 +22,7 @@ Three things are true of every payout in this repo, and each is checkable on-cha
 | What | Address |
 | --- | --- |
 | `WorkStream` | [`0xF6362b807915FD998a03FaEc73361166333F4Ac9`](https://testnet.arcscan.app/address/0xF6362b807915FD998a03FaEc73361166333F4Ac9) |
+| `StreamRegistry` | [`0x528B36beF91B338166F08aA41676e9f1f1BF019f`](https://testnet.arcscan.app/address/0x528B36beF91B338166F08aA41676e9f1f1BF019f) |
 | Employer / treasury | [`0xe9d2E5521573D73471497C368F3454d710170477`](https://testnet.arcscan.app/address/0xe9d2E5521573D73471497C368F3454d710170477) |
 | Attestor agent (Circle developer-controlled wallet) | [`0x2CD7cc0407218f905731F88C08EEB86a94dd634A`](https://testnet.arcscan.app/address/0x2CD7cc0407218f905731F88C08EEB86a94dd634A) |
 | Verifier agent (Circle developer-controlled wallet) | [`0xa7aaa2324cb141a332b22c5eac12f75b46cdeb50`](https://testnet.arcscan.app/address/0xa7aaa2324cb141a332b22c5eac12f75b46cdeb50) |
@@ -88,8 +89,8 @@ The attestor pays the verifier through **Circle Gateway nanopayments**: it signs
 EIP-3009 authorization off-chain at zero gas, and Gateway settles those authorizations in
 **batches**.
 
-**These fees therefore do not appear as one Arc transaction each, and we do not count them
-as such.** `EVIDENCE.md` keeps two separate tables for exactly this reason: direct on-chain
+**These fees therefore do not appear as one Arc transaction each, and are not counted as
+such.** `EVIDENCE.md` keeps two separate tables for exactly this reason: direct on-chain
 transactions in one, batched nanopayments in the other, evidenced by the transfer receipts
 and by the seller's on-chain Gateway balance rising.
 
@@ -100,20 +101,18 @@ wallet it signs attestations and sends transactions from, with no plaintext key 
 
 ## Known limitations
 
-We would rather name these than have them found.
-
 - **The attestor is a single trusted key.** One key signing attestations is a centralised
-  oracle. We bound the damage on-chain rather than solving it: the policy caps what a
+  oracle. The damage is bounded on-chain rather than solved: the policy caps what a
   compromised key can release, and the independent verifier is a second opinion. A
   production system would need multiple attestors and a stake to slash.
-- **Both agents are ours.** The verifier is genuinely independent in construction — its own
-  wallet, own process, own model vendor, and it gathers its own evidence rather than
-  trusting what the buyer sends. But we operate both. Production would source verifiers
-  from an open market.
-- **Verification fees are batched, not per-transaction.** Stated above; repeated because it
-  is the easiest thing to misread in our favour.
-- **We cannot prove which model actually ran.** The verifier is paid for a specific model,
-  and nothing today forces it to have used one. A signed receipt carrying the provider's
+- **Both agents are operated by the same party.** The verifier is independent in
+  construction — its own wallet, own process, own model vendor, and it gathers its own
+  evidence rather than trusting what the buyer sends — but it is not independently
+  operated. Production would source verifiers from an open market.
+- **Verification fees are batched, not per-transaction.** Stated above, and repeated
+  because it is the easiest property to misread.
+- **The model that actually ran cannot be proven.** The verifier is paid for a specific
+  model, and nothing today forces it to have used one. A signed receipt carrying the provider's
   generation record would make a lie *attributable*, not impossible. Real proof needs TEE
   attestation or provider-signed inference, and neither exists on commodity APIs.
 - **The employer can change the milestone between jobs.** Milestone text is employer-set.
@@ -133,7 +132,7 @@ Requires Node ≥ 22.13, pnpm, and [Foundry](https://getfoundry.sh).
 ```bash
 pnpm install
 pnpm test:amounts              # decimal round-trip tests
-cd contracts && forge test     # 22 contract tests
+cd contracts && forge test     # 29 contract tests
 pnpm check:chain               # chain id and balances
 ```
 
@@ -225,13 +224,13 @@ the verifier with different `.env` files; they are separate processes.
   `cast send` against the live node.
 - The public RPC rate-limits aggressively. Reads are sequential with backoff.
 
-## What we would build next
+## Roadmap
 
 - **Per-call pricing by model.** The verifier currently charges $0.005 while its own
   inference costs ~$0.018 — it runs at a loss. Buyers should choose how many models review
   their work, and the price should follow.
 - **Model-provenance receipts**, signed by the verifier against the provider's generation
   record, so a false claim about which model ran is at least attributable.
-- **A verifier marketplace**, so the second opinion comes from someone who is not us.
-- **A factory and post-deploy policy changes**, so an employer sets terms from a UI rather
-  than Foundry.
+- **A verifier marketplace**, so the second opinion comes from an independent operator.
+- **Post-deployment policy changes**, so an employer can adjust terms without deploying a
+  new stream.

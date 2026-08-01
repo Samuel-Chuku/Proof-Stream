@@ -1,0 +1,36 @@
+[Unit]
+Description=ProofStream attestor agent
+Documentation=https://github.com/Samuel-Chuku/Proof-Stream
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proofstream
+Group=proofstream
+WorkingDirectory=/opt/proofstream
+
+# tsx runs the TypeScript directly — same entrypoint as `pnpm agent:dev`, so
+# the service and the terminal path can never drift.
+ExecStart=/opt/proofstream/node_modules/.bin/tsx --env-file=/opt/proofstream/.env /opt/proofstream/agent/src/index.ts
+
+# The agent signs attestations and sends transactions. If it dies at 3am the
+# next merged PR is simply never judged, and GitHub gives up after a few
+# delivery retries — so a lost process is lost money, not just downtime.
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proofstream-agent
+
+# .env holds Circle credentials and the LLM key; the agent only ever needs to
+# read its own directory and append to agent/*.jsonl.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/proofstream/agent
+
+[Install]
+WantedBy=multi-user.target
