@@ -34,3 +34,14 @@ export const VERIFICATION_FEE = '$0.005' as const;
  *  can compare it against what the running seller reports and catch a stale
  *  process before a paid call discovers it. */
 export const VERIFIER_MAX_TOKENS = 8000;
+
+/** Token ceiling for the attestor's reply. Was 1200, which was safe ONLY while
+ *  the attestor ran a non-reasoning model: a reasoning model spends this budget
+ *  thinking before it writes anything and the JSON arrives truncated, which
+ *  presents as "not valid JSON" rather than as a token problem (it cost three
+ *  paid calls to learn that on the verifier side).
+ *
+ *  Now that LLM_BASE_URL and AGENT_MODEL make swapping providers the expected
+ *  workflow, that trap was one env-var edit away from firing. A ceiling is not
+ *  a reservation, so the headroom is free. */
+export const AGENT_MAX_TOKENS = 8000;

@@ -34,7 +34,7 @@ const GATEWAY_WALLET_ABI = [
   },
 ] as const;
 
-const requiredVars = ['VERIFIER_ADDRESS', 'AGENT_ADDRESS', 'AGENT_WALLET_ID', 'CIRCLE_API_KEY', 'ENTITY_SECRET', 'OPENROUTER_API_KEY'] as const;
+const requiredVars = ['VERIFIER_ADDRESS', 'AGENT_ADDRESS', 'AGENT_WALLET_ID', 'CIRCLE_API_KEY', 'ENTITY_SECRET'] as const;
 
 let envOk = true;
 for (const name of requiredVars) {

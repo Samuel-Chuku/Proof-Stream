@@ -177,14 +177,43 @@ its own configuration.
 | `DEPLOYER_ADDRESS` | Employer/treasury address (read-only checks; the key is never stored here) |
 | `CIRCLE_API_KEY`, `ENTITY_SECRET` | Circle developer-controlled wallets — one credential pair manages both agent wallets |
 | `AGENT_WALLET_ID`, `AGENT_ADDRESS`, `VERIFIER_WALLET_ID`, `VERIFIER_ADDRESS` | Written by `pnpm circle:setup` |
-| `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET` | Reading diffs and verifying webhook signatures |
+| `REGISTRY_ADDRESS`, `REGISTRY_DEPLOY_BLOCK` | Stream discovery. Leave blank to serve only `WORKSTREAM_ADDRESS` |
+| `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET` | Reading diffs and verifying webhook signatures. The webhook secret is a **master** — each stream's own secret is derived from it |
 | `AGENT_INGRESS_URL` | Public URL GitHub delivers webhooks to |
-| `OPENROUTER_API_KEY`, `AGENT_MODEL`, `VERIFIER_MODEL` | The two judges. Different vendors on purpose |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `AGENT_MODEL`, `VERIFIER_MODEL` | The two judges. Different vendors on purpose |
 | `CONTRIBUTOR_*`, `VAULT_*` | Demo fixtures only — see below |
 
 The contributor and vault private keys exist solely so unattended seeding can call
 `withdraw()` and control the vault. In real use the contributor connects their own wallet;
 ProofStream never custodies it.
+
+### Bring your own model provider
+
+Nothing here is tied to a particular LLM vendor. Both judges call
+`POST {LLM_BASE_URL}/chat/completions`, so any OpenAI-compatible endpoint works — run it
+against a local model and no inference leaves your machine:
+
+```bash
+LLM_BASE_URL=http://localhost:11434/v1     # Ollama
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_BASE_URL=https://api.together.xyz/v1
+LLM_BASE_URL=https://api.openai.com/v1
+```
+
+`LLM_BASE_URL` defaults to OpenRouter and `LLM_API_KEY` falls back to
+`OPENROUTER_API_KEY`, so existing setups keep working untouched. Set `AGENT_MODEL` and
+`VERIFIER_MODEL` to slugs **that provider** serves — carrying over a model name that only
+exists on OpenRouter is the usual failure after switching. `pnpm preflight:agent` catches
+it: it sends a one-token completion, so it verifies the endpoint, the key and the model
+name together rather than just checking a key exists.
+
+The defaults are free models, deliberately. The whole system is provider-agnostic because
+the interesting claim is that *an agent exercises judgment*, not that a particular vendor
+does — and a reviewer should be able to reproduce that on their own hardware.
+
+Two judges from the same model is not a second opinion, so keep `AGENT_MODEL` and
+`VERIFIER_MODEL` different. To split them across providers entirely, run the attestor and
+the verifier with different `.env` files; they are separate processes.
 
 ## Notes on Arc
 

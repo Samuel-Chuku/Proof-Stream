@@ -25,6 +25,16 @@ function requireOneOf(...names: string[]): void {
   throw new Error(`set one of ${names.join(' or ')} — see .env.example`);
 }
 
+/// First name wins; the later ones are legacy aliases kept so an existing
+/// .env does not break when a variable is renamed.
+function required2(...names: string[]): string {
+  for (const n of names) {
+    const value = process.env[n];
+    if (value) return value;
+  }
+  throw new Error(`set ${names[0]} (or ${names.slice(1).join('/')}) — see .env.example`);
+}
+
 requireOneOf('REGISTRY_ADDRESS', 'WORKSTREAM_ADDRESS');
 
 export const env = {
@@ -44,11 +54,22 @@ export const env = {
   agentWalletId: required('AGENT_WALLET_ID'),
   agentAddress: required('AGENT_ADDRESS') as `0x${string}`,
 
-  githubRepo: required('GITHUB_REPO'),
+  // No GITHUB_REPO here any more. A multi-tenant agent has no single "the
+  // repo" — each stream names its own on-chain, and the registry routes on
+  // that. Requiring it would refuse to start a fleet agent over a value it
+  // never reads. Deploy.s.sol still uses GITHUB_REPO when creating a stream.
   githubToken: required('GITHUB_TOKEN'),
   webhookSecret: required('GITHUB_WEBHOOK_SECRET'),
 
-  openRouterKey: required('OPENROUTER_API_KEY'),
+  // --- LLM provider (any OpenAI-compatible endpoint) -----------------------
+  // Ollama, Together, Groq, vLLM, a local model — anything that serves
+  // POST {base}/chat/completions. Only the base URL changes.
+  llmBaseUrl: (process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, ''),
+
+  // LLM_API_KEY is the name to use. OPENROUTER_API_KEY still works so existing
+  // setups keep running, and a local provider that wants no key can pass any
+  // placeholder rather than being forced to invent one.
+  llmApiKey: required2('LLM_API_KEY', 'OPENROUTER_API_KEY'),
 
   // FREE by default. Development and seeding replay the same judgments many
   // times over; paying frontier prices for that is waste. Both free models were

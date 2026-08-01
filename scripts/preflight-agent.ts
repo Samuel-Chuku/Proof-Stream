@@ -30,10 +30,8 @@ const requiredVars = [
   'ENTITY_SECRET',
   'AGENT_WALLET_ID',
   'AGENT_ADDRESS',
-  'GITHUB_REPO',
   'GITHUB_TOKEN',
   'GITHUB_WEBHOOK_SECRET',
-  'OPENROUTER_API_KEY',
 ] as const;
 
 let envOk = true;
@@ -42,6 +40,15 @@ for (const name of requiredVars) {
   if (!present) envOk = false;
   add(`env ${name}`, present, present ? 'set' : 'MISSING');
 }
+
+// LLM_API_KEY is the current name; OPENROUTER_API_KEY still works.
+const hasLlmKey = Boolean(process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY);
+if (!hasLlmKey) envOk = false;
+add(
+  'env LLM_API_KEY or OPENROUTER_API_KEY',
+  hasLlmKey,
+  hasLlmKey ? `via ${process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1'}` : 'MISSING — set one',
+);
 
 // Either discovery mode is fine, but with neither the agent watches nothing.
 const hasSource = Boolean(process.env.REGISTRY_ADDRESS || process.env.WORKSTREAM_ADDRESS);
@@ -87,6 +94,10 @@ add(
     : 'none — no registered stream appoints this agent (check REGISTRY_ADDRESS and the stream\'s agent())',
 );
 
+/// How many discovered streams are actually funded and accruing. A fleet with
+/// none is green on plumbing but has nothing to do, so it is checked once.
+let liveStreams = 0;
+
 const ATTESTATION_TYPES = {
   Attestation: [
     { name: 'nonce', type: 'uint256' },
@@ -111,29 +122,51 @@ for (const entry of served) {
   try {
     stream = await readStream(entry.stream);
     add(`WorkStream readable${label}`, true, `nonce ${stream.nonce}, milestone "${stream.milestone.slice(0, 40)}…"`);
+  } catch (err) {
+    add(`WorkStream readable${label}`, false, (err as Error).message.split('\n')[0]);
+    continue;
+  }
+
+  // A stream that is not live is WAITING, not broken — the agent discovers it
+  // and correctly skips it. Reporting that as a failure would mean a fleet
+  // could never go green while any one employer had yet to fund, and it hides
+  // the actual instruction (fund it / open a new milestone) behind "0 USDC".
+  const live = stream.fullyFunded && stream.isActive;
+  if (live) liveStreams += 1;
+  add(
+    `milestone live${label}`,
+    true,
+    live
+      ? 'funded and accruing'
+      : !stream.fullyFunded
+        ? `WAITING — funded ${formatUsdc(stream.funded)} of ${formatUsdc(stream.budget)} USDC; deposit the rest to start it`
+        : 'WAITING — milestone closed; openMilestone() then fund() to run another',
+  );
+
+  // Accrual and balance only mean anything on a live milestone. The signature
+  // checks below run for EVERY stream regardless — they prove the agent can
+  // sign for that tenant at all, which is worth knowing before it is funded.
+  if (live) {
     add(`stream not paused${label}`, !stream.paused, stream.paused ? 'PAUSED — unlocks will revert' : 'active');
     add(
       `stream has accrued${label}`,
       stream.accrued > stream.milestoneUnlocked,
       `${formatUsdc(stream.accrued - stream.milestoneUnlocked)} USDC unlockable`,
     );
-  } catch (err) {
-    add(`WorkStream readable${label}`, false, (err as Error).message.split('\n')[0]);
-    continue;
-  }
 
-  try {
-    const held = await withRetry(() =>
-      client.readContract({
-        address: USDC_ADDRESS,
-        abi: erc20Abi,
-        functionName: 'balanceOf',
-        args: [entry.stream],
-      }),
-    );
-    add(`contract funded ≥ maxTranche${label}`, held >= stream.maxTranche, `${formatUsdc(held)} USDC held`);
-  } catch (err) {
-    add(`contract funded${label}`, false, `RPC error: ${(err as Error).message.split('\n')[0]}`);
+    try {
+      const held = await withRetry(() =>
+        client.readContract({
+          address: USDC_ADDRESS,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [entry.stream],
+        }),
+      );
+      add(`contract funded ≥ maxTranche${label}`, held >= stream.maxTranche, `${formatUsdc(held)} USDC held`);
+    } catch (err) {
+      add(`contract funded${label}`, false, `RPC error: ${(err as Error).message.split('\n')[0]}`);
+    }
   }
 
   try {
@@ -192,6 +225,14 @@ for (const entry of served) {
   }
 }
 
+add(
+  'at least one live milestone',
+  liveStreams > 0,
+  liveStreams > 0
+    ? `${liveStreams} of ${served.length} stream(s) funded and accruing`
+    : 'none funded — the agent will run but has nothing to certify',
+);
+
 // Every served repo must be readable with our token — one unreachable repo is
 // one stream that silently never gets judged.
 for (const entry of served) {
@@ -205,13 +246,28 @@ for (const entry of served) {
   }
 }
 
+// A real (tiny) completion rather than OpenRouter's /key endpoint, which no
+// other provider serves. This proves three things at once that a key lookup
+// cannot: the endpoint is reachable, the key is accepted, and AGENT_MODEL
+// actually exists on that provider — the last being the usual failure when
+// someone points LLM_BASE_URL somewhere new and keeps a model slug that only
+// OpenRouter has.
 try {
-  const res = await fetch('https://openrouter.ai/api/v1/key', {
-    headers: { Authorization: `Bearer ${env.openRouterKey}` },
+  const res = await fetch(`${env.llmBaseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.llmApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: env.model,
+      messages: [{ role: 'user', content: 'ok' }],
+      max_tokens: 1,
+    }),
   });
-  add('OpenRouter key valid', res.ok, `HTTP ${res.status}, model ${env.model}`);
+  const detail = res.ok
+    ? `${env.llmBaseUrl}, model ${env.model}`
+    : `HTTP ${res.status} from ${env.llmBaseUrl} for model ${env.model}: ${(await res.text()).slice(0, 120)}`;
+  add('LLM endpoint + key + model', res.ok, detail);
 } catch (err) {
-  add('OpenRouter key valid', false, (err as Error).message);
+  add('LLM endpoint + key + model', false, `${env.llmBaseUrl} — ${(err as Error).message}`);
 }
 
 report();

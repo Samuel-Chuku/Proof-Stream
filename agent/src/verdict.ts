@@ -1,3 +1,4 @@
+import { AGENT_MAX_TOKENS } from '@proofstream/config';
 import { env } from './env';
 import type { MergedPr } from './github';
 
@@ -61,17 +62,17 @@ Merge commit: ${pr.commitSha}
 UNIFIED DIFF:
 ${truncated}`;
 
-  const body: any = await callOpenRouter(
+  const body: any = await callLlm(
     {
       model: env.model,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 1200,
+      max_tokens: AGENT_MAX_TOKENS,
       temperature: 0,
     },
-    env.openRouterKey,
+    env.llmApiKey,
   );
 
   const content: string = body.choices?.[0]?.message?.content ?? '';
@@ -103,15 +104,28 @@ function clamp01(n: unknown): number {
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
 }
 
+/// Any OpenAI-compatible endpoint: OpenRouter, Ollama, Together, Groq, vLLM,
+/// a local model. Only LLM_BASE_URL changes.
+///
 /// Free model pools are shared and return 429 under load. One retry with a
 /// pause costs nothing and saves a long unattended run from dying.
-async function callOpenRouter(body: unknown, key: string): Promise<any> {
+async function callLlm(body: unknown, key: string): Promise<any> {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    // A wrong LLM_BASE_URL fails at the socket, not with an HTTP status, so the
+    // raw ECONNREFUSED/ENOTFOUND never mentions the endpoint. Name it — that is
+    // the whole diagnosis when someone points this at a local model.
+    let res: Response;
+    try {
+      res = await fetch(`${env.llmBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      throw new Error(
+        `LLM endpoint unreachable at ${env.llmBaseUrl} — ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
     if (res.ok) return res.json();
 
     const text = await res.text();
@@ -119,6 +133,6 @@ async function callOpenRouter(body: unknown, key: string): Promise<any> {
       await new Promise((r) => setTimeout(r, 5_000 * 2 ** attempt));
       continue;
     }
-    throw new Error(`OpenRouter call failed: ${res.status} ${text}`);
+    throw new Error(`LLM call failed (${env.llmBaseUrl}): ${res.status} ${text}`);
   }
 }
