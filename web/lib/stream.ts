@@ -79,8 +79,11 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
   }
 }
 
-export async function readStream(): Promise<Stream | null> {
-  const address = process.env.WORKSTREAM_ADDRESS as `0x${string}` | undefined;
+/// One stream's full state. The address is a parameter now that the app serves
+/// many streams; WORKSTREAM_ADDRESS remains the fallback so a single-stream
+/// deployment keeps working with no configuration change.
+export async function readStream(streamAddress?: string): Promise<Stream | null> {
+  const address = (streamAddress ?? process.env.WORKSTREAM_ADDRESS) as `0x${string}` | undefined;
   if (!address) return null;
 
   const client = createPublicClient({ chain: arcTestnet, transport: http(process.env.ARC_RPC_URL) });

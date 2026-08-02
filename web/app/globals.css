@@ -520,3 +520,32 @@ textarea.ps-input {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Stream list ----------------------------------------- */
+
+.ps-stream-row {
+  display: grid;
+  grid-template-columns: 1fr max-content max-content var(--ps-3);
+  align-items: baseline;
+  gap: var(--ps-3);
+  padding: var(--ps-2) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  text-decoration: none;
+}
+
+.ps-stream-row:hover {
+  background: var(--ps-surface);
+}
+
+.ps-stream-figures {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  color: var(--ps-ink-dim);
+}
+
+@media (max-width: 720px) {
+  .ps-stream-row {
+    grid-template-columns: 1fr max-content;
+    gap: var(--ps-1) var(--ps-2);
+  }
+}

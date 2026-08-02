@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { env } from './env';
 import { parseMergedPr, verifySignature, webhookSecretFor } from './github';
 import { log, processPr } from './pipeline';
+import { reconcile } from './reconcile';
 import { isServed, knownStreams, startRegistry } from './registry';
 
 // Three ways in, and the difference between them is only WHICH SECRET signs the
@@ -153,4 +154,11 @@ createServer((req, res) => {
   for (const s of streams) {
     console.log(`  serving:      ${s.repo} → ${s.stream}`);
   }
+
+  // Catch anything merged while this process was not listening. Runs after the
+  // fleet is known, and deliberately does not block startup — the webhook
+  // endpoint is already accepting deliveries by now.
+  reconcile(registryLog, processPr).catch((err) =>
+    registryLog({ event: 'reconcile_failed', message: err instanceof Error ? err.message : String(err) }),
+  );
 });

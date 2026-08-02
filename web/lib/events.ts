@@ -11,6 +11,11 @@ import { join } from 'node:path';
 export type AgentEvent = {
   at: string;
   event: string;
+  /** Which contract this judgment was made against. One agent serves many
+   *  streams, so a per-stream page MUST filter on this or it shows another
+   *  employer's decisions. */
+  workStream?: string;
+  repo?: string;
   pr: number;
   title?: string;
   milestone?: string;

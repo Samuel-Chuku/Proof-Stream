@@ -67,6 +67,16 @@ export const env = {
   // together carrying `repository.full_name` — which is all the registry needs
   // to route them. Optional: without it the manual per-stream path still works.
   githubAppWebhookSecret: process.env.GITHUB_APP_WEBHOOK_SECRET,
+
+  // --- missed-webhook recovery -------------------------------------------
+  // GitHub discards a delivery after a few failed retries, so a PR merged
+  // while the agent was down is never judged and nobody is paid. On startup
+  // the agent looks back over this window for merged PRs with no verdict.
+  // Both bounds matter: this spends money without being asked, and an
+  // unbounded lookback against a repo with history would judge years of old
+  // work on first run. Set either to 0 to disable.
+  reconcileLookbackHours: Number(process.env.RECONCILE_LOOKBACK_HOURS ?? 24),
+  reconcileMaxPrs: Number(process.env.RECONCILE_MAX_PRS ?? 5),
   webhookSecret: required('GITHUB_WEBHOOK_SECRET'),
 
   // --- LLM provider (any OpenAI-compatible endpoint) -----------------------

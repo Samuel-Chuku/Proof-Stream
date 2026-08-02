@@ -1,32 +1,25 @@
 import { EXPLORER_URL } from '@proofstream/config';
-import { readAgentLogs, totalSpend, type AgentEvent } from '../lib/events';
-import { readStream } from '../lib/stream';
+import Link from 'next/link';
+import { listStreams } from '../lib/registry';
 import { AddressChip } from './address-chip';
 import { Amount } from './amount';
-import { LockedFigure } from './stream-bar';
 import { ThemeToggle } from './theme-toggle';
 
-// The chain and the agent logs both move while the page is open.
+// The registry and every stream's state move while the page is open.
 export const dynamic = 'force-dynamic';
 
-const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
-const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
-
-/// Label sitting on a dashed rule, left-aligned.
-function SectionRule({ children }: { children: string }) {
-  return (
-    <div className="ps-section-rule">
-      <span className="ps-label">{children}</span>
-    </div>
-  );
-}
-
-export default async function Home() {
-  const stream = await readStream();
-  const { verdicts, reviews } = await readAgentLogs();
-  const spend = totalSpend(verdicts, reviews);
-  const decisions = verdicts.filter((v) => v.verdict);
-  const settled = verdicts.filter((v) => v.txHash);
+/// The ledger of streams.
+///
+/// Every registered stream is listed, not just the viewer's — the registry is
+/// public, one agent serving several employers is the claim being made, and a
+/// reader should not need a wallet to see it.
+///
+/// Rows deliberately carry no miniature cell grid. The stream bar is the one
+/// showpiece, and a 4px strip would borrow its language without its meaning:
+/// nobody can count those cells, so the green would become decoration. Green
+/// stays a claim about released USDC, on the stream page where it can be read.
+export default async function Streams() {
+  const streams = await listStreams();
 
   return (
     <main>
@@ -34,139 +27,75 @@ export default async function Home() {
         <div>
           <h1 className="ps-display-xl">ProofStream</h1>
           <div className="ps-masthead-meta ps-label">
-            {stream ? (
-              <>
-                <AddressChip address={stream.address} href={`${EXPLORER_URL}/address/${stream.address}`} />
-                <span>ARC TESTNET · 5042002</span>
-                <span>MILESTONE {stream.milestoneIndex}</span>
-              </>
-            ) : (
-              <span>ARC TESTNET · 5042002</span>
-            )}
+            <span>ARC TESTNET · 5042002</span>
+            <span>{streams.length} STREAM{streams.length === 1 ? '' : 'S'}</span>
           </div>
         </div>
         <ThemeToggle />
       </header>
 
-      {!stream ? (
-        <section className="ps-invert">
-          <h2 className="ps-display-l">⚠ CONTRACT UNREADABLE</h2>
-          <p className="ps-body">
-            The dashboard could not read the stream. Check that WORKSTREAM_ADDRESS points at a
-            deployed contract and that ARC_RPC_URL reaches Arc Testnet, chain 5042002.
+      <p className="ps-body">
+        USDC payroll that accrues by the second and stays locked until an autonomous agent reads the
+        merged work, judges it against the milestone, buys a second opinion from another agent, and
+        signs an attestation releasing a tranche. One agent process serves every stream below.
+      </p>
+
+      <div className="ps-section-rule">
+        <span className="ps-label">STREAMS</span>
+      </div>
+
+      {streams.length === 0 ? (
+        <section className="ps-gate">
+          <p className="ps-body" style={{ marginTop: 0 }}>
+            No streams registered yet. Creating one deploys a contract from your own wallet — you
+            are its employer, and nothing but you can open, fund or close its milestones.
           </p>
+          <Link className="ps-button" href="/new">
+            [ CREATE A STREAM ]
+          </Link>
         </section>
       ) : (
         <>
-          <LockedFigure stream={stream} />
+          <div className="ps-feed">
+            {streams.map((s) => (
+              <Link key={s.address} href={`/stream/${s.address}`} className="ps-stream-row">
+                <span className="ps-tx-action">{s.repo || '(no repo set)'}</span>
+                <span className="ps-caption">
+                  MILESTONE {s.milestoneIndex} · {s.state.toUpperCase()}
+                </span>
+                <span className="ps-stream-figures">
+                  <Amount raw={Number(s.unlocked)} size="m" suffix={false} /> released of{' '}
+                  <Amount raw={Number(s.budget)} size="m" />
+                </span>
+                <span aria-hidden>→</span>
+              </Link>
+            ))}
+          </div>
 
-          <SectionRule>MILESTONE</SectionRule>
-          <p className="ps-body">{stream.milestone}</p>
-          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
-            WATCHING {stream.repo} · CEILING {(Number(stream.maxTranche) / 1e6).toFixed(0)} USDC PER
-            UNLOCK · {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} PER DAY
-          </p>
-
-          <SectionRule>AGENT DECISIONS</SectionRule>
-
-          {decisions.length === 0 ? (
-            <section className="ps-gate">
-              <p className="ps-body" style={{ margin: 0 }}>
-                No verdicts yet — the agent posts here when a pull request is merged on{' '}
-                {stream.repo}. The stream continues accruing meanwhile.
-              </p>
-            </section>
-          ) : (
-            decisions.map((v, i) => <VerdictCard key={`${v.at}-${i}`} event={v} />)
-          )}
-
-          <SectionRule>ON-CHAIN TRANSACTIONS</SectionRule>
-          {settled.length === 0 ? (
-            <p className="ps-caption">NONE YET</p>
-          ) : (
-            <div className="ps-feed">
-              {settled.map((v, i) => (
-                <div className="ps-tx-row" key={`${v.at}-tx-${i}`}>
-                  <span className="ps-tx-time">{time(v.at)}</span>
-                  <span className="ps-tx-action">UNLOCK</span>
-                  <Amount raw={Number(v.trancheUsdc ?? 0) * 1e6} size="m" />
-                  <a href={`${EXPLORER_URL}/tx/${v.txHash}`} target="_blank" rel="noreferrer">
-                    ↗
-                  </a>
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
-            ● VERIFICATION FEES SETTLE IN GATEWAY BATCHES AND HAVE NO INDIVIDUAL TRANSACTION
+          <p style={{ marginTop: 'var(--ps-4)' }}>
+            <Link className="ps-button" href="/new">
+              [ CREATE A STREAM ]
+            </Link>
           </p>
         </>
       )}
 
-      <SectionRule>WHAT THE AGENTS SPENT</SectionRule>
+      <div className="ps-section-rule">
+        <span className="ps-label">THE REGISTRY</span>
+      </div>
       <p className="ps-body">
-        ${spend.total.toFixed(4)} across {decisions.length} decisions — inference plus{' '}
-        {spend.paidReviews} second opinions bought at $0.005 each, paid by the attestor from its own
-        wallet.
+        Streams announce themselves to a registry contract, and the agent discovers them by reading
+        its log. Only a stream&rsquo;s own employer can announce it, and the agent refuses any stream
+        that did not appoint it — so nobody can point this agent at a repository it was never hired
+        to watch.
+      </p>
+      <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+        REGISTRY{' '}
+        <AddressChip
+          address={process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? ''}
+          href={`${EXPLORER_URL}/address/${process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? ''}`}
+        />
       </p>
     </main>
-  );
-}
-
-/// Verbatim model output. Do not summarise, truncate or prettify it — it is the
-/// evidence that this is judgment rather than a boolean in costume.
-function VerdictCard({ event }: { event: AgentEvent }) {
-  const v = event.verdict!;
-  const paid = Boolean(event.txHash);
-
-  return (
-    <article className="ps-verdict">
-      <div className="ps-verdict-head">
-        <span className="ps-label">
-          {paid ? '◆' : '○'} VERDICT · PR #{event.pr} · {event.model}
-        </span>
-        {event.txHash && (
-          <AddressChip address={event.txHash} href={`${EXPLORER_URL}/tx/${event.txHash}`} />
-        )}
-      </div>
-
-      <dl className="ps-verdict-fields">
-        <dt>Satisfies milestone</dt>
-        <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>
-        <dt>Confidence</dt>
-        <dd className="ps-num">{pct(v.confidence)}</dd>
-        {/* A refusal renders identically but with no tranche row. A refusal is a
-            verdict, not an error, and must not look like one. */}
-        {event.trancheUsdc && (
-          <>
-            <dt>Tranche</dt>
-            <dd>
-              <Amount raw={Number(event.trancheUsdc) * 1e6} size="m" />
-            </dd>
-          </>
-        )}
-      </dl>
-
-      <p className="ps-verdict-reasoning">{v.reasoning}</p>
-
-      {event.verifier && (
-        <p className="ps-verdict-reasoning" style={{ borderTop: '1px dashed var(--ps-border)' }}>
-          <span className="ps-label">
-            SECOND OPINION · {event.verifier.model} · PAID {event.verificationFeeUsdc} USDC
-          </span>
-          <br />
-          {event.verifier.reasoning}
-        </p>
-      )}
-
-      <div className="ps-verdict-foot">
-        <span className="ps-label">
-          {event.verifier
-            ? `AGREED AT ${pct(event.agreedFraction)} — THE LOWER OF THE TWO`
-            : 'VERIFIER NEVER CONSULTED — NO FEE SPENT'}
-        </span>
-        <span className="ps-label">{time(event.at)}</span>
-      </div>
-    </article>
   );
 }
