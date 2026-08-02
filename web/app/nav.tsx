@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Connect } from './connect';
 import { ThemeToggle } from './theme-toggle';
 
 /// Persistent navigation.
@@ -13,7 +14,8 @@ import { ThemeToggle } from './theme-toggle';
 /// shadow, no sticky blur, no avatar menu, hairline underneath, and it scrolls
 /// with the page like the top of a printed sheet.
 const LINKS = [
-  { href: '/', label: 'STREAMS' },
+  { href: '/', label: 'HOME' },
+  { href: '/streams', label: 'STREAMS' },
   { href: '/new', label: 'NEW STREAM' },
   { href: '/docs', label: 'HOW IT WORKS' },
 ];
@@ -31,7 +33,11 @@ export function Nav() {
         <div className="ps-nav-links">
           {LINKS.map((link) => {
             const active =
-              link.href === '/' ? pathname === '/' || pathname.startsWith('/stream') : pathname === link.href;
+              link.href === '/'
+                ? pathname === '/'
+                : link.href === '/streams'
+                  ? pathname.startsWith('/stream')
+                  : pathname === link.href;
             return (
               <Link
                 key={link.href}
@@ -44,7 +50,12 @@ export function Nav() {
           })}
         </div>
 
-        <ThemeToggle />
+        {/* Connect sits in the nav so it is reachable from every page — a
+            wallet button that only exists on one screen gets missed. */}
+        <div className="ps-nav-actions">
+          <Connect />
+          <ThemeToggle />
+        </div>
       </div>
     </nav>
   );

@@ -101,6 +101,10 @@
   --ps-size-data-xl:    40px;  --ps-lh-data-xl:    44px;
   --ps-size-data-m:     18px;  --ps-lh-data-m:     24px;
   --ps-size-body:       16px;  --ps-lh-body:       28px;
+  /* Dense reading: the agents' verbatim reasoning. Smaller than body because
+     a verdict card carries several paragraphs of machine output and body size
+     turns them into a wall. Line height stays on the 4px grid. */
+  --ps-size-detail:     14px;  --ps-lh-detail:     24px;
   --ps-size-label:      13px;  --ps-lh-label:      20px;
 
   --ps-track-label: 1px;  /* letter-spacing on caps labels */

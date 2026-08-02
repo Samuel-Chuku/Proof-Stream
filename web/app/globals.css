@@ -323,64 +323,6 @@ a {
   padding: var(--ps-4);
 }
 
-/* ---- Verdict card ---------------------------------------- */
-
-.ps-verdict {
-  background: var(--ps-surface);
-  border: var(--ps-bw-struct) solid var(--ps-rule);
-  box-shadow: var(--ps-shadow-1);
-  margin-bottom: var(--ps-4);
-}
-
-.ps-verdict-head,
-.ps-verdict-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ps-2);
-  padding: var(--ps-2) var(--ps-3);
-}
-
-.ps-verdict-head {
-  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
-}
-
-.ps-verdict-foot {
-  border-top: var(--ps-bw-hair) solid var(--ps-border);
-  color: var(--ps-ink-dim);
-}
-
-.ps-verdict-fields {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--ps-1) var(--ps-4);
-  padding: var(--ps-3);
-  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
-}
-
-.ps-verdict-fields dt {
-  color: var(--ps-ink-dim);
-  font-size: var(--ps-size-label);
-  letter-spacing: var(--ps-track-label);
-  text-transform: uppercase;
-}
-
-.ps-verdict-fields dd {
-  margin: 0;
-  font-size: var(--ps-size-data-m);
-  line-height: var(--ps-lh-data-m);
-}
-
-/* Verbatim model output. Never summarised, never truncated — it is the
-   evidence that this is judgment and not a boolean in costume. */
-.ps-verdict-reasoning {
-  padding: var(--ps-3);
-  font-size: var(--ps-size-body);
-  line-height: var(--ps-lh-body);
-  max-width: 60ch;
-  margin: 0;
-}
-
 /* ---- Tx feed --------------------------------------------- */
 
 .ps-feed {
@@ -741,38 +683,83 @@ code {
   margin-top: var(--ps-1);
 }
 
-/* ---- Verdict status ---------------------------------------
-   The palette has no red and green means unlocked USDC, so the
-   three outcomes are distinguished by the system's OWN language:
-   a green edge where money actually moved, a solid ink edge for
-   a refusal, and the blocked hatch for an escalation. Different
-   at a glance, without inventing a status hue that would dilute
-   the one colour that carries meaning. */
+/* ---- Home ------------------------------------------------ */
+
+.ps-lede {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  max-width: 60ch;
+  margin: 0 0 var(--ps-3);
+}
+
+.ps-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-3);
+  margin: var(--ps-5) 0;
+}
+
+.ps-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-5);
+}
+
+.ps-agent-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  font-family: var(--ps-display);
+  font-size: var(--ps-size-data-m);
+  text-transform: uppercase;
+  margin: 0 0 var(--ps-2);
+}
+
+.ps-agent-mark {
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+.ps-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-3);
+  flex: 0 0 auto;
+}
+
+/* ---- Verdict card -----------------------------------------
+   Outcome is carried by a left edge in the system's own language:
+   a GREEN edge only where money actually moved, solid ink for a
+   refusal, faint for an escalation. The palette has no red, and
+   inventing a status hue would dilute the one colour that means
+   something.
+
+   Every inner block clears the edge with its own horizontal
+   padding — text butting against that bar was the thing that
+   read as broken.                                              */
 
 .ps-verdict {
-  border-left-width: var(--ps-3);
+  background: var(--ps-surface);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-left-width: var(--ps-2);
+  box-shadow: var(--ps-shadow-1);
+  margin-bottom: var(--ps-4);
 }
 
-.ps-verdict-paid {
-  border-left-color: var(--ps-green-deep);
-}
+.ps-verdict-paid    { border-left-color: var(--ps-green-deep); }
+.ps-verdict-refused { border-left-color: var(--ps-ink); }
+.ps-verdict-held    { border-left-color: var(--ps-ink-faint); }
 
-.ps-verdict-refused {
-  border-left-color: var(--ps-ink);
-}
-
-.ps-verdict-held {
-  border-left-color: var(--ps-ink-faint);
-}
+/* ---- Summary: the scan line ------------------------------ */
 
 .ps-verdict summary {
   cursor: pointer;
   list-style: none;
-  padding: var(--ps-3);
+  padding: var(--ps-3) var(--ps-4);
   display: grid;
   grid-template-columns: max-content 1fr max-content;
-  align-items: baseline;
-  gap: var(--ps-3);
+  align-items: center;
+  gap: var(--ps-4);
 }
 
 .ps-verdict summary::-webkit-details-marker {
@@ -783,25 +770,118 @@ code {
   background: var(--ps-sunk);
 }
 
+.ps-verdict-who {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+}
+
+.ps-verdict-agent {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+}
+
+.ps-verdict-outcome {
+  color: var(--ps-ink-dim);
+}
+
+/* Smaller than body on purpose — it is a preview, not the content. */
 .ps-verdict-preview {
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
   color: var(--ps-ink-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.ps-verdict-right {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-3);
+}
+
+.ps-verdict-chevron {
+  color: var(--ps-ink-dim);
+  font-size: var(--ps-size-label);
+}
+
+.ps-verdict[open] .ps-verdict-chevron {
+  transform: rotate(180deg);
+  display: inline-block;
+}
+
+/* ---- Expanded body --------------------------------------- */
+
+.ps-verdict-fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--ps-2) var(--ps-5);
+  padding: var(--ps-4);
+  margin: 0;
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-verdict-fields dt {
+  color: var(--ps-ink-dim);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+}
+
+.ps-verdict-fields dd {
+  margin: 0;
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+}
+
+/* One agent's voice. Generous padding and a rule above, so two agents
+   reasoning in sequence read as two speakers rather than one long block. */
+.ps-verdict-voice {
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+  padding: var(--ps-4);
+}
+
+.ps-verdict-voice-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  color: var(--ps-ink-dim);
+  margin: 0 0 var(--ps-3);
+}
+
+/* Verbatim model output. Never summarised, never truncated — it is the
+   evidence that this is judgment and not a boolean in costume. Set at the
+   detail size because a card carries several paragraphs of it. */
+.ps-verdict-reasoning {
+  padding: 0;
+  margin: 0;
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
+  max-width: 72ch;
+}
+
+.ps-verdict-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-3);
+  padding: var(--ps-3) var(--ps-4);
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+  color: var(--ps-ink-dim);
+}
+
 @media (max-width: 720px) {
-  main {
-    padding: var(--ps-4) var(--ps-3) var(--ps-6);
-  }
-
-  .ps-nav-inner {
-    padding: var(--ps-3);
-    gap: var(--ps-3);
-    flex-wrap: wrap;
-  }
-
   .ps-verdict summary {
+    grid-template-columns: 1fr;
+    gap: var(--ps-2);
+  }
+
+  .ps-verdict-preview {
+    white-space: normal;
+  }
+
+  .ps-verdict-fields {
     grid-template-columns: 1fr;
   }
 }

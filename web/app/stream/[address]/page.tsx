@@ -2,6 +2,7 @@ import { EXPLORER_URL } from '@proofstream/config';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
+import { AgentMark } from '../../agent-mark';
 import { Footer } from '../../footer';
 import { Amount } from '../../amount';
 import { StreamActions } from '../../stream-actions';
@@ -123,12 +124,20 @@ export default async function StreamPage({ params }: { params: Promise<{ address
   );
 }
 
-/// Collapsed by default: a preview line, expandable to the verbatim reasoning.
+/// First sentence only, for the preview. Falls back to a clipped slice when the
+/// model writes one long unpunctuated block, which it sometimes does.
+function firstSentence(text: string): string {
+  const match = text.match(/^.*?[.!?](?=\s|$)/);
+  const sentence = match ? match[0] : text;
+  return sentence.length > 160 ? `${sentence.slice(0, 157)}…` : sentence;
+}
+
+/// Collapsed to a scan line: which agent, what it decided, its opening
+/// sentence, and the amount. Expands to both agents' verbatim reasoning.
 ///
-/// The full text still ships and is still unedited — that is the evidence this
-/// is judgment rather than a boolean in costume. But twenty cards of solid
-/// prose is a wall nobody reads, so the scan layer is the outcome and the
-/// detail is one click away.
+/// The expand affordance is the chevron alone — no label. The row is already
+/// a summary and reads as one; spelling out "read full verdict" put explanatory
+/// copy where the eye wants data.
 function VerdictCard({ event }: { event: AgentEvent }) {
   const v = event.verdict!;
   const paid = Boolean(event.txHash);
@@ -142,12 +151,25 @@ function VerdictCard({ event }: { event: AgentEvent }) {
   return (
     <details className={`ps-verdict ps-verdict-${tone}`}>
       <summary>
-        <span className="ps-label">
-          {paid ? '\u25c6' : '\u25cb'} PR #{event.pr} · {outcome}
+        <span className="ps-verdict-who">
+          <AgentMark role="attestor" />
+          <b className="ps-verdict-agent">ATTESTOR</b>
+          <span className="ps-label ps-verdict-outcome">
+            PR #{event.pr} · {outcome}
+          </span>
         </span>
-        <span className="ps-verdict-preview">{v.reasoning}</span>
-        <span className="ps-label">
-          {event.trancheUsdc ? <Amount raw={Number(event.trancheUsdc) * 1e6} size="s" /> : '—'}
+
+        <span className="ps-verdict-preview">{firstSentence(v.reasoning)}</span>
+
+        <span className="ps-verdict-right">
+          {event.trancheUsdc ? (
+            <Amount raw={Number(event.trancheUsdc) * 1e6} size="s" />
+          ) : (
+            <span className="ps-caption">NO PAYOUT</span>
+          )}
+          <span className="ps-verdict-chevron" aria-hidden>
+            ▾
+          </span>
         </span>
       </summary>
 
@@ -156,7 +178,7 @@ function VerdictCard({ event }: { event: AgentEvent }) {
         <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>
         <dt>Confidence</dt>
         <dd className="ps-num">{pct(v.confidence)}</dd>
-        <dt>Model</dt>
+        <dt>Judged by</dt>
         <dd>{event.model}</dd>
         {event.txHash && (
           <>
@@ -168,23 +190,38 @@ function VerdictCard({ event }: { event: AgentEvent }) {
         )}
       </dl>
 
-      <p className="ps-verdict-reasoning">{v.reasoning}</p>
-
-      {event.verifier && (
-        <p className="ps-verdict-reasoning" style={{ borderTop: '1px dashed var(--ps-border)' }}>
-          <span className="ps-label">
-            SECOND OPINION · {event.verifier.model} · PAID {event.verificationFeeUsdc} USDC
-          </span>
-          <br />
-          {event.verifier.reasoning}
+      <div className="ps-verdict-voice">
+        <p className="ps-label ps-verdict-voice-head">
+          <AgentMark role="attestor" /> ATTESTOR · {event.model}
         </p>
+        <p className="ps-verdict-reasoning">{v.reasoning}</p>
+      </div>
+
+      {event.verifier ? (
+        <div className="ps-verdict-voice">
+          <p className="ps-label ps-verdict-voice-head">
+            <AgentMark role="verifier" /> VERIFIER · {event.verifier.model} · PAID{' '}
+            {event.verificationFeeUsdc} USDC
+          </p>
+          <p className="ps-verdict-reasoning">{event.verifier.reasoning}</p>
+        </div>
+      ) : (
+        <div className="ps-verdict-voice">
+          <p className="ps-label ps-verdict-voice-head">
+            <AgentMark role="verifier" /> VERIFIER · NOT CONSULTED
+          </p>
+          <p className="ps-verdict-reasoning">
+            The attestor refused on its own judgment, so no second opinion was bought and no fee was
+            spent. Refusal is free.
+          </p>
+        </div>
       )}
 
       <div className="ps-verdict-foot">
         <span className="ps-label">
           {event.verifier
-            ? `AGREED AT ${pct(event.agreedFraction)} — THE LOWER OF THE TWO`
-            : 'VERIFIER NEVER CONSULTED — NO FEE SPENT'}
+            ? `BOTH AGREED — PAID AT ${pct(event.agreedFraction)}, THE LOWER OF THE TWO`
+            : 'DECIDED BY THE ATTESTOR ALONE'}
         </span>
         <span className="ps-label">{time(event.at)}</span>
       </div>

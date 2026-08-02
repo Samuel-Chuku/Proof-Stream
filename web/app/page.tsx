@@ -1,105 +1,88 @@
-import { EXPLORER_URL } from '@proofstream/config';
 import Link from 'next/link';
 import { listStreams } from '../lib/registry';
-import { AddressChip } from './address-chip';
+import { AgentMark } from './agent-mark';
 import { Footer } from './footer';
 import { GettingStarted } from './getting-started';
-import { Amount } from './amount';
 
-// The registry and every stream's state move while the page is open.
 export const dynamic = 'force-dynamic';
 
-/// The ledger of streams.
+/// Home. Answers "what is this and what do I do" before showing anything else.
 ///
-/// Every registered stream is listed, not just the viewer's — the registry is
-/// public, one agent serving several employers is the claim being made, and a
-/// reader should not need a wallet to see it.
-///
-/// Rows deliberately carry no miniature cell grid. The stream bar is the one
-/// showpiece, and a 4px strip would borrow its language without its meaning:
-/// nobody can count those cells, so the green would become decoration. Green
-/// stays a claim about released USDC, on the stream page where it can be read.
-export default async function Streams() {
+/// The stream list used to live here, which meant a first-time visitor landed
+/// on a table of other people's contracts with no explanation. Streams now have
+/// their own route and this page does the job a home page should.
+export default async function Home() {
   const streams = await listStreams();
+  const released = streams.reduce((sum, s) => sum + Number(s.unlocked), 0);
 
   return (
     <main>
       <header className="ps-masthead">
         <div>
-          <h1 className="ps-display-xl">Streams</h1>
+          <h1 className="ps-display-xl">Payroll that verifies itself</h1>
           <div className="ps-masthead-meta ps-label">
             <span>ARC TESTNET · 5042002</span>
-            <span>{streams.length} REGISTERED</span>
+            <span>
+              {streams.length} STREAM{streams.length === 1 ? '' : 'S'}
+            </span>
+            <span>{(released / 1e6).toFixed(2)} USDC RELEASED BY AGENTS</span>
           </div>
         </div>
       </header>
 
-      <p className="ps-body">
-        USDC payroll that accrues by the second and stays locked until an autonomous agent reads the
-        merged work, judges it against the milestone, buys a second opinion from another agent, and
-        signs an attestation releasing a tranche. One agent process serves every stream below.
+      <p className="ps-lede">
+        USDC accrues by the second and stays <b>locked</b> until an autonomous agent reads the merged
+        work, judges it against the milestone, buys a second opinion from another agent, and signs an
+        attestation releasing a tranche. Stop shipping and the money pauses itself.
       </p>
+      <p className="ps-body">
+        No human approves a payment. The agent spends its own money to do it, and the contract — not
+        the agent — decides how much it is allowed to release.
+      </p>
+
+      <div className="ps-cta-row">
+        <Link className="ps-button" href="/new">
+          [ CREATE A STREAM ]
+        </Link>
+        <Link className="ps-button" href="/streams">
+          [ BROWSE STREAMS ]
+        </Link>
+        <Link className="ps-button" href="/docs">
+          [ HOW IT WORKS ]
+        </Link>
+      </div>
 
       <GettingStarted hasStreams={streams.length > 0} />
 
       <div className="ps-section-rule">
-        <span className="ps-label">STREAMS</span>
+        <span className="ps-label">THE TWO AGENTS</span>
       </div>
 
-      {streams.length === 0 ? (
-        <section className="ps-gate">
-          <p className="ps-body" style={{ marginTop: 0 }}>
-            No streams registered yet. Creating one deploys a contract from your own wallet — you
-            are its employer, and nothing but you can open, fund or close its milestones.
+      <div className="ps-two-col">
+        <section>
+          <h2 className="ps-agent-head">
+            <AgentMark role="attestor" /> THE ATTESTOR
+          </h2>
+          <p className="ps-body">
+            Reads the diff and the milestone straight from the contract, decides whether the work
+            satisfies it and <em>how much it is worth</em>, then signs an EIP-712 attestation and
+            sends the unlock from its own wallet, paying its own gas.
           </p>
-          <Link className="ps-button" href="/new">
-            [ CREATE A STREAM ]
-          </Link>
         </section>
-      ) : (
-        <>
-          <div className="ps-feed">
-            {streams.map((s) => (
-              <Link key={s.address} href={`/stream/${s.address}`} className="ps-stream-row">
-                <span className="ps-tx-action">{s.repo || '(no repo set)'}</span>
-                <span className="ps-caption">
-                  MILESTONE {s.milestoneIndex} · {s.state.toUpperCase()}
-                </span>
-                <span className="ps-stream-figures">
-                  <Amount raw={Number(s.unlocked)} size="m" suffix={false} /> released of{' '}
-                  <Amount raw={Number(s.budget)} size="m" />
-                </span>
-                <span aria-hidden>→</span>
-              </Link>
-            ))}
-          </div>
 
-          <p style={{ marginTop: 'var(--ps-4)' }}>
-            <Link className="ps-button" href="/new">
-              [ CREATE A STREAM ]
-            </Link>
+        <section>
+          <h2 className="ps-agent-head">
+            <AgentMark role="verifier" /> THE VERIFIER
+          </h2>
+          <p className="ps-body">
+            A separate process with its own wallet and a different model vendor. The attestor pays it
+            $0.005 over x402 before acting. It gathers its own copy of the evidence and never sees
+            the attestor&rsquo;s answer — and the payout is the <em>lower</em> of the two.
           </p>
-        </>
-      )}
-
-      <div className="ps-section-rule">
-        <span className="ps-label">THE REGISTRY</span>
+        </section>
       </div>
-      <p className="ps-body">
-        Streams announce themselves to a registry contract, and the agent discovers them by reading
-        its log. Only a stream&rsquo;s own employer can announce it, and the agent refuses any stream
-        that did not appoint it — so nobody can point this agent at a repository it was never hired
-        to watch.
-      </p>
-      <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
-        REGISTRY{' '}
-        <AddressChip
-          address={process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? ''}
-          href={`${EXPLORER_URL}/address/${process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? ''}`}
-        />
-      </p>
-      <Footer />
 
+      <Footer />
     </main>
   );
 }
