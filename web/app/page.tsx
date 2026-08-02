@@ -2,6 +2,7 @@ import { EXPLORER_URL } from '@proofstream/config';
 import Link from 'next/link';
 import { listStreams } from '../lib/registry';
 import { AddressChip } from './address-chip';
+import { Footer } from './footer';
 import { Amount } from './amount';
 import { ThemeToggle } from './theme-toggle';
 
@@ -96,6 +97,8 @@ export default async function Streams() {
           href={`${EXPLORER_URL}/address/${process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? ''}`}
         />
       </p>
+      <Footer />
+
     </main>
   );
 }

@@ -2,6 +2,7 @@ import { EXPLORER_URL } from '@proofstream/config';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
+import { Footer } from '../../footer';
 import { Amount } from '../../amount';
 import { LockedFigure } from '../../stream-bar';
 import { ThemeToggle } from '../../theme-toggle';
@@ -114,6 +115,8 @@ export default async function StreamPage({ params }: { params: Promise<{ address
         {spend.paidReviews} second opinions bought at $0.005 each, paid by the attestor from its own
         wallet.
       </p>
+      <Footer />
+
     </main>
   );
 }

@@ -549,3 +549,60 @@ textarea.ps-input {
     gap: var(--ps-1) var(--ps-2);
   }
 }
+
+/* ---- Footer ---------------------------------------------- */
+
+.ps-footer {
+  margin-top: var(--ps-7);
+  padding-top: var(--ps-3);
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ps-2) var(--ps-4);
+}
+
+.ps-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-4);
+}
+
+.ps-footer-links a {
+  text-decoration: none;
+}
+
+.ps-footer-links a:hover {
+  text-decoration: underline;
+}
+
+/* ---- Docs ------------------------------------------------ */
+
+.ps-numbered {
+  padding-left: var(--ps-4);
+  margin: 0;
+}
+
+.ps-numbered li {
+  margin-bottom: var(--ps-3);
+}
+
+.ps-defs {
+  margin: 0;
+}
+
+.ps-defs dt {
+  color: var(--ps-ink-dim);
+  margin-bottom: var(--ps-1);
+}
+
+.ps-defs dd {
+  margin: 0 0 var(--ps-4);
+}
+
+code {
+  font-family: var(--ps-mono);
+  background: var(--ps-sunk);
+  padding: 0 var(--ps-1);
+}
