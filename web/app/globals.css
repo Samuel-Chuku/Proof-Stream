@@ -446,3 +446,15 @@ a {
     gap: var(--ps-1) var(--ps-2);
   }
 }
+
+/* ---- Address chip group ---------------------------------- */
+
+.ps-chip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-1);
+}
+
+.ps-chip-link {
+  text-decoration: none;
+}

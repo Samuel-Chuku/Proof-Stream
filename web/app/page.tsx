@@ -1,164 +1,172 @@
 import { EXPLORER_URL } from '@proofstream/config';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../lib/events';
 import { readStream } from '../lib/stream';
+import { AddressChip } from './address-chip';
+import { Amount } from './amount';
 import { LockedFigure } from './stream-bar';
+import { ThemeToggle } from './theme-toggle';
 
 // The chain and the agent logs both move while the page is open.
 export const dynamic = 'force-dynamic';
 
-const OUTCOME: Record<string, { label: string; tone: string }> = {
-  unlocked: { label: 'paid', tone: 'ok' },
-  declined: { label: 'refused', tone: 'no' },
-  vetoed: { label: 'vetoed', tone: 'no' },
-  escalated: { label: 'escalated', tone: 'warn' },
-  skipped: { label: 'skipped', tone: 'warn' },
-  unlock_failed: { label: 'failed', tone: 'no' },
-};
+const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
+const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
 
-const pct = (n: number | undefined) => (n === undefined ? '—' : `${Math.round(n * 100)}%`);
-const short = (h: string) => `${h.slice(0, 8)}…${h.slice(-6)}`;
+/// Label sitting on a dashed rule, left-aligned.
+function SectionRule({ children }: { children: string }) {
+  return (
+    <div className="ps-section-rule">
+      <span className="ps-label">{children}</span>
+    </div>
+  );
+}
 
 export default async function Home() {
   const stream = await readStream();
   const { verdicts, reviews } = await readAgentLogs();
   const spend = totalSpend(verdicts, reviews);
   const decisions = verdicts.filter((v) => v.verdict);
+  const settled = verdicts.filter((v) => v.txHash);
 
   return (
     <main>
-      <div className="masthead">
-        <h1 className="wordmark">
-          Proof<b>Stream</b>
-        </h1>
-        {stream && (
-          <a href={`${EXPLORER_URL}/address/${stream.address}`} target="_blank" rel="noreferrer">
-            {short(stream.address)} ↗
-          </a>
-        )}
-      </div>
+      <header className="ps-masthead">
+        <div>
+          <h1 className="ps-display-xl">ProofStream</h1>
+          <div className="ps-masthead-meta ps-label">
+            {stream ? (
+              <>
+                <AddressChip address={stream.address} href={`${EXPLORER_URL}/address/${stream.address}`} />
+                <span>ARC TESTNET · 5042002</span>
+                <span>MILESTONE {stream.milestoneIndex}</span>
+              </>
+            ) : (
+              <span>ARC TESTNET · 5042002</span>
+            )}
+          </div>
+        </div>
+        <ThemeToggle />
+      </header>
 
       {!stream ? (
-        <p className="empty">
-          Cannot read the contract. Check <code>WORKSTREAM_ADDRESS</code> and <code>ARC_RPC_URL</code>.
-        </p>
+        <section className="ps-invert">
+          <h2 className="ps-display-l">⚠ CONTRACT UNREADABLE</h2>
+          <p className="ps-body">
+            The dashboard could not read the stream. Check that WORKSTREAM_ADDRESS points at a
+            deployed contract and that ARC_RPC_URL reaches Arc Testnet, chain 5042002.
+          </p>
+        </section>
       ) : (
         <>
           <LockedFigure stream={stream} />
 
-          <section className="milestone">
-            <p className="figure-label">Milestone, read from the contract</p>
-            <p>{stream.milestone}</p>
-          </section>
+          <SectionRule>MILESTONE</SectionRule>
+          <p className="ps-body">{stream.milestone}</p>
+          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+            WATCHING {stream.repo} · CEILING {(Number(stream.maxTranche) / 1e6).toFixed(0)} USDC PER
+            UNLOCK · {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} PER DAY
+          </p>
 
-          <section>
-            <div className="ledger-head">
-              <h2>Agent decisions</h2>
-              <p>
-                {decisions.length} judged · ceiling {(Number(stream.maxTranche) / 1e6).toFixed(0)} USDC
-                per unlock, {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} a day
+          <SectionRule>AGENT DECISIONS</SectionRule>
+
+          {decisions.length === 0 ? (
+            <section className="ps-gate">
+              <p className="ps-body" style={{ margin: 0 }}>
+                No verdicts yet — the agent posts here when a pull request is merged on{' '}
+                {stream.repo}. The stream continues accruing meanwhile.
               </p>
-            </div>
+            </section>
+          ) : (
+            decisions.map((v, i) => <VerdictCard key={`${v.at}-${i}`} event={v} />)
+          )}
 
-            {decisions.length === 0 ? (
-              <p className="empty">Nothing judged yet. Merge a pull request to wake the agent.</p>
-            ) : (
-              decisions.map((v, i) => <Row key={`${v.at}-${i}`} event={v} open={i === 0} />)
-            )}
-          </section>
+          <SectionRule>ON-CHAIN TRANSACTIONS</SectionRule>
+          {settled.length === 0 ? (
+            <p className="ps-caption">NONE YET</p>
+          ) : (
+            <div className="ps-feed">
+              {settled.map((v, i) => (
+                <div className="ps-tx-row" key={`${v.at}-tx-${i}`}>
+                  <span className="ps-tx-time">{time(v.at)}</span>
+                  <span className="ps-tx-action">UNLOCK</span>
+                  <Amount raw={Number(v.trancheUsdc ?? 0) * 1e6} size="m" />
+                  <a href={`${EXPLORER_URL}/tx/${v.txHash}`} target="_blank" rel="noreferrer">
+                    ↗
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+            ● VERIFICATION FEES SETTLE IN GATEWAY BATCHES AND HAVE NO INDIVIDUAL TRANSACTION
+          </p>
         </>
       )}
 
-      <footer>
-        <p>
-          <b>${spend.total.toFixed(4)}</b> spent by the agents on judgment across {decisions.length}{' '}
-          decisions — inference plus {spend.paidReviews} second opinions bought at $0.005 each.
-        </p>
-        <p>
-          Verification fees settle in Circle Gateway batches, so they do not appear as one Arc
-          transaction each. Unlocks and payouts are direct on-chain transactions and link to the
-          explorer.
-        </p>
-      </footer>
+      <SectionRule>WHAT THE AGENTS SPENT</SectionRule>
+      <p className="ps-body">
+        ${spend.total.toFixed(4)} across {decisions.length} decisions — inference plus{' '}
+        {spend.paidReviews} second opinions bought at $0.005 each, paid by the attestor from its own
+        wallet.
+      </p>
     </main>
   );
 }
 
-function Row({ event, open }: { event: AgentEvent; open: boolean }) {
-  const outcome = OUTCOME[event.event] ?? { label: event.event, tone: 'warn' };
+/// Verbatim model output. Do not summarise, truncate or prettify it — it is the
+/// evidence that this is judgment rather than a boolean in costume.
+function VerdictCard({ event }: { event: AgentEvent }) {
   const v = event.verdict!;
-  const amount = event.trancheUsdc ? `${event.trancheUsdc} USDC` : outcome.label;
+  const paid = Boolean(event.txHash);
 
   return (
-    <details className={`row row-${outcome.tone}`} open={open}>
-      <summary>
-        <span className="mark" />
-        <span className="row-pr">#{event.pr}</span>
-        <span className="row-title">{event.title}</span>
-        <span className="row-amount">{amount}</span>
-        <span className="chev">▶</span>
-      </summary>
-
-      <div className="detail">
-        <div className="judge">
-          <h3>
-            Attestor <code>{event.model}</code>
-          </h3>
-          <p>{v.reasoning}</p>
-          <p className="judge-meta">
-            satisfied <b>{String(v.satisfies_milestone)}</b> · confidence <b>{pct(v.confidence)}</b> ·
-            worth <b>{pct(v.tranche_fraction)}</b>
-          </p>
-          {v.concerns?.length > 0 && (
-            <ul className="notes">
-              {v.concerns.map((c, i) => (
-                <li key={i}>{c}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="judge">
-          {event.verifier ? (
-            <>
-              <h3>
-                Verifier <code>{event.verifier.model}</code> · paid {event.verificationFeeUsdc} USDC
-              </h3>
-              <p>{event.verifier.reasoning}</p>
-              <p className="judge-meta">
-                satisfied <b>{String(event.verifier.satisfies_milestone)}</b> · confidence{' '}
-                <b>{pct(event.verifier.confidence)}</b> · worth <b>{pct(event.verifier.tranche_fraction)}</b>
-              </p>
-              {event.verifier.red_flags?.length > 0 && (
-                <ul className="notes">
-                  {event.verifier.red_flags.map((c, i) => (
-                    <li key={i}>{c}</li>
-                  ))}
-                </ul>
-              )}
-            </>
-          ) : (
-            <>
-              <h3>Verifier — not consulted</h3>
-              <p>The attestor refused on its own judgment, so no fee was spent.</p>
-            </>
-          )}
-        </div>
-
-        <div className="settle">
-          {event.agreedFraction !== undefined ? (
-            <span>
-              Both agreed. Paid at the lower of the two, <b>{pct(event.agreedFraction)}</b> of the ceiling.
-            </span>
-          ) : (
-            <span>{event.reason}</span>
-          )}
-          {event.txHash && (
-            <a href={`${EXPLORER_URL}/tx/${event.txHash}`} target="_blank" rel="noreferrer">
-              {short(event.txHash)} ↗
-            </a>
-          )}
-        </div>
+    <article className="ps-verdict">
+      <div className="ps-verdict-head">
+        <span className="ps-label">
+          {paid ? '◆' : '○'} VERDICT · PR #{event.pr} · {event.model}
+        </span>
+        {event.txHash && (
+          <AddressChip address={event.txHash} href={`${EXPLORER_URL}/tx/${event.txHash}`} />
+        )}
       </div>
-    </details>
+
+      <dl className="ps-verdict-fields">
+        <dt>Satisfies milestone</dt>
+        <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>
+        <dt>Confidence</dt>
+        <dd className="ps-num">{pct(v.confidence)}</dd>
+        {/* A refusal renders identically but with no tranche row. A refusal is a
+            verdict, not an error, and must not look like one. */}
+        {event.trancheUsdc && (
+          <>
+            <dt>Tranche</dt>
+            <dd>
+              <Amount raw={Number(event.trancheUsdc) * 1e6} size="m" />
+            </dd>
+          </>
+        )}
+      </dl>
+
+      <p className="ps-verdict-reasoning">{v.reasoning}</p>
+
+      {event.verifier && (
+        <p className="ps-verdict-reasoning" style={{ borderTop: '1px dashed var(--ps-border)' }}>
+          <span className="ps-label">
+            SECOND OPINION · {event.verifier.model} · PAID {event.verificationFeeUsdc} USDC
+          </span>
+          <br />
+          {event.verifier.reasoning}
+        </p>
+      )}
+
+      <div className="ps-verdict-foot">
+        <span className="ps-label">
+          {event.verifier
+            ? `AGREED AT ${pct(event.agreedFraction)} — THE LOWER OF THE TWO`
+            : 'VERIFIER NEVER CONSULTED — NO FEE SPENT'}
+        </span>
+        <span className="ps-label">{time(event.at)}</span>
+      </div>
+    </article>
   );
 }
