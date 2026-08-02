@@ -27,6 +27,7 @@
     "verdict:test": "tsx --env-file=.env scripts/test-verdict.ts",
     "review:test": "tsx --env-file=.env scripts/test-review.ts",
     "test:amounts": "tsx --test config/test/amounts.test.ts",
+    "sync:artifacts": "tsx scripts/sync-artifacts.ts",
     "seed": "tsx --env-file=.env scripts/demo-seed.ts",
     "evidence": "tsx --env-file=.env scripts/evidence.ts"
   },
