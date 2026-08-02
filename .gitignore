@@ -1,6 +1,8 @@
 .env
 .env.*
 !.env.example
+# GitHub App private key — never commit
+*.pem
 node_modules/
 out/
 cache/

@@ -59,6 +59,14 @@ export const env = {
   // that. Requiring it would refuse to start a fleet agent over a value it
   // never reads. Deploy.s.sol still uses GITHUB_REPO when creating a stream.
   githubToken: required('GITHUB_TOKEN'),
+
+  // --- GitHub App --------------------------------------------------------
+  // A GitHub App has ONE webhook URL and ONE secret, set on the App itself;
+  // installing it on a repo is what subscribes that repo. So there are no
+  // per-repo webhooks to create, and deliveries for every installation arrive
+  // together carrying `repository.full_name` — which is all the registry needs
+  // to route them. Optional: without it the manual per-stream path still works.
+  githubAppWebhookSecret: process.env.GITHUB_APP_WEBHOOK_SECRET,
   webhookSecret: required('GITHUB_WEBHOOK_SECRET'),
 
   // --- LLM provider (any OpenAI-compatible endpoint) -----------------------

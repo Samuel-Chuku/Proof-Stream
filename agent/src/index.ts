@@ -1,15 +1,46 @@
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { env } from './env';
 import { parseMergedPr, verifySignature, webhookSecretFor } from './github';
 import { log, processPr } from './pipeline';
 import { isServed, knownStreams, startRegistry } from './registry';
 
-// Per-stream ingress. GitHub signs each delivery with the secret configured on
-// that repo's webhook, and each stream has its own (see webhookSecretFor), so
-// the path tells us which secret to check the signature against. The legacy
-// `/webhook` path keeps working against the master secret for the original
-// single-stream setup.
+// Three ways in, and the difference between them is only WHICH SECRET signs the
+// delivery. Routing to a stream is identical afterwards: by repository, through
+// the registry.
+//
+//   /webhook/github  the GitHub App. One URL and one secret for every
+//                    installation — installing the App on a repo is what
+//                    subscribes it, so there are no per-repo webhooks to create.
+//   /webhook/0x…     manual setup, signed with that stream's derived secret.
+//                    This is the terminal path: `pnpm webhook:secret <stream>`.
+//   /webhook         the original single-stream fallback, master secret.
 const STREAM_ROUTE = /^\/webhook\/(0x[0-9a-fA-F]{40})$/;
+const APP_ROUTE = '/webhook/github';
+
+/// The agents' logs, served so the dashboard does not need to share a
+/// filesystem with the agent. Everything here is already public — reasoning,
+/// costs, transaction hashes — and is the same material EVIDENCE.md is built
+/// from, so it is deliberately unauthenticated.
+function readLog(file: string, limit: number): unknown[] {
+  try {
+    const raw = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    return raw
+      .split('\n')
+      .filter(Boolean)
+      .slice(-limit)
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
 
 // Registry activity is operational plumbing, not judgment, so it goes to stdout
 // and NOT into verdicts.jsonl. That file is the decision ledger the dashboard
@@ -32,11 +63,35 @@ createServer((req, res) => {
     return;
   }
 
-  const match = req.url ? STREAM_ROUTE.exec(req.url) : null;
-  const legacy = req.url === '/webhook';
+  const url = req.url ?? '';
 
-  if (req.method !== 'POST' || (!match && !legacy)) {
+  if (req.method === 'GET' && url.startsWith('/events')) {
+    const limit = Math.min(Number(new URL(url, 'http://x').searchParams.get('limit') ?? 500) || 500, 2000);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        verdicts: readLog('verdicts.jsonl', limit),
+        reviews: readLog('reviews.jsonl', limit),
+        payouts: readLog('payouts.jsonl', limit),
+      }),
+    );
+    return;
+  }
+
+  const isApp = url === APP_ROUTE;
+  const match = STREAM_ROUTE.exec(url);
+  const legacy = url === '/webhook';
+
+  if (req.method !== 'POST' || (!isApp && !match && !legacy)) {
     res.writeHead(404).end();
+    return;
+  }
+
+  // An App delivery cannot be verified without the App's secret, and accepting
+  // it unverified would let anyone who finds the URL trigger a payout.
+  if (isApp && !env.githubAppWebhookSecret) {
+    log({ event: 'rejected', reason: 'GITHUB_APP_WEBHOOK_SECRET is not set — App deliveries cannot be verified' });
+    res.writeHead(503).end();
     return;
   }
 
@@ -56,10 +111,14 @@ createServer((req, res) => {
     raw += chunk;
   });
   req.on('end', () => {
-    const secret = routedStream ? webhookSecretFor(routedStream) : env.webhookSecret;
+    const secret = isApp
+      ? (env.githubAppWebhookSecret as string)
+      : routedStream
+        ? webhookSecretFor(routedStream)
+        : env.webhookSecret;
 
     if (!verifySignature(raw, req.headers['x-hub-signature-256'] as string | undefined, secret)) {
-      log({ event: 'rejected', stream: routedStream, reason: 'bad webhook signature' });
+      log({ event: 'rejected', stream: routedStream, source: isApp ? 'app' : 'manual', reason: 'bad webhook signature' });
       res.writeHead(401).end();
       return;
     }
@@ -82,6 +141,7 @@ createServer((req, res) => {
   console.log(`  registry:     ${env.registryAddress ?? '(none — single-stream mode)'}`);
   console.log(`  ingress:      ${env.ingressUrl}`);
   console.log(`  model:        ${env.model}`);
+  console.log(`  github app:   ${env.githubAppWebhookSecret ? 'POST /webhook/github' : 'not configured'}`);
 
   // Discover the fleet before announcing readiness, so the startup banner shows
   // what this process will actually serve rather than an empty list.
