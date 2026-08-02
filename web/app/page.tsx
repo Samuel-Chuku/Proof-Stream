@@ -1,5 +1,5 @@
 import { EXPLORER_URL } from '@proofstream/config';
-import { readReviews, readVerdicts, totalSpend, type AgentEvent } from '../lib/events';
+import { readAgentLogs, totalSpend, type AgentEvent } from '../lib/events';
 import { readStream } from '../lib/stream';
 import { LockedFigure } from './stream-bar';
 
@@ -20,8 +20,8 @@ const short = (h: string) => `${h.slice(0, 8)}…${h.slice(-6)}`;
 
 export default async function Home() {
   const stream = await readStream();
-  const verdicts = readVerdicts();
-  const spend = totalSpend(verdicts, readReviews());
+  const { verdicts, reviews } = await readAgentLogs();
+  const spend = totalSpend(verdicts, reviews);
   const decisions = verdicts.filter((v) => v.verdict);
 
   return (

@@ -1,6 +1,10 @@
-// The agent's own logs, read straight off disk. These are the same JSONL files
-// the agents append to at runtime — the page shows their verbatim reasoning
-// rather than a retelling of it.
+// The agents' own logs — the page shows their verbatim reasoning rather than a
+// retelling of it.
+//
+// Two sources, because the web app and the agent no longer share a machine:
+// AGENT_EVENTS_URL fetches them from the agent's read-only /events endpoint,
+// which is how this works in production. With it unset the files are read off
+// disk, so a local checkout still renders without running an agent.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -64,13 +68,28 @@ function readJsonl<T>(relative: string): T[] {
   }
 }
 
-/** Newest first — the feed reads top-down as most-recent-decision-first. */
-export function readVerdicts(): AgentEvent[] {
-  return readJsonl<AgentEvent>('agent/verdicts.jsonl').reverse();
-}
+/// One round trip for both logs. Verdicts come back newest-first, because the
+/// feed reads top-down as most-recent-decision-first.
+export async function readAgentLogs(): Promise<{ verdicts: AgentEvent[]; reviews: Review[] }> {
+  const endpoint = process.env.AGENT_EVENTS_URL;
 
-export function readReviews(): Review[] {
-  return readJsonl<Review>('agent/reviews.jsonl');
+  if (endpoint) {
+    try {
+      const res = await fetch(endpoint, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.json()) as { verdicts?: AgentEvent[]; reviews?: Review[] };
+      return { verdicts: (body.verdicts ?? []).reverse(), reviews: body.reviews ?? [] };
+    } catch {
+      // A dashboard that 500s because the agent is briefly unreachable is worse
+      // than one that renders the chain state with an empty feed.
+      return { verdicts: [], reviews: [] };
+    }
+  }
+
+  return {
+    verdicts: readJsonl<AgentEvent>('agent/verdicts.jsonl').reverse(),
+    reviews: readJsonl<Review>('agent/reviews.jsonl'),
+  };
 }
 
 /** What the agent has spent to earn the right to move money. */
