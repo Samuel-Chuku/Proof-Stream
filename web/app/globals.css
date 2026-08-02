@@ -458,3 +458,65 @@ a {
 .ps-chip-link {
   text-decoration: none;
 }
+
+/* ---- Connect + form (the /new flow) ---------------------- */
+
+.ps-connect-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ps-3);
+}
+
+.ps-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-4) var(--ps-5);
+  margin-bottom: var(--ps-4);
+}
+
+.ps-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-2);
+  margin-bottom: var(--ps-4);
+}
+
+select.ps-input {
+  appearance: none;
+}
+
+textarea.ps-input {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  resize: vertical;
+}
+
+/* The four transactions, shown as a numbered sequence. Hiding that this is
+   four signatures would misrepresent what is happening. */
+.ps-steps {
+  list-style: none;
+  margin: 0 0 var(--ps-4);
+  padding: 0;
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ps-2) var(--ps-3);
+  padding: var(--ps-2) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-problems {
+  margin: 0 0 var(--ps-4);
+  padding-left: var(--ps-4);
+}
+
+@media (max-width: 720px) {
+  .ps-form {
+    grid-template-columns: 1fr;
+  }
+}

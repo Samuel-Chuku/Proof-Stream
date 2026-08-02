@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Silkscreen } from 'next/font/google';
 import localFont from 'next/font/local';
 import './globals.css';
+import { Providers } from './providers';
 import { themeScript } from './theme-toggle';
 
 // Two faces, no third.
@@ -39,7 +40,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Runs before first paint so a stored theme never flashes the other palette. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
