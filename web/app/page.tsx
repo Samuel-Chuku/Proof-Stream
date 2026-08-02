@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { listStreams } from '../lib/registry';
 import { AddressChip } from './address-chip';
 import { Footer } from './footer';
+import { GettingStarted } from './getting-started';
 import { Amount } from './amount';
 import { ThemeToggle } from './theme-toggle';
 
@@ -40,6 +41,8 @@ export default async function Streams() {
         merged work, judges it against the milestone, buys a second opinion from another agent, and
         signs an attestation releasing a tranche. One agent process serves every stream below.
       </p>
+
+      <GettingStarted hasStreams={streams.length > 0} />
 
       <div className="ps-section-rule">
         <span className="ps-label">STREAMS</span>

@@ -606,3 +606,38 @@ code {
   background: var(--ps-sunk);
   padding: 0 var(--ps-1);
 }
+
+/* ---- Getting started guide ------------------------------- */
+
+.ps-guide {
+  background: var(--ps-surface);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  padding: var(--ps-4);
+  margin-bottom: var(--ps-5);
+}
+
+.ps-guide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-3);
+  margin-bottom: var(--ps-3);
+}
+
+.ps-guide .ps-steps {
+  margin-bottom: var(--ps-3);
+}
+
+.ps-guide-action {
+  flex-basis: 100%;
+  margin-top: var(--ps-2);
+}
+
+/* ---- Stream actions -------------------------------------- */
+
+.ps-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-3);
+}

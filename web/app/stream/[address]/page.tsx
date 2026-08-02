@@ -4,6 +4,7 @@ import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
 import { Footer } from '../../footer';
 import { Amount } from '../../amount';
+import { StreamActions } from '../../stream-actions';
 import { LockedFigure } from '../../stream-bar';
 import { ThemeToggle } from '../../theme-toggle';
 
@@ -65,6 +66,9 @@ export default async function StreamPage({ params }: { params: Promise<{ address
       ) : (
         <>
           <LockedFigure stream={stream} />
+
+          <SectionRule>YOUR ACTIONS</SectionRule>
+          <StreamActions stream={stream} />
 
           <SectionRule>MILESTONE</SectionRule>
           <p className="ps-body">{stream.milestone}</p>

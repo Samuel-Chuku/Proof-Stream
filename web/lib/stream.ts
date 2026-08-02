@@ -23,6 +23,9 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'withdrawn', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'nonce', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'agent', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { type: 'function', name: 'employer', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { type: 'function', name: 'contributor', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { type: 'function', name: 'withdrawable', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'vestingVault', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   {
     type: 'function',
@@ -56,6 +59,14 @@ export type Stream = {
   paused: boolean;
   unlocked: string;
   contributorCredited: string;
+  /** Who may call the employer-only functions. Immutable. */
+  employer: string;
+  /** Who may call withdraw(). Immutable. */
+  contributor: string;
+  /** The only address withdraw() may pay. */
+  payee: string;
+  /** Credited but not yet paid out. */
+  withdrawable: string;
   withdrawn: string;
   nonce: number;
   agent: string;
@@ -91,7 +102,7 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
     withRetry(() => client.readContract({ address, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>);
 
   try {
-    const [maxTranche, dailyUnlockCap] = await read<[bigint, bigint, string]>('policy');
+    const [maxTranche, dailyUnlockCap, payee] = await read<[bigint, bigint, `0x${string}`]>('policy');
     const held = await withRetry(() =>
       client.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [address] }),
     );
@@ -112,6 +123,10 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       paused: await read<boolean>('paused'),
       unlocked: (await read<bigint>('unlocked')).toString(),
       contributorCredited: (await read<bigint>('contributorCredited')).toString(),
+      employer: await read<`0x${string}`>('employer'),
+      contributor: await read<`0x${string}`>('contributor'),
+      payee,
+      withdrawable: (await read<bigint>('withdrawable')).toString(),
       withdrawn: (await read<bigint>('withdrawn')).toString(),
       nonce: Number(await read<bigint>('nonce')),
       agent: await read<`0x${string}`>('agent'),
