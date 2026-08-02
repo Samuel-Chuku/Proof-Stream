@@ -22,13 +22,15 @@ const STREAM_REGISTERED = parseAbiItem(
   'event StreamRegistered(address indexed stream, address indexed employer, address indexed agent, string repo)',
 );
 
-// ALWAYS send explicit fromBlock/toBlock. A getLogs call that omits them is
-// rejected outright with `-32602: query exceeds max block range 100000` — which
-// misleadingly reads like a 100k cap on all queries. Measured against the live
-// node, it is not: explicit windows of 100,001, 500,000, 1,000,000 and even
-// 2,000,000 blocks all return fine, and only ~5,000,000 starts timing out.
-// So the window below is about bounding query TIME, not dodging a hard cap.
-const MAX_LOG_WINDOW = 500_000n;
+// Arc's RPC enforces a hard 100,000-block ceiling on eth_getLogs and answers
+// `-32602: query exceeds max block range 100000`. Stay well under it.
+//
+// Do NOT "verify" this with `cast logs --to-block latest` and conclude the cap
+// is soft. Passing the string `latest` takes a different validation path on the
+// node and wide ranges appear to succeed; viem resolves `latest` to a concrete
+// number first, so the real request is numeric on both ends and IS capped.
+// A probe that does not send the same request the code sends proves nothing.
+const MAX_LOG_WINDOW = 45_000n;
 
 export type StreamEntry = {
   stream: `0x${string}`;
@@ -126,6 +128,41 @@ export async function refresh(log: Logger): Promise<void> {
   repoIndex = next;
 }
 
+/// One getLogs call, splitting itself in half if the provider rejects the range.
+///
+/// MAX_LOG_WINDOW is a guess about someone else's node. If a provider enforces
+/// a tighter ceiling — or starts to — the agent should degrade into more, smaller
+/// requests rather than refusing to start. Every other error propagates: only a
+/// range complaint is worth retrying differently.
+async function getLogsInWindow(from: bigint, to: bigint, log: Logger): Promise<any[]> {
+  try {
+    return await publicClient.getLogs({
+      address: env.registryAddress,
+      event: STREAM_REGISTERED,
+      // Rule 2, first pass: never even fetch other agents' streams.
+      args: { agent: env.agentAddress },
+      fromBlock: from,
+      toBlock: to,
+    });
+  } catch (err) {
+    const rangeRejected = /max block range|block range|range is too large/i.test(
+      String((err as Error).message),
+    );
+    if (!rangeRejected || to <= from) throw err;
+
+    const mid = from + (to - from) / 2n;
+    log({
+      event: 'registry_window_halved',
+      from: Number(from),
+      to: Number(to),
+      reason: 'provider rejected the block range — retrying in halves',
+    });
+    const left = await getLogsInWindow(from, mid, log);
+    const right = await getLogsInWindow(mid + 1n, to, log);
+    return [...left, ...right];
+  }
+}
+
 /// Paged so a window never exceeds Arc's cap, and cursored so a steady-state
 /// refresh reads only the handful of blocks since the last one.
 async function scanForNewStreams(log: Logger): Promise<void> {
@@ -139,14 +176,7 @@ async function scanForNewStreams(log: Logger): Promise<void> {
   while (from <= latest) {
     const to = from + MAX_LOG_WINDOW - 1n > latest ? latest : from + MAX_LOG_WINDOW - 1n;
 
-    const logs = await publicClient.getLogs({
-      address: env.registryAddress,
-      event: STREAM_REGISTERED,
-      // Rule 2, first pass: never even fetch other agents' streams.
-      args: { agent: env.agentAddress },
-      fromBlock: from,
-      toBlock: to,
-    });
+    const logs = await getLogsInWindow(from, to, log);
 
     // Ascending block order, so a later registration of the same stream simply
     // overwrites the earlier one.
