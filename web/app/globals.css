@@ -1,7 +1,13 @@
 @import './tokens.css';
 
-/* Ledger: one dominant figure, then rule-separated rows that expand on demand.
-   No card grid, no stat tiles — detail is collapsed, never deleted. */
+/* ============================================================
+   ProofStream — a printed ledger sheet, not a SaaS dashboard.
+   No sidebar, no top nav, no avatar menu, no floating cards.
+
+   Every dimension here is a multiple of 4. Shadows are hard and
+   down-right. Radius is 0 except on chips. If a value breaks one
+   of those, it is wrong — see web/.claude/skills/proofstream-ui.
+   ============================================================ */
 
 * {
   box-sizing: border-box;
@@ -14,460 +20,429 @@ body {
 
 body {
   margin: 0;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
 }
 
 main {
-  max-width: 60rem;
+  max-width: 960px;
   margin: 0 auto;
-  padding: var(--space-xl) var(--space-md) var(--space-2xl);
-}
-
-code {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
+  padding: var(--ps-6) var(--ps-4) var(--ps-7);
 }
 
 a {
   color: inherit;
+  text-underline-offset: 2px;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
+/* ---- Type roles ------------------------------------------ */
 
-.num {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---------------------------------------------------------------- masthead */
-
-.masthead {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-md);
-  padding-bottom: var(--space-md);
-  border-bottom: var(--rule);
-  flex-wrap: wrap;
-}
-
-.wordmark {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-style: normal;
-  font-weight: 400;
+.ps-display-xl,
+.ps-display-l {
+  font-family: var(--ps-display);
+  font-weight: 700;
+  text-transform: uppercase;
   margin: 0;
-  letter-spacing: 0.01em;
 }
 
-.wordmark b {
-  font-weight: 400;
-  color: var(--color-accent);
+.ps-display-xl {
+  font-size: var(--ps-size-display-xl);
+  line-height: var(--ps-lh-display-xl);
 }
 
-.masthead a {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--color-dim);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: color var(--dur-fast) var(--ease-out);
+.ps-display-l {
+  font-size: var(--ps-size-display-l);
+  line-height: var(--ps-lh-display-l);
+}
+
+.ps-label {
+  font-size: var(--ps-size-label);
+  line-height: var(--ps-lh-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.ps-caption {
+  font-size: var(--ps-size-label);
+  line-height: var(--ps-lh-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  color: var(--ps-ink-dim);
+  margin: 0;
+}
+
+.ps-body {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  max-width: 60ch;
+}
+
+/* ---- Amount ---------------------------------------------- */
+
+.ps-amount {
   white-space: nowrap;
 }
 
-.masthead a:hover {
-  color: var(--color-accent);
+.ps-amount-whole {
+  color: var(--ps-ink);
 }
 
-/* -------------------------------------------------------------------- hero */
-
-.hero {
-  padding: var(--space-xl) 0 var(--space-lg);
+.ps-amount-fraction {
+  color: var(--ps-ink-dim);
+  font-size: 0.7em;
 }
 
-.hero-lead {
-  font-family: var(--font-display);
-  font-style: normal;
-  font-weight: 400;
-  font-size: var(--text-display-s);
-  line-height: 1.15;
-  letter-spacing: -0.015em;
-  margin: 0 0 var(--space-xl);
-  max-width: 22ch;
-  overflow-wrap: anywhere;
-  min-width: 0;
+.ps-amount-suffix {
+  color: var(--ps-ink-dim);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  margin-left: var(--ps-2);
 }
 
-.hero-lead em {
-  font-style: normal;
-  color: var(--color-accent);
-}
+.ps-amount-xl { font-size: var(--ps-size-data-xl); line-height: var(--ps-lh-data-xl); }
+.ps-amount-m  { font-size: var(--ps-size-data-m);  line-height: var(--ps-lh-data-m); }
+.ps-amount-s  { font-size: var(--ps-size-body);    line-height: var(--ps-lh-body); }
 
-.figure-label {
-  font-size: var(--text-sm);
-  color: var(--color-dim);
-  margin: 0 0 var(--space-2xs);
-}
+/* ---- Masthead -------------------------------------------- */
 
-.figure {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--text-display);
-  line-height: 1;
-  letter-spacing: -0.04em;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.figure-unit {
-  font-size: 0.22em;
-  color: var(--color-dim);
-  margin-left: 0.5em;
-  letter-spacing: 0;
-}
-
-/* thin, unlabelled bar — the figures below name the segments */
-.bar {
+.ps-masthead {
   display: flex;
-  height: 4px;
-  margin: var(--space-lg) 0 var(--space-sm);
-  background: var(--color-paper-2);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.bar span {
-  transition: width var(--dur-mid) var(--ease-out);
-}
-
-.bar .s-paid {
-  background: var(--color-accent);
-}
-.bar .s-credited {
-  background: var(--color-accent-soft);
-}
-.bar .s-vault {
-  background: var(--color-vault);
-}
-.bar .s-locked {
-  background: var(--color-locked);
-}
-
-.splits {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-lg);
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-muted);
-}
-
-.splits div {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2xs);
-}
-
-.splits b {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  color: var(--color-ink);
-}
-
-.splits i {
-  width: 6px;
-  height: 6px;
-  border-radius: 2px;
-  align-self: center;
-  margin-right: var(--space-2xs);
-  flex: none;
-}
-
-.k-paid {
-  background: var(--color-accent);
-}
-.k-credited {
-  background: var(--color-accent-soft);
-}
-.k-vault {
-  background: var(--color-vault);
-}
-.k-locked {
-  background: var(--color-locked);
-}
-
-.hero-note {
-  margin: var(--space-lg) 0 0;
-  color: var(--color-muted);
-  font-size: var(--text-sm);
-  max-width: 58ch;
-}
-
-.hero-note b {
-  color: var(--color-ink);
-  font-weight: 500;
-}
-
-/* --------------------------------------------------------------- milestone */
-
-.milestone {
-  border-top: var(--rule);
-  padding-top: var(--space-md);
-  margin-bottom: var(--space-xl);
-}
-
-.milestone p {
-  margin: var(--space-2xs) 0 0;
-  color: var(--color-muted);
-  max-width: 70ch;
-}
-
-/* ------------------------------------------------------------------ ledger */
-
-.ledger-head {
-  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-md);
-  border-bottom: var(--rule);
-  padding-bottom: var(--space-xs);
-  flex-wrap: wrap;
+  gap: var(--ps-4);
+  margin-bottom: var(--ps-5);
 }
 
-.ledger-head h2 {
-  font-family: var(--font-display);
-  font-style: normal;
-  font-weight: 400;
-  font-size: var(--text-lg);
-  margin: 0;
-}
-
-.ledger-head p {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-dim);
-}
-
-.row {
-  border-bottom: var(--rule);
-}
-
-.row summary {
+.ps-masthead-meta {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-sm);
-  padding: var(--space-md) 0;
-  cursor: pointer;
-  list-style: none;
-  transition: opacity var(--dur-fast) var(--ease-out);
+  flex-wrap: wrap;
+  gap: var(--ps-2) var(--ps-3);
+  margin-top: var(--ps-2);
+  color: var(--ps-ink-dim);
 }
 
-.row summary::-webkit-details-marker {
-  display: none;
+/* ---- SectionRule: label sitting on a dashed rule ---------- */
+
+.ps-section-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  margin: var(--ps-6) 0 var(--ps-4);
 }
 
-.row summary:hover {
-  opacity: 0.78;
-}
-
-.mark {
-  width: 3px;
-  align-self: stretch;
-  border-radius: 999px;
-  flex: none;
-  background: var(--color-dim);
-}
-
-.row-ok .mark {
-  background: var(--color-accent);
-}
-.row-no .mark {
-  background: var(--color-refused);
-}
-.row-warn .mark {
-  background: var(--color-locked);
-}
-
-.row-pr {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--color-dim);
-  flex: none;
-}
-
-.row-title {
+.ps-section-rule::after {
+  content: '';
   flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
 }
 
-.row-amount {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  flex: none;
+/* ---- The stream bar: the signature element ---------------- */
+
+.ps-hero {
+  margin-bottom: var(--ps-5);
 }
 
-.row-ok .row-amount {
-  color: var(--color-accent);
-}
-.row-no .row-amount {
-  color: var(--color-refused);
-}
-.row-warn .row-amount {
-  color: var(--color-locked);
+.ps-hero-amount {
+  margin: 0 0 var(--ps-1);
 }
 
-.chev {
-  color: var(--color-dim);
-  flex: none;
-  transition: transform var(--dur-fast) var(--ease-out);
-  font-size: 0.7rem;
+.ps-hero-legend {
+  color: var(--ps-ink-dim);
+  margin-bottom: var(--ps-3);
 }
 
-.row[open] .chev {
-  transform: rotate(90deg);
-}
-
-/* ------------------------------------------------------------ row: opened */
-
-.detail {
-  padding: 0 0 var(--space-lg) var(--space-md);
-  display: grid;
-  gap: var(--space-lg);
-}
-
-.judge h3 {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  margin: 0 0 var(--space-2xs);
-  color: var(--color-muted);
+.ps-bar {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-xs);
   flex-wrap: wrap;
+  gap: var(--ps-cell-gap);
+  padding: var(--ps-1);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  background: var(--ps-surface);
+  margin: var(--ps-3) 0 var(--ps-2);
+  width: fit-content;
+  max-width: 100%;
 }
 
-.judge h3 code {
-  color: var(--color-dim);
-  font-weight: 400;
+.ps-cell {
+  width: var(--ps-cell-w);
+  height: var(--ps-cell-h);
+  flex: 0 0 auto;
 }
 
-.judge p {
-  margin: 0;
-  max-width: 72ch;
+/* Adjacent green cells must stay individually countable — the whole
+   justification for the component is that a viewer can count them. */
+.ps-cell.ps-fill-unlocked {
+  box-shadow: inset 0 0 0 1px var(--ps-green-deep);
 }
 
-.judge-meta {
-  margin-top: var(--space-xs);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--color-dim);
-}
-
-.judge-meta b {
-  color: var(--color-ink);
-  font-weight: 500;
-}
-
-.notes {
-  margin: var(--space-xs) 0 0;
-  padding-left: var(--space-md);
-  color: var(--color-muted);
-  font-size: var(--text-sm);
-  max-width: 72ch;
-}
-
-.notes li {
-  margin-bottom: var(--space-2xs);
-}
-
-.settle {
-  border-top: var(--rule);
-  padding-top: var(--space-sm);
+.ps-withdrawn-rule {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  font-size: var(--text-sm);
-  color: var(--color-muted);
+  padding-left: var(--ps-1);
 }
 
-.settle b {
-  color: var(--color-ink);
-  font-weight: 500;
+.ps-withdrawn-rule span {
+  height: var(--ps-bw-struct);
+  background: var(--ps-rule);
 }
 
-.settle a {
-  font-family: var(--font-mono);
-  color: var(--color-accent);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  margin-left: auto;
-  white-space: nowrap;
+.ps-withdrawn-label {
+  color: var(--ps-ink-dim);
+  margin: var(--ps-1) 0 var(--ps-2);
 }
 
-.settle a:hover {
-  border-bottom-color: var(--color-accent);
+/* ---- FundingGate ----------------------------------------- */
+
+.ps-gate {
+  background: var(--ps-surface);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  padding: var(--ps-4);
+  margin-bottom: var(--ps-5);
 }
 
-/* ------------------------------------------------------------------ footer */
+.ps-gate-head {
+  font-family: var(--ps-display);
+  font-weight: 700;
+  font-size: var(--ps-size-display-l);
+  line-height: var(--ps-lh-display-l);
+  text-transform: uppercase;
+  margin: 0 0 var(--ps-4);
+}
 
-footer {
-  margin-top: var(--space-xl);
-  padding-top: var(--space-md);
-  border-top: var(--rule);
-  color: var(--color-dim);
-  font-size: var(--text-sm);
+.ps-gate-meter {
+  height: var(--ps-cell-h);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  background: var(--ps-sunk);
+  margin-bottom: var(--ps-2);
+}
+
+/* Dithered, never green. Deposited money is not unlocked money. */
+.ps-gate-meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--ps-dither-25);
+}
+
+.ps-gate-figure {
+  margin: 0 0 var(--ps-3);
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+}
+
+.ps-gate-body {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  max-width: 60ch;
+  margin: 0 0 var(--ps-3);
+}
+
+/* ---- Primitives ------------------------------------------ */
+
+.ps-button {
+  font: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  padding: 12px 20px;
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+  box-shadow: var(--ps-shadow-2);
+  cursor: pointer;
+}
+
+.ps-button:hover:not(:disabled) {
+  border-color: var(--ps-green-deep);
+}
+
+/* The button physically lands on the page. */
+.ps-button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: var(--ps-shadow-pressed);
+}
+
+.ps-button:disabled {
+  color: var(--ps-ink-faint);
+  border-color: var(--ps-ink-faint);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Green ground ONLY on a button that unlocks or withdraws USDC. */
+.ps-button-primary {
+  background: var(--ps-green);
+  color: var(--ps-on-green);
+}
+
+.ps-input {
+  font: inherit;
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  padding: 12px;
+  width: 100%;
+  background: var(--ps-sunk);
+  color: var(--ps-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+}
+
+.ps-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-1);
+  font-family: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  padding: var(--ps-1) var(--ps-2);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ps-chip-copied {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+}
+
+/* ---- Invert panel: the error treatment. The palette has no red. */
+
+.ps-invert {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  padding: var(--ps-4);
+}
+
+/* ---- Verdict card ---------------------------------------- */
+
+.ps-verdict {
+  background: var(--ps-surface);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-1);
+  margin-bottom: var(--ps-4);
+}
+
+.ps-verdict-head,
+.ps-verdict-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-2);
+  padding: var(--ps-2) var(--ps-3);
+}
+
+.ps-verdict-head {
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-verdict-foot {
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+  color: var(--ps-ink-dim);
+}
+
+.ps-verdict-fields {
   display: grid;
-  gap: var(--space-xs);
+  grid-template-columns: max-content 1fr;
+  gap: var(--ps-1) var(--ps-4);
+  padding: var(--ps-3);
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
 }
 
-footer p {
+.ps-verdict-fields dt {
+  color: var(--ps-ink-dim);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+}
+
+.ps-verdict-fields dd {
   margin: 0;
-  max-width: 78ch;
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
 }
 
-footer b {
-  color: var(--color-muted);
-  font-weight: 500;
+/* Verbatim model output. Never summarised, never truncated — it is the
+   evidence that this is judgment and not a boolean in costume. */
+.ps-verdict-reasoning {
+  padding: var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  max-width: 60ch;
+  margin: 0;
 }
 
-.empty {
-  color: var(--color-muted);
-  padding: var(--space-lg) 0;
+/* ---- Tx feed --------------------------------------------- */
+
+.ps-feed {
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition-duration: 1ms !important;
-  }
+.ps-tx-row {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr max-content;
+  align-items: center;
+  gap: var(--ps-3);
+  min-height: 32px;
+  padding: var(--ps-1) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
 }
 
-@media (max-width: 40rem) {
+.ps-tx-time {
+  color: var(--ps-ink-dim);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+}
+
+.ps-tx-action {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+}
+
+/* ---- Theme toggle ---------------------------------------- */
+
+.ps-theme-toggle {
+  font: inherit;
+  font-size: var(--ps-size-data-m);
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+  box-shadow: var(--ps-shadow-1);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.ps-theme-toggle:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--ps-shadow-pressed);
+}
+
+/* ---- Responsive: the grid wraps, it never scrolls --------- */
+
+@media (max-width: 720px) {
   main {
-    padding: var(--space-lg) var(--space-md) var(--space-xl);
+    padding: var(--ps-4) var(--ps-3) var(--ps-6);
   }
-  .row summary {
-    flex-wrap: wrap;
+
+  .ps-display-xl {
+    font-size: var(--ps-size-display-l);
+    line-height: var(--ps-lh-display-l);
   }
-  .row-title {
-    flex-basis: 100%;
-    order: 3;
-    font-size: var(--text-sm);
-    color: var(--color-muted);
+
+  .ps-verdict-fields {
+    grid-template-columns: 1fr;
   }
-  .detail {
-    padding-left: var(--space-xs);
+
+  .ps-tx-row {
+    grid-template-columns: max-content 1fr;
+    gap: var(--ps-1) var(--ps-2);
   }
 }
