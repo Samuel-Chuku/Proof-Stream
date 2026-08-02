@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Silkscreen } from 'next/font/google';
 import localFont from 'next/font/local';
 import './globals.css';
+import { Nav } from './nav';
 import { Providers } from './providers';
 import { themeScript } from './theme-toggle';
 
@@ -41,7 +42,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <Nav />
+          {children}
+        </Providers>
       </body>
     </html>
   );

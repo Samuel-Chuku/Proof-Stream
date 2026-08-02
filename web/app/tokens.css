@@ -92,19 +92,28 @@
   --ps-display: var(--font-display), ui-monospace, monospace;
   --ps-mono: var(--font-mono), ui-monospace, monospace;
 
-  --ps-size-display-xl: 40px;  --ps-lh-display-xl: 40px;
-  --ps-size-display-l:  28px;  --ps-lh-display-l:  32px;
-  --ps-size-data-xl:    32px;  --ps-lh-data-xl:    32px;
-  --ps-size-data-m:     16px;  --ps-lh-data-m:     20px;
-  --ps-size-body:       13px;  --ps-lh-body:       20px;
-  --ps-size-label:      11px;  --ps-lh-label:      16px;
+  /* Scaled up for readability at the human's request. Line heights stay on
+     the 4px grid, and sizes stay whole pixels so the pixel faces keep their
+     crisp edges — fractional scaling is what makes bitmap-derived outlines
+     go mushy. */
+  --ps-size-display-xl: 48px;  --ps-lh-display-xl: 48px;
+  --ps-size-display-l:  32px;  --ps-lh-display-l:  36px;
+  --ps-size-data-xl:    40px;  --ps-lh-data-xl:    44px;
+  --ps-size-data-m:     18px;  --ps-lh-data-m:     24px;
+  --ps-size-body:       16px;  --ps-lh-body:       28px;
+  --ps-size-label:      13px;  --ps-lh-label:      20px;
 
   --ps-track-label: 1px;  /* letter-spacing on caps labels */
 
+  /* ---- Page ------------------------------------------------ */
+  --ps-page-max: 1200px;
+
   /* ---- Stream bar geometry -------------------------------- */
-  --ps-cell-w:   12px;
-  --ps-cell-h:   20px;
-  --ps-cell-gap:  2px;
+  /* Larger so the hero actually reads as the hero. Still one cell = one USDC
+     and still countable, which is the only thing that must not change. */
+  --ps-cell-w:   20px;
+  --ps-cell-h:   36px;
+  --ps-cell-gap:  4px;
   --ps-cell-max:  60;   /* above this, one cell = a computed unit */
 
   /* ---- Motion: discrete, never eased ---------------------- */

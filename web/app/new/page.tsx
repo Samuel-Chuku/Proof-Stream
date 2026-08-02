@@ -7,7 +7,6 @@ import { AGENT_ADDRESS, EXPLORER } from '../../lib/chain';
 import { approveBudget, deployStream, fundStream, registerStream, validate, type StreamTerms } from '../../lib/create-stream';
 import { AddressChip } from '../address-chip';
 import { Connect } from '../connect';
-import { ThemeToggle } from '../theme-toggle';
 
 type Repo = { id: number; fullName: string; private: boolean };
 type Step = 'deploy' | 'register' | 'approve' | 'fund';
@@ -105,7 +104,6 @@ export default function NewStream() {
           <h1 className="ps-display-xl">New stream</h1>
           <p className="ps-masthead-meta ps-label">ARC TESTNET · 5042002</p>
         </div>
-        <ThemeToggle />
       </header>
 
       <div className="ps-section-rule">

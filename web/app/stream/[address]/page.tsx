@@ -6,7 +6,6 @@ import { Footer } from '../../footer';
 import { Amount } from '../../amount';
 import { StreamActions } from '../../stream-actions';
 import { LockedFigure } from '../../stream-bar';
-import { ThemeToggle } from '../../theme-toggle';
 
 // The chain and the agent logs both move while the page is open.
 export const dynamic = 'force-dynamic';
@@ -52,7 +51,6 @@ export default async function StreamPage({ params }: { params: Promise<{ address
             )}
           </div>
         </div>
-        <ThemeToggle />
       </header>
 
       {!stream ? (
@@ -125,35 +123,46 @@ export default async function StreamPage({ params }: { params: Promise<{ address
   );
 }
 
-/// Verbatim model output. Do not summarise, truncate or prettify it — it is the
-/// evidence that this is judgment rather than a boolean in costume.
+/// Collapsed by default: a preview line, expandable to the verbatim reasoning.
+///
+/// The full text still ships and is still unedited — that is the evidence this
+/// is judgment rather than a boolean in costume. But twenty cards of solid
+/// prose is a wall nobody reads, so the scan layer is the outcome and the
+/// detail is one click away.
 function VerdictCard({ event }: { event: AgentEvent }) {
   const v = event.verdict!;
   const paid = Boolean(event.txHash);
+  const refused = !v.satisfies_milestone;
+
+  // Green edge ONLY where money actually moved; ink for a refusal; faint for
+  // an escalation. See globals.css for why there is no red.
+  const tone = paid ? 'paid' : refused ? 'refused' : 'held';
+  const outcome = paid ? 'RELEASED' : refused ? 'REFUSED' : 'HELD';
 
   return (
-    <article className="ps-verdict">
-      <div className="ps-verdict-head">
+    <details className={`ps-verdict ps-verdict-${tone}`}>
+      <summary>
         <span className="ps-label">
-          {paid ? '◆' : '○'} VERDICT · PR #{event.pr} · {event.model}
+          {paid ? '\u25c6' : '\u25cb'} PR #{event.pr} · {outcome}
         </span>
-        {event.txHash && (
-          <AddressChip address={event.txHash} href={`${EXPLORER_URL}/tx/${event.txHash}`} />
-        )}
-      </div>
+        <span className="ps-verdict-preview">{v.reasoning}</span>
+        <span className="ps-label">
+          {event.trancheUsdc ? <Amount raw={Number(event.trancheUsdc) * 1e6} size="s" /> : '—'}
+        </span>
+      </summary>
 
       <dl className="ps-verdict-fields">
         <dt>Satisfies milestone</dt>
         <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>
         <dt>Confidence</dt>
         <dd className="ps-num">{pct(v.confidence)}</dd>
-        {/* A refusal renders identically but with no tranche row. A refusal is a
-            verdict, not an error, and must not look like one. */}
-        {event.trancheUsdc && (
+        <dt>Model</dt>
+        <dd>{event.model}</dd>
+        {event.txHash && (
           <>
-            <dt>Tranche</dt>
+            <dt>Transaction</dt>
             <dd>
-              <Amount raw={Number(event.trancheUsdc) * 1e6} size="m" />
+              <AddressChip address={event.txHash} href={`${EXPLORER_URL}/tx/${event.txHash}`} />
             </dd>
           </>
         )}
@@ -179,6 +188,6 @@ function VerdictCard({ event }: { event: AgentEvent }) {
         </span>
         <span className="ps-label">{time(event.at)}</span>
       </div>
-    </article>
+    </details>
   );
 }

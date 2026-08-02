@@ -2,7 +2,6 @@ import { EXPLORER_URL } from '@proofstream/config';
 import Link from 'next/link';
 import { AddressChip } from '../address-chip';
 import { Footer } from '../footer';
-import { ThemeToggle } from '../theme-toggle';
 
 export const metadata = {
   title: 'How ProofStream works',
@@ -31,7 +30,6 @@ export default function Docs() {
           <h1 className="ps-display-xl">How it works</h1>
           <p className="ps-masthead-meta ps-label">ARC TESTNET · 5042002</p>
         </div>
-        <ThemeToggle />
       </header>
 
       <p className="ps-body">

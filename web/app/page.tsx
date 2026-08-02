@@ -5,7 +5,6 @@ import { AddressChip } from './address-chip';
 import { Footer } from './footer';
 import { GettingStarted } from './getting-started';
 import { Amount } from './amount';
-import { ThemeToggle } from './theme-toggle';
 
 // The registry and every stream's state move while the page is open.
 export const dynamic = 'force-dynamic';
@@ -27,13 +26,12 @@ export default async function Streams() {
     <main>
       <header className="ps-masthead">
         <div>
-          <h1 className="ps-display-xl">ProofStream</h1>
+          <h1 className="ps-display-xl">Streams</h1>
           <div className="ps-masthead-meta ps-label">
             <span>ARC TESTNET · 5042002</span>
-            <span>{streams.length} STREAM{streams.length === 1 ? '' : 'S'}</span>
+            <span>{streams.length} REGISTERED</span>
           </div>
         </div>
-        <ThemeToggle />
       </header>
 
       <p className="ps-body">

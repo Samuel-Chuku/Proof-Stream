@@ -5,71 +5,113 @@ import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { arcTestnet } from '../lib/chain';
 import { truncate } from './address-chip';
 
-/// Wallet connect, built on wagmi connectors so it obeys the design system:
-/// hard shadows, radius 0, no modal, no animation.
+/// A conventional connect button and modal, built by hand.
 ///
-/// The wrong-network state is not an edge case here — every transaction this
-/// app sends is on Arc Testnet, and a wallet defaulting to mainnet would fail
-/// at signing time with a message the user cannot act on.
+/// The design system bans component libraries because their defaults are
+/// rounded, blurred and animated — but it never banned a modal, and a row of
+/// raw connector buttons is not what anyone expects a dapp to do. So this is
+/// the familiar pattern rendered in the system's own language: hard shadow,
+/// radius 0, no blur, no spring.
 export function Connect() {
   const { address, isConnected, chainId } = useAccount();
   const { connectors, connect, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
+  const [open, setOpen] = useState(false);
 
   // The server cannot know which wallets exist, and the connector list differs
   // between server and client — WalletConnect is browser-only. Rendering
   // nothing until mounted avoids both a hydration mismatch and a flash of
-  // "no wallet detected" before extensions are detected.
+  // "no wallet detected" before extensions are found.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return <p className="ps-caption">…</p>;
+
+  // Close on Escape, like every modal a user has ever met.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  if (!mounted) return <span className="ps-caption">…</span>;
 
   if (isConnected && chainId !== arcTestnet.id) {
     return (
-      <div className="ps-invert">
-        <p className="ps-label" style={{ marginBottom: 'var(--ps-2)' }}>
-          ⚠ WRONG NETWORK
-        </p>
-        <p className="ps-body" style={{ margin: '0 0 var(--ps-3)' }}>
-          This wallet is on chain {chainId}. ProofStream runs on Arc Testnet, chain{' '}
-          {arcTestnet.id}.
-        </p>
-        <button type="button" className="ps-button" onClick={() => switchChain({ chainId: arcTestnet.id })}>
-          [ SWITCH NETWORK ]
-        </button>
-      </div>
+      <button type="button" className="ps-button" onClick={() => switchChain({ chainId: arcTestnet.id })}>
+        [ ⚠ SWITCH TO ARC TESTNET ]
+      </button>
     );
   }
 
   if (isConnected && address) {
     return (
-      <div className="ps-connect-row">
-        <span className="ps-label">CONNECTED {truncate(address)}</span>
+      <span className="ps-connect-row">
+        <span className="ps-label">{truncate(address)}</span>
         <button type="button" className="ps-button" onClick={() => disconnect()}>
           [ DISCONNECT ]
         </button>
-      </div>
+      </span>
     );
   }
 
   return (
-    <div className="ps-connect-row">
-      {connectors.map((connector) => (
-        <button
-          key={connector.uid}
-          type="button"
-          className="ps-button"
-          disabled={isPending}
-          onClick={() => connect({ connector })}
+    <>
+      <button type="button" className="ps-button" onClick={() => setOpen(true)}>
+        [ CONNECT WALLET ]
+      </button>
+
+      {open && (
+        <div
+          className="ps-modal-backdrop"
+          onClick={() => setOpen(false)}
+          role="presentation"
         >
-          [ {connector.name.toUpperCase()} ]
-        </button>
-      ))}
-      {connectors.length === 0 && (
-        <p className="ps-caption">NO WALLET DETECTED — INSTALL A BROWSER WALLET TO CONTINUE</p>
+          <div
+            className="ps-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Connect a wallet"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ps-modal-head">
+              <h2 className="ps-label">CONNECT A WALLET</h2>
+              <button type="button" className="ps-chip" onClick={() => setOpen(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+
+            <div className="ps-modal-body">
+              {connectors.length === 0 && (
+                <p className="ps-body">
+                  No wallet detected. Install a browser wallet, then reload this page.
+                </p>
+              )}
+
+              {connectors.map((connector) => (
+                <button
+                  key={connector.uid}
+                  type="button"
+                  className="ps-button ps-modal-option"
+                  disabled={isPending}
+                  onClick={() => {
+                    connect({ connector });
+                    setOpen(false);
+                  }}
+                >
+                  [ {connector.name.toUpperCase()} ]
+                </button>
+              ))}
+
+              {error && <p className="ps-caption">{error.message}</p>}
+
+              <p className="ps-caption ps-modal-note">
+                ARC TESTNET · CHAIN 5042002 · YOUR WALLET WILL OFFER TO ADD IT
+              </p>
+            </div>
+          </div>
+        </div>
       )}
-      {error && <p className="ps-caption">{error.message}</p>}
-    </div>
+    </>
   );
 }

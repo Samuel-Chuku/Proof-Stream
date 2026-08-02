@@ -23,9 +23,15 @@ body {
 }
 
 main {
-  max-width: 960px;
+  max-width: var(--ps-page-max);
   margin: 0 auto;
-  padding: var(--ps-6) var(--ps-4) var(--ps-7);
+  padding: var(--ps-5) var(--ps-6) var(--ps-7);
+}
+
+/* Prose stays measured even though the page is wide — a 1200px line of 16px
+   text is unreadable regardless of how much room there is. */
+.ps-body {
+  max-width: 72ch;
 }
 
 a {
@@ -640,4 +646,162 @@ code {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ps-3);
+}
+
+/* ---- Nav: a ruled masthead strip, not a floating header --- */
+
+.ps-nav {
+  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+  background: var(--ps-surface);
+}
+
+.ps-nav-inner {
+  max-width: var(--ps-page-max);
+  margin: 0 auto;
+  padding: var(--ps-3) var(--ps-6);
+  display: flex;
+  align-items: center;
+  gap: var(--ps-5);
+}
+
+.ps-nav-mark {
+  font-family: var(--ps-display);
+  font-size: var(--ps-size-data-m);
+  text-transform: uppercase;
+  text-decoration: none;
+  flex: 0 0 auto;
+}
+
+.ps-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-4);
+  flex: 1;
+}
+
+.ps-nav-link {
+  text-decoration: none;
+  color: var(--ps-ink-dim);
+  padding-bottom: var(--ps-1);
+  border-bottom: var(--ps-bw-struct) solid transparent;
+}
+
+.ps-nav-link:hover {
+  color: var(--ps-ink);
+}
+
+.ps-nav-link-active {
+  color: var(--ps-ink);
+  border-bottom-color: var(--ps-rule);
+}
+
+/* ---- Modal ----------------------------------------------- */
+
+.ps-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ps-4);
+  z-index: 10;
+}
+
+.ps-modal {
+  background: var(--ps-paper);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-3);
+  width: 100%;
+  max-width: 420px;
+}
+
+.ps-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-3);
+  padding: var(--ps-3);
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-modal-body {
+  padding: var(--ps-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-3);
+}
+
+.ps-modal-option {
+  width: 100%;
+  text-align: left;
+}
+
+.ps-modal-note {
+  margin-top: var(--ps-1);
+}
+
+/* ---- Verdict status ---------------------------------------
+   The palette has no red and green means unlocked USDC, so the
+   three outcomes are distinguished by the system's OWN language:
+   a green edge where money actually moved, a solid ink edge for
+   a refusal, and the blocked hatch for an escalation. Different
+   at a glance, without inventing a status hue that would dilute
+   the one colour that carries meaning. */
+
+.ps-verdict {
+  border-left-width: var(--ps-3);
+}
+
+.ps-verdict-paid {
+  border-left-color: var(--ps-green-deep);
+}
+
+.ps-verdict-refused {
+  border-left-color: var(--ps-ink);
+}
+
+.ps-verdict-held {
+  border-left-color: var(--ps-ink-faint);
+}
+
+.ps-verdict summary {
+  cursor: pointer;
+  list-style: none;
+  padding: var(--ps-3);
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  align-items: baseline;
+  gap: var(--ps-3);
+}
+
+.ps-verdict summary::-webkit-details-marker {
+  display: none;
+}
+
+.ps-verdict summary:hover {
+  background: var(--ps-sunk);
+}
+
+.ps-verdict-preview {
+  color: var(--ps-ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  main {
+    padding: var(--ps-4) var(--ps-3) var(--ps-6);
+  }
+
+  .ps-nav-inner {
+    padding: var(--ps-3);
+    gap: var(--ps-3);
+    flex-wrap: wrap;
+  }
+
+  .ps-verdict summary {
+    grid-template-columns: 1fr;
+  }
 }
