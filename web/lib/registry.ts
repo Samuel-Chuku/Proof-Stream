@@ -42,39 +42,61 @@ export type StreamSummary = {
 };
 
 const client = () =>
-  createPublicClient({ chain: arcTestnet, transport: http(process.env.ARC_RPC_URL) });
+  createPublicClient({
+    chain: arcTestnet,
+    transport: http(process.env.ARC_RPC_URL, { batch: { wait: 8 } }),
+    // Multicall3 is deployed on Arc, so each stream's nine reads collapse into
+    // one request instead of nine round trips.
+    batch: { multicall: true },
+  });
+
+/// The registry log scan is the expensive half of this page: a paged sweep from
+/// the deploy block on every request. Streams are announced rarely, so a short
+/// process-level cache turns that into one sweep a minute instead of one per
+/// visitor. Deliberately not Next's cache — this must also work when the page
+/// is force-dynamic, which it is because the STREAM STATE must stay live.
+let discoveryCache: { at: number; streams: { stream: `0x${string}`; employer: `0x${string}` }[] } | null = null;
+const DISCOVERY_TTL_MS = 60_000;
 
 export async function listStreams(): Promise<StreamSummary[]> {
   const registry = process.env.NEXT_PUBLIC_REGISTRY_ADDRESS as `0x${string}` | undefined;
   if (!registry) return [];
 
-  const from = BigInt(process.env.REGISTRY_DEPLOY_BLOCK ?? '54593230');
   const rpc = client();
+  let discovered = discoveryCache && Date.now() - discoveryCache.at < DISCOVERY_TTL_MS
+    ? discoveryCache.streams
+    : null;
 
-  let cursor = from;
-  const latest = await rpc.getBlockNumber();
-  const seen = new Map<string, { stream: `0x${string}`; employer: `0x${string}` }>();
+  if (!discovered) {
+    const from = BigInt(process.env.REGISTRY_DEPLOY_BLOCK ?? '54593230');
+    let cursor = from;
+    const latest = await rpc.getBlockNumber();
+    const seen = new Map<string, { stream: `0x${string}`; employer: `0x${string}` }>();
 
-  while (cursor <= latest) {
-    const to = cursor + MAX_LOG_WINDOW - 1n > latest ? latest : cursor + MAX_LOG_WINDOW - 1n;
-    const logs = await rpc.getLogs({
-      address: registry,
-      event: STREAM_REGISTERED,
-      fromBlock: cursor,
-      toBlock: to,
-    });
-    // Ascending, so a later registration of the same stream simply overwrites.
-    for (const entry of logs) {
-      seen.set((entry.args.stream as string).toLowerCase(), {
-        stream: entry.args.stream as `0x${string}`,
-        employer: entry.args.employer as `0x${string}`,
+    while (cursor <= latest) {
+      const to = cursor + MAX_LOG_WINDOW - 1n > latest ? latest : cursor + MAX_LOG_WINDOW - 1n;
+      const logs = await rpc.getLogs({
+        address: registry,
+        event: STREAM_REGISTERED,
+        fromBlock: cursor,
+        toBlock: to,
       });
+      // Ascending, so a later registration of the same stream simply overwrites.
+      for (const entry of logs) {
+        seen.set((entry.args.stream as string).toLowerCase(), {
+          stream: entry.args.stream as `0x${string}`,
+          employer: entry.args.employer as `0x${string}`,
+        });
+      }
+      cursor = to + 1n;
     }
-    cursor = to + 1n;
+
+    discovered = [...seen.values()];
+    discoveryCache = { at: Date.now(), streams: discovered };
   }
 
   const summaries: StreamSummary[] = [];
-  for (const { stream, employer } of seen.values()) {
+  for (const { stream, employer } of discovered) {
     try {
       const read = <T>(functionName: string) =>
         rpc.readContract({ address: stream, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;

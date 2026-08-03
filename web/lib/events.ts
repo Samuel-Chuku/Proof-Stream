@@ -73,17 +73,31 @@ function readJsonl<T>(relative: string): T[] {
   }
 }
 
+/// Bounding the payload did not help: the cost is the round trip to the agent
+/// through the tunnel, not the bytes. So cache it briefly instead. Verdicts
+/// arrive minutes apart at best — a merged PR has to be judged first — so a few
+/// seconds of staleness is invisible, while the saving is a second per view.
+let logsCache: { at: number; value: { verdicts: AgentEvent[]; reviews: Review[] } } | null = null;
+const LOGS_TTL_MS = 15_000;
+
 /// One round trip for both logs. Verdicts come back newest-first, because the
 /// feed reads top-down as most-recent-decision-first.
 export async function readAgentLogs(): Promise<{ verdicts: AgentEvent[]; reviews: Review[] }> {
   const endpoint = process.env.AGENT_EVENTS_URL;
 
   if (endpoint) {
+    if (logsCache && Date.now() - logsCache.at < LOGS_TTL_MS) return logsCache.value;
     try {
-      const res = await fetch(endpoint, { cache: 'no-store' });
+      // Bounded: the feed shows recent decisions, and the full log is 300KB+
+      // of JSON that costs a second on every page view to transfer and parse.
+      const url = new URL(endpoint);
+      if (!url.searchParams.has('limit')) url.searchParams.set('limit', '120');
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = (await res.json()) as { verdicts?: AgentEvent[]; reviews?: Review[] };
-      return { verdicts: (body.verdicts ?? []).reverse(), reviews: body.reviews ?? [] };
+      const value = { verdicts: (body.verdicts ?? []).reverse(), reviews: body.reviews ?? [] };
+      logsCache = { at: Date.now(), value };
+      return value;
     } catch {
       // A dashboard that 500s because the agent is briefly unreachable is worse
       // than one that renders the chain state with an empty feed.

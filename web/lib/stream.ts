@@ -80,8 +80,13 @@ export type Stream = {
   held: string;
 };
 
-// Arc rate-limits bursts, so reads are sequential with a retry rather than a
-// Promise.all that trips -32011.
+// Multicall3 IS deployed on Arc at the canonical address, and viem's arcTestnet
+// declares it — so `batch: { multicall: true }` collapses every concurrent read
+// below into ONE request. That removes the reason these reads used to be
+// sequential: they were serialised to avoid tripping Arc's -32011 rate limit,
+// which cost ~5s per page. One batched request costs one round trip.
+//
+// The retry stays for the single call that now goes out.
 async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
   for (let i = 0; ; i++) {
     try {
@@ -100,41 +105,79 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
   const address = (streamAddress ?? process.env.WORKSTREAM_ADDRESS) as `0x${string}` | undefined;
   if (!address) return null;
 
-  const client = createPublicClient({ chain: arcTestnet, transport: http(process.env.ARC_RPC_URL) });
+  const client = createPublicClient({
+    chain: arcTestnet,
+    transport: http(process.env.ARC_RPC_URL, { batch: { wait: 8 } }),
+    batch: { multicall: true },
+  });
+
   const read = <T>(functionName: string) =>
-    withRetry(() => client.readContract({ address, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>);
+    client.readContract({ address, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
 
   try {
-    const [maxTranche, dailyUnlockCap, payee] = await read<[bigint, bigint, `0x${string}`]>('policy');
-    const held = await withRetry(() =>
-      client.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [address] }),
+    // Fired together on purpose — the multicall batcher turns them into one
+    // request. Awaiting them one at a time is what made this page take 5s.
+    const [
+      policy, held, milestone, repo, funded, budget, duration, activatedAt, fullyFunded,
+      milestoneIndex, milestoneUnlocked, pausedSeconds, pausedAt, paused, unlocked,
+      contributorCredited, employer, contributor, withdrawable, milestoneClosed, withdrawn,
+      nonce, agent, vault,
+    ] = await withRetry(() =>
+      Promise.all([
+        read<[bigint, bigint, `0x${string}`]>('policy'),
+        client.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [address] }),
+        read<string>('milestone'),
+        read<string>('repo'),
+        read<bigint>('funded'),
+        read<bigint>('budget'),
+        read<bigint>('duration'),
+        read<bigint>('activatedAt'),
+        read<boolean>('fullyFunded'),
+        read<bigint>('milestoneIndex'),
+        read<bigint>('milestoneUnlocked'),
+        read<bigint>('pausedSeconds'),
+        read<bigint>('pausedAt'),
+        read<boolean>('paused'),
+        read<bigint>('unlocked'),
+        read<bigint>('contributorCredited'),
+        read<`0x${string}`>('employer'),
+        read<`0x${string}`>('contributor'),
+        read<bigint>('withdrawable'),
+        read<boolean>('milestoneClosed'),
+        read<bigint>('withdrawn'),
+        read<bigint>('nonce'),
+        read<`0x${string}`>('agent'),
+        read<`0x${string}`>('vestingVault'),
+      ]),
     );
+
+    const [maxTranche, dailyUnlockCap, payee] = policy;
 
     return {
       address,
-      milestone: await read<string>('milestone'),
-      repo: await read<string>('repo'),
-      funded: (await read<bigint>('funded')).toString(),
-      budget: (await read<bigint>('budget')).toString(),
-      duration: Number(await read<bigint>('duration')),
-      activatedAt: Number(await read<bigint>('activatedAt')),
-      fullyFunded: await read<boolean>('fullyFunded'),
-      milestoneIndex: Number(await read<bigint>('milestoneIndex')),
-      milestoneUnlocked: (await read<bigint>('milestoneUnlocked')).toString(),
-      pausedSeconds: Number(await read<bigint>('pausedSeconds')),
-      pausedAt: Number(await read<bigint>('pausedAt')),
-      paused: await read<boolean>('paused'),
-      unlocked: (await read<bigint>('unlocked')).toString(),
-      contributorCredited: (await read<bigint>('contributorCredited')).toString(),
-      employer: await read<`0x${string}`>('employer'),
-      contributor: await read<`0x${string}`>('contributor'),
+      milestone,
+      repo,
+      funded: funded.toString(),
+      budget: budget.toString(),
+      duration: Number(duration),
+      activatedAt: Number(activatedAt),
+      fullyFunded,
+      milestoneIndex: Number(milestoneIndex),
+      milestoneUnlocked: milestoneUnlocked.toString(),
+      pausedSeconds: Number(pausedSeconds),
+      pausedAt: Number(pausedAt),
+      paused,
+      unlocked: unlocked.toString(),
+      contributorCredited: contributorCredited.toString(),
+      employer,
+      contributor,
       payee,
-      withdrawable: (await read<bigint>('withdrawable')).toString(),
-      milestoneClosed: await read<boolean>('milestoneClosed'),
-      withdrawn: (await read<bigint>('withdrawn')).toString(),
-      nonce: Number(await read<bigint>('nonce')),
-      agent: await read<`0x${string}`>('agent'),
-      vault: await read<`0x${string}`>('vestingVault'),
+      withdrawable: withdrawable.toString(),
+      milestoneClosed,
+      withdrawn: withdrawn.toString(),
+      nonce: Number(nonce),
+      agent,
+      vault,
       maxTranche: maxTranche.toString(),
       dailyUnlockCap: dailyUnlockCap.toString(),
       held: held.toString(),

@@ -150,7 +150,7 @@ Running the system:
 ```bash
 pnpm verifier:dev              # the seller — keep it up
 pnpm agent:dev                 # the attestor, listening for webhooks
-pnpm web:dev                   # the dashboard, http://localhost:3000
+pnpm web:dev                   # the web app, http://localhost:3000
 pnpm seed 8 20 15              # drive changesets through unattended
 pnpm evidence                  # regenerate EVIDENCE.md
 ```
@@ -180,6 +180,10 @@ its own configuration.
 | `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET` | Reading diffs and verifying webhook signatures. The webhook secret is a **master** — each stream's own secret is derived from it |
 | `AGENT_INGRESS_URL` | Public URL GitHub delivers webhooks to |
 | `LLM_BASE_URL`, `LLM_API_KEY`, `AGENT_MODEL`, `VERIFIER_MODEL` | The two judges. Different vendors on purpose |
+| `GITHUB_APP_*`, `SESSION_SECRET` | GitHub App connect flow for the web app |
+| `AGENT_EVENTS_URL` | Where the dashboard reads the agents' logs; unset falls back to local disk |
+| `RECONCILE_LOOKBACK_HOURS`, `RECONCILE_MAX_PRS` | Missed-webhook recovery bounds |
+| `NEXT_PUBLIC_*` | Client-side only — never put a secret behind this prefix |
 | `CONTRIBUTOR_*`, `VAULT_*` | Demo fixtures only — see below |
 
 The contributor and vault private keys exist solely so unattended seeding can call
@@ -214,11 +218,26 @@ Two judges from the same model is not a second opinion, so keep `AGENT_MODEL` an
 `VERIFIER_MODEL` different. To split them across providers entirely, run the attestor and
 the verifier with different `.env` files; they are separate processes.
 
+## The web app
+
+A stream is created from the employer's **own wallet** — the browser sends the deployment
+transaction itself. That is not a stylistic choice: `WorkStream` records
+`employer = msg.sender` in its constructor and the field is immutable, so a factory would
+own every stream it minted and `closeMilestone` would refund into it permanently. Streams
+then announce themselves to a registry the agent reads.
+
+Routes: `/` explains the system, `/streams` lists every registered stream, `/stream/<address>`
+is one stream's ledger with role-aware actions, `/new` creates one, `/docs` is the technical
+reference. Every action also exists as a `pnpm` command — the UI is a second front door,
+never a replacement.
+
 ## Notes on Arc
 
 - Native gas and ERC-20 USDC are the same asset at different scales: 18 decimals via
   `eth_getBalance`, 6 via `balanceOf`. All formatting goes through `config/src/amounts.ts`,
   which has a round-trip test.
+- **Multicall3 is deployed** at the canonical address, and batching reads through it is the
+  difference between a 5-second page load and a 200-millisecond one.
 - Arc's USDC contract calls a blocklist precompile that local EVMs lack, so USDC calls
   cannot run inside a `forge script`. Deployment is deploy-only; funding runs through
   `cast send` against the live node.
