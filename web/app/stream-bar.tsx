@@ -57,6 +57,7 @@ export function LockedFigure({ stream }: { stream: Stream }) {
   // Starts null and fills in after mount: a live clock rendered on the server
   // mismatches the first client frame and React warns on hydration.
   const [now, setNow] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
 
   useEffect(() => {
     const tick = () => setNow(Math.floor(Date.now() / 1000));
@@ -111,49 +112,94 @@ export function LockedFigure({ stream }: { stream: Stream }) {
   const bar = cells(budget, unlocked, accrued);
 
   const rate = stream.duration > 0 ? (budget / USDC / stream.duration) * 3600 : 0;
-  const withdrawnCells = Math.round(withdrawn / USDC / bar.perCell);
+
+  // `withdrawn` is the stream's LIFETIME total across every milestone, while
+  // this bar is one milestone. Drawing it unclamped ran the underline far past
+  // the bar — 40 USDC withdrawn against a 15 USDC milestone. Cap it at the
+  // cells that exist, and label the figure as lifetime so the number is not
+  // read as belonging to this milestone.
+  const unlockedCells = bar.states.filter((c) => c === 'unlocked').length;
+  const withdrawnCells = Math.min(Math.round(withdrawn / USDC / bar.perCell), unlockedCells);
+
+  const describe = (state: CellState) =>
+    state === 'unlocked'
+      ? 'RELEASED BY THE AGENT'
+      : state === 'locked'
+        ? 'EARNED, AWAITING VERIFICATION'
+        : 'NOT EARNED YET';
 
   return (
     <section className="ps-hero">
-      <p className="ps-hero-amount" suppressHydrationWarning>
+      <p className="ps-hero-amount">
         <Amount raw={unlocked} size="xl" />
       </p>
-      <p className="ps-label ps-hero-legend">UNLOCKED / ACCRUED / BUDGET</p>
-      <p className="ps-caption" suppressHydrationWarning>
-        {now === null ? '—' : (accrued / USDC).toFixed(6)} accrued · {(budget / USDC).toFixed(6)} budget
-      </p>
+      <p className="ps-label ps-hero-legend">RELEASED BY THE AGENT ON THIS MILESTONE</p>
+
+      <div className="ps-figures">
+        <div>
+          <span className="ps-caption">EARNED SO FAR</span>
+          <span suppressHydrationWarning>
+            <Amount raw={now === null ? 0 : accrued} size="m" />
+          </span>
+        </div>
+        <div>
+          <span className="ps-caption">MILESTONE BUDGET</span>
+          <Amount raw={budget} size="m" />
+        </div>
+        <div>
+          <span className="ps-caption">WITHDRAWN, ALL MILESTONES</span>
+          <Amount raw={withdrawn} size="m" />
+        </div>
+      </div>
 
       <div
         className="ps-bar"
         role="img"
-        aria-label={`${(unlocked / USDC).toFixed(6)} of ${(budget / USDC).toFixed(6)} USDC unlocked`}
+        aria-label={`${(unlocked / USDC).toFixed(6)} of ${(budget / USDC).toFixed(6)} USDC released`}
+        onMouseLeave={() => setHovered(null)}
       >
         {bar.states.map((state, i) => (
-          <span key={i} className={`ps-cell ps-fill-${state}`} suppressHydrationWarning />
+          <span
+            key={i}
+            className={`ps-cell ps-fill-${state}`}
+            onMouseEnter={() => setHovered(i)}
+            // Native tooltip as well as the readout below: it survives touch,
+            // screen readers and anyone who does not look down.
+            title={`${(bar.perCell * (i + 1)).toFixed(2)} USDC — ${describe(state)}`}
+            suppressHydrationWarning
+          />
         ))}
       </div>
 
-      {/* Withdrawn is not a fifth cell state — it is a fact ABOUT unlocked
-          money, so it is an underline beneath the frame, not a different fill. */}
       {withdrawnCells > 0 && (
-        <div className="ps-withdrawn-rule" role="presentation">
-          <span
-            style={{
-              width: `calc(${withdrawnCells} * (var(--ps-cell-w) + var(--ps-cell-gap)))`,
-            }}
-          />
-        </div>
-      )}
-      {withdrawnCells > 0 && (
-        <p className="ps-label ps-withdrawn-label">
-          WITHDRAWN <Amount raw={withdrawn} size="s" />
-        </p>
+        <>
+          <div className="ps-withdrawn-rule" role="presentation">
+            <span
+              style={{ width: `calc(${withdrawnCells} * (var(--ps-cell-w) + var(--ps-cell-gap)))` }}
+            />
+          </div>
+          <p className="ps-label ps-withdrawn-label">PAID OUT TO THE CONTRIBUTOR</p>
+        </>
       )}
 
+      {/* Hovering a cell explains that cell; otherwise the legend explains the
+          three fills. Same line, so the layout never jumps. */}
+      <p className="ps-bar-readout ps-caption" suppressHydrationWarning>
+        {hovered !== null ? (
+          <>
+            CELL {hovered + 1} OF {bar.count} · {describe(bar.states[hovered])}
+          </>
+        ) : (
+          <>
+            <span className="ps-key ps-fill-unlocked" /> RELEASED
+            <span className="ps-key ps-fill-locked" /> EARNED, LOCKED
+            <span className="ps-key ps-fill-unaccrued" /> NOT EARNED YET
+          </>
+        )}
+      </p>
+
       <p className="ps-caption">
-        {bar.perCell === 1
-          ? '1 CELL = 1 USDC'
-          : `1 CELL = ${bar.perCell.toFixed(2)} USDC`}
+        {bar.perCell === 1 ? '1 CELL = 1 USDC' : `1 CELL = ${bar.perCell.toFixed(2)} USDC`}
         {rate > 0 && ` · ACCRUING ${rate.toFixed(6)} USDC / HOUR`}
         {stream.paused && ' · PAUSED, NOTHING NEW ACCRUES'}
       </p>

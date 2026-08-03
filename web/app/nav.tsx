@@ -13,8 +13,9 @@ import { ThemeToggle } from './theme-toggle';
 /// built as a ruled masthead strip rather than a floating SaaS header: no
 /// shadow, no sticky blur, no avatar menu, hairline underneath, and it scrolls
 /// with the page like the top of a printed sheet.
+// No HOME entry — the wordmark is the home link, which is the convention
+// every user already knows.
 const LINKS = [
-  { href: '/', label: 'HOME' },
   { href: '/streams', label: 'STREAMS' },
   { href: '/new', label: 'NEW STREAM' },
   { href: '/docs', label: 'HOW IT WORKS' },
@@ -33,11 +34,7 @@ export function Nav() {
         <div className="ps-nav-links">
           {LINKS.map((link) => {
             const active =
-              link.href === '/'
-                ? pathname === '/'
-                : link.href === '/streams'
-                  ? pathname.startsWith('/stream')
-                  : pathname === link.href;
+              link.href === '/streams' ? pathname.startsWith('/stream') : pathname === link.href;
             return (
               <Link
                 key={link.href}

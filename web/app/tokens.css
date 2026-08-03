@@ -105,6 +105,13 @@
      a verdict card carries several paragraphs of machine output and body size
      turns them into a wall. Line height stays on the 4px grid. */
   --ps-size-detail:     14px;  --ps-lh-detail:     24px;
+  /* Chrome and previews: navigation, the verdict scan line. Below everything
+     the page itself says, so it never competes with content. */
+  --ps-size-nav:        12px;  --ps-lh-nav:        16px;
+  /* Section headings sitting on the dashed rule. Set in the DISPLAY face:
+     Departure Mono ships a single weight, so there is no bold to reach for —
+     the heavier face is what separates a heading from body text. */
+  --ps-size-section:    16px;  --ps-lh-section:    24px;
   --ps-size-label:      13px;  --ps-lh-label:      20px;
 
   --ps-track-label: 1px;  /* letter-spacing on caps labels */

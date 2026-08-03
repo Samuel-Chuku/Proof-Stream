@@ -135,6 +135,17 @@ a {
   margin: var(--ps-6) 0 var(--ps-4);
 }
 
+/* Scoped to the rule so .ps-label keeps its caption role everywhere else. */
+.ps-section-rule > .ps-label {
+  font-family: var(--ps-display);
+  font-size: var(--ps-size-section);
+  line-height: var(--ps-lh-section);
+  color: var(--ps-ink);
+  /* Silkscreen is already wide; the extra tracking that helps Departure Mono
+     labels makes it straggle. */
+  letter-spacing: 0;
+}
+
 .ps-section-rule::after {
   content: '';
   flex: 1;
@@ -622,6 +633,9 @@ code {
 }
 
 .ps-nav-link {
+  /* Deliberately below the label size: navigation is chrome, and should sit
+     under the page's own text rather than competing with it. */
+  font-size: var(--ps-size-nav);
   text-decoration: none;
   color: var(--ps-ink-dim);
   padding-bottom: var(--ps-1);
@@ -787,7 +801,7 @@ code {
 
 /* Smaller than body on purpose — it is a preview, not the content. */
 .ps-verdict-preview {
-  font-size: var(--ps-size-detail);
+  font-size: var(--ps-size-nav);
   line-height: var(--ps-lh-detail);
   color: var(--ps-ink-dim);
   overflow: hidden;
@@ -884,4 +898,55 @@ code {
   .ps-verdict-fields {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---- Hero figures + bar readout -------------------------- */
+
+.ps-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-3) var(--ps-6);
+  margin: var(--ps-3) 0 var(--ps-4);
+}
+
+.ps-figures > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-1);
+}
+
+/* Cells respond to the pointer so it is obvious they carry information. */
+.ps-cell {
+  cursor: help;
+}
+
+.ps-cell:hover {
+  box-shadow: inset 0 0 0 var(--ps-bw-struct) var(--ps-rule);
+}
+
+.ps-cell.ps-fill-unlocked:hover {
+  box-shadow: inset 0 0 0 var(--ps-bw-struct) var(--ps-rule);
+}
+
+/* Fixed height so swapping legend for readout never shifts the page. */
+.ps-bar-readout {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  min-height: var(--ps-4);
+  margin-bottom: var(--ps-1);
+}
+
+/* Legend swatches: the same four fills, at chip scale. */
+.ps-key {
+  display: inline-block;
+  width: var(--ps-3);
+  height: var(--ps-3);
+  border: var(--ps-bw-hair) solid var(--ps-rule);
+  vertical-align: middle;
+}
+
+.ps-key + .ps-key,
+.ps-bar-readout .ps-key:not(:first-child) {
+  margin-left: var(--ps-3);
 }

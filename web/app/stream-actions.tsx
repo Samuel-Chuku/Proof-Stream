@@ -8,6 +8,27 @@ import type { Stream } from '../lib/stream';
 import { Amount } from './amount';
 import { Connect } from './connect';
 
+/// Not every failure is a failed transaction, and calling them all one thing
+/// sends people hunting for chain problems that do not exist.
+///
+/// A stale chunk in particular never reaches the wallet: the page simply could
+/// not load the code to build the call. Saying "TRANSACTION FAILED" there is
+/// actively misleading.
+function classify(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+
+  if (/Loading chunk|ChunkLoadError|dynamically imported module/i.test(message)) {
+    return 'This page is running out-of-date code and could not load part of itself. Nothing was sent to your wallet or to the chain. Reload the page and try again.';
+  }
+  if (/User rejected|User denied|rejected the request/i.test(message)) {
+    return 'You declined the signature in your wallet. Nothing was sent.';
+  }
+  if (/insufficient funds/i.test(message)) {
+    return 'Not enough USDC to cover this transaction and its gas. On Arc, gas is paid in the same USDC.';
+  }
+  return message.split('\n')[0];
+}
+
 const WORK_STREAM_ABI = [
   { type: 'function', name: 'fund', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
   { type: 'function', name: 'pause', stateMutability: 'nonpayable', inputs: [], outputs: [] },
@@ -48,6 +69,11 @@ export function StreamActions({ stream }: { stream: Stream }) {
   const withdrawable = BigInt(stream.withdrawable);
   const outstanding = BigInt(stream.budget) - BigInt(stream.funded);
 
+  // A settled milestone rejects fund, pause and close. Offering a button that
+  // is guaranteed to revert wastes a signature and teaches the user nothing —
+  // the contract already refuses, so the UI should not pretend otherwise.
+  const settled = stream.milestoneClosed;
+
   async function run(label: string, send: () => Promise<`0x${string}`>) {
     setBusy(label);
     setError(null);
@@ -60,7 +86,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
       // makes the new balance appear rather than a hand-maintained cache.
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message.split('\n')[0] : String(err));
+      setError(classify(err));
     } finally {
       setBusy(null);
     }
@@ -108,7 +134,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
           </button>
         )}
 
-        {isEmployer && outstanding > 0n && (
+        {isEmployer && outstanding > 0n && !settled && (
           <button
             type="button"
             className="ps-button"
@@ -136,7 +162,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
           </button>
         )}
 
-        {isEmployer && (
+        {isEmployer && !settled && (
           <button
             type="button"
             className="ps-button"
@@ -155,7 +181,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
           </button>
         )}
 
-        {isEmployer && (
+        {isEmployer && !settled && (
           <button
             type="button"
             className="ps-button"
@@ -190,7 +216,9 @@ export function StreamActions({ stream }: { stream: Stream }) {
 
       {isEmployer && (
         <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
-          CLOSING RETURNS ONLY WHAT WAS NEVER RELEASED, AND ONLY ONCE THE DURATION HAS RUN
+          {settled
+            ? 'THIS MILESTONE IS SETTLED — UNSPENT BUDGET HAS BEEN RETURNED. OPEN A NEW ONE TO CONTINUE.'
+            : 'CLOSING RETURNS ONLY WHAT WAS NEVER RELEASED, AND ONLY ONCE THE DURATION HAS RUN'}
         </p>
       )}
 

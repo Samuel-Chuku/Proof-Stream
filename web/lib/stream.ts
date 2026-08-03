@@ -26,6 +26,7 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'employer', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   { type: 'function', name: 'contributor', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   { type: 'function', name: 'withdrawable', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'milestoneClosed', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'vestingVault', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   {
     type: 'function',
@@ -67,6 +68,8 @@ export type Stream = {
   payee: string;
   /** Credited but not yet paid out. */
   withdrawable: string;
+  /** Settled. A closed milestone cannot be closed, paused or funded again. */
+  milestoneClosed: boolean;
   withdrawn: string;
   nonce: number;
   agent: string;
@@ -127,6 +130,7 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       contributor: await read<`0x${string}`>('contributor'),
       payee,
       withdrawable: (await read<bigint>('withdrawable')).toString(),
+      milestoneClosed: await read<boolean>('milestoneClosed'),
       withdrawn: (await read<bigint>('withdrawn')).toString(),
       nonce: Number(await read<bigint>('nonce')),
       agent: await read<`0x${string}`>('agent'),
