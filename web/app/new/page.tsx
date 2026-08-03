@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAccount, useConfig, useDeployContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { AGENT_ADDRESS, EXPLORER } from '../../lib/chain';
-import { approveBudget, deployStream, fundStream, registerStream, validate, type StreamTerms } from '../../lib/create-stream';
+import { approveBudget, deployStream, fundStream, registerStream, suggestedCaps, validate, type StreamTerms } from '../../lib/create-stream';
 import { AddressChip } from '../address-chip';
 import { Connect } from '../connect';
 
@@ -22,20 +22,37 @@ export default function NewStream() {
   const { address, isConnected } = useAccount();
 
   const [repos, setRepos] = useState<Repo[] | null>(null);
+  // Authorized is not the same as installed: the first says who you are, the
+  // second grants the agent read access to specific repositories. Conflating
+  // them left an authorized user staring at "connect GitHub" forever.
+  const [connected, setConnected] = useState(false);
   const [stream, setStream] = useState<`0x${string}` | null>(null);
   const [done, setDone] = useState<Step[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
+
+  // Duration as a number plus a unit. A single "hours" box coerced its own
+  // value on every keystroke, so typing "0.5" became 0 the moment the decimal
+  // point was entered and the character was swallowed. Whole numbers with a
+  // unit sidestep that and read better anyway.
+  const [durationValue, setDurationValue] = useState('30');
+  const [durationUnit, setDurationUnit] = useState<'minutes' | 'hours' | 'days'>('minutes');
+  const unitSeconds = { minutes: 60, hours: 3600, days: 86400 }[durationUnit];
+  const durationSeconds = Math.max(0, Math.round(Number(durationValue) || 0) * unitSeconds);
+
+  // Edited-by-hand flags: these fields mirror another until the user disagrees,
+  // and must then stop moving under them.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const [terms, setTerms] = useState<StreamTerms>({
     contributor: '' as `0x${string}`,
     agent: AGENT_ADDRESS,
     vestingVault: '' as `0x${string}`,
     milestone: '',
-    budget: '40',
-    durationSeconds: 21600,
+    budget: '30',
+    durationSeconds: 1800,
     repo: '',
-    maxTranche: '4',
-    dailyUnlockCap: '50',
+    maxTranche: '7.50',
+    dailyUnlockCap: '30.00',
     payee: '' as `0x${string}`,
   });
 
@@ -44,7 +61,10 @@ export default function NewStream() {
   useEffect(() => {
     fetch('/api/github/repos')
       .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((body) => setRepos(body.repos))
+      .then((body) => {
+        setConnected(true);
+        setRepos(body.repos);
+      })
       .catch(() => setRepos([]));
   }, []);
 
@@ -52,7 +72,7 @@ export default function NewStream() {
   const { deployContractAsync } = useDeployContract();
   const { writeContractAsync } = useWriteContract();
 
-  const problems = validate(terms);
+  const problems = validate({ ...terms, durationSeconds });
   const ready = isConnected && problems.length === 0 && terms.repo !== '';
 
   async function run() {
@@ -62,7 +82,7 @@ export default function NewStream() {
       //    and therefore the immutable `employer` — actually them.
       let deployed = stream;
       if (!deployed) {
-        const hash = await deployContractAsync(deployStream(terms) as never);
+        const hash = await deployContractAsync(deployStream({ ...terms, durationSeconds }) as never);
         // The deploy has to be awaited: the next step needs the address, and
         // it only exists once the receipt lands.
         const receipt = await waitForTransactionReceipt(config, { hash });
@@ -97,6 +117,31 @@ export default function NewStream() {
   const set = <K extends keyof StreamTerms>(key: K, value: StreamTerms[K]) =>
     setTerms((t) => ({ ...t, [key]: value }));
 
+  /// The payee and the vault both default to the contributor, and the caps
+  /// scale with the budget — until the user edits them. Most streams pay one
+  /// person, so asking for the same address three times is friction with no
+  /// information in it.
+  function setContributor(value: `0x${string}`) {
+    setTerms((t) => ({
+      ...t,
+      contributor: value,
+      payee: touched.payee ? t.payee : value,
+      vestingVault: touched.vestingVault ? t.vestingVault : value,
+    }));
+  }
+
+  function setBudget(value: string) {
+    const caps = suggestedCaps(value);
+    setTerms((t) => ({
+      ...t,
+      budget: value,
+      maxTranche: touched.maxTranche ? t.maxTranche : caps.maxTranche,
+      dailyUnlockCap: touched.dailyUnlockCap ? t.dailyUnlockCap : caps.dailyUnlockCap,
+    }));
+  }
+
+  const edit = (key: string) => setTouched((t) => ({ ...t, [key]: true }));
+
   return (
     <main>
       <header className="ps-masthead">
@@ -124,11 +169,12 @@ export default function NewStream() {
       ) : repos.length === 0 ? (
         <div className="ps-gate">
           <p className="ps-body" style={{ marginTop: 0 }}>
-            Connect GitHub and choose which repositories the agent may read. Installing the app is
-            what subscribes a repository — there is no webhook to configure by hand.
+            {connected
+              ? 'Connected, but the app has not been granted any repositories yet. Installing it on a repository is what lets the agent read that code — and what subscribes it, so there is no webhook to configure by hand.'
+              : 'Connect GitHub and choose which repositories the agent may read. Installing the app is what subscribes a repository — there is no webhook to configure by hand.'}
           </p>
-          <a className="ps-button" href="/api/github/login">
-            [ CONNECT GITHUB ]
+          <a className="ps-button" href={connected ? '/api/github/login?install=1' : '/api/github/login'}>
+            [ {connected ? 'CHOOSE REPOSITORIES' : 'CONNECT GITHUB'} ]
           </a>
         </div>
       ) : (
@@ -158,76 +204,123 @@ export default function NewStream() {
       </div>
 
       <div className="ps-form">
-        <Field label="CONTRIBUTOR ADDRESS" caption="Who gets paid when the agent releases a tranche.">
+        <Field
+          label="WHO GETS PAID"
+          caption="The contributor's wallet. Only this address can trigger a withdrawal."
+        >
           <input
             className="ps-input"
             value={terms.contributor}
             placeholder="[ 0x… ]"
-            onChange={(e) => set('contributor', e.target.value as `0x${string}`)}
-          />
-        </Field>
-
-        <Field label="PAYEE" caption="The only address withdraw() may pay. Usually the contributor.">
-          <input
-            className="ps-input"
-            value={terms.payee}
-            placeholder="[ 0x… ]"
-            onChange={(e) => set('payee', e.target.value as `0x${string}`)}
-          />
-        </Field>
-
-        <Field label="VESTING VAULT" caption="Receives 15% of every tranche.">
-          <input
-            className="ps-input"
-            value={terms.vestingVault}
-            placeholder="[ 0x… ]"
-            onChange={(e) => set('vestingVault', e.target.value as `0x${string}`)}
-          />
-        </Field>
-
-        <Field label="MILESTONE BUDGET" caption="Deposited in full before the stream begins accruing.">
-          <input
-            className="ps-input ps-num"
-            value={terms.budget}
-            inputMode="decimal"
-            onChange={(e) => set('budget', e.target.value)}
+            onChange={(e) => setContributor(e.target.value as `0x${string}`)}
           />
         </Field>
 
         <Field
-          label="DURATION (HOURS)"
-          caption={`Accrues at ${
-            terms.durationSeconds > 0
-              ? ((Number(terms.budget || '0') / terms.durationSeconds) * 3600).toFixed(6)
-              : '0.000000'
-          } USDC / hour.`}
+          label="MILESTONE BUDGET"
+          caption="You deposit this in full before the stream starts. Nothing is owed until you do."
         >
           <input
             className="ps-input ps-num"
-            value={terms.durationSeconds / 3600}
-            inputMode="numeric"
-            onChange={(e) => set('durationSeconds', Math.max(0, Number(e.target.value) * 3600))}
+            value={terms.budget}
+            inputMode="decimal"
+            onChange={(e) => setBudget(e.target.value)}
           />
         </Field>
 
-        <Field label="PER-UNLOCK CAP" caption="The agent can never release more than this in one go.">
+        <Field
+          label="PAID OVER"
+          caption={`Earns ${
+            durationSeconds > 0
+              ? ((Number(terms.budget || '0') / durationSeconds) * 60).toFixed(4)
+              : '0.0000'
+          } USDC a minute, second by second.`}
+        >
+          <div className="ps-duration">
+            <input
+              className="ps-input ps-num"
+              value={durationValue}
+              inputMode="numeric"
+              onChange={(e) => setDurationValue(e.target.value)}
+            />
+            <select
+              className="ps-input"
+              value={durationUnit}
+              onChange={(e) => setDurationUnit(e.target.value as typeof durationUnit)}
+              aria-label="Duration unit"
+            >
+              <option value="minutes">MINUTES</option>
+              <option value="hours">HOURS</option>
+              <option value="days">DAYS</option>
+            </select>
+          </div>
+        </Field>
+
+        <Field
+          label="MOST THE AGENT MAY RELEASE AT ONCE"
+          caption="No single verified pull request can release more than this, however good the work."
+        >
           <input
             className="ps-input ps-num"
             value={terms.maxTranche}
             inputMode="decimal"
-            onChange={(e) => set('maxTranche', e.target.value)}
+            onChange={(e) => {
+              edit('maxTranche');
+              set('maxTranche', e.target.value);
+            }}
           />
         </Field>
 
-        <Field label="DAILY CAP" caption="Bounds what a compromised agent key could drain in a day.">
+        <Field
+          label="MOST THE AGENT MAY RELEASE IN A DAY"
+          caption="A ceiling across every release in one day. Set to the full budget so the work can finish in a day; lower it to slow the agent down."
+        >
           <input
             className="ps-input ps-num"
             value={terms.dailyUnlockCap}
             inputMode="decimal"
-            onChange={(e) => set('dailyUnlockCap', e.target.value)}
+            onChange={(e) => {
+              edit('dailyUnlockCap');
+              set('dailyUnlockCap', e.target.value);
+            }}
           />
         </Field>
       </div>
+
+      <details className="ps-advanced">
+        <summary className="ps-label">ADVANCED — PAYOUT ADDRESS AND VESTING ▾</summary>
+        <div className="ps-form">
+          <Field
+            label="PAYOUT ADDRESS"
+            caption="Where withdrawals actually land. Kept separate from the contributor so a stolen key cannot redirect the money — it can only ever push it here."
+          >
+            <input
+              className="ps-input"
+              value={terms.payee}
+              placeholder="[ 0x… ]"
+              onChange={(e) => {
+                edit('payee');
+                set('payee', e.target.value as `0x${string}`);
+              }}
+            />
+          </Field>
+
+          <Field
+            label="VESTING VAULT"
+            caption="15% of every release goes here instead of to the contributor — a fixed rule in the contract, not a setting. Use the contributor's own address to effectively disable it."
+          >
+            <input
+              className="ps-input"
+              value={terms.vestingVault}
+              placeholder="[ 0x… ]"
+              onChange={(e) => {
+                edit('vestingVault');
+                set('vestingVault', e.target.value as `0x${string}`);
+              }}
+            />
+          </Field>
+        </div>
+      </details>
 
       <Field
         label="ACCEPTANCE CRITERIA"

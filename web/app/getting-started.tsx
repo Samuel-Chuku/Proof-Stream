@@ -17,6 +17,9 @@ import { Connect } from './connect';
 export function GettingStarted({ hasStreams }: { hasStreams: boolean }) {
   const { address, isConnected } = useAccount();
   const [githubConnected, setGithubConnected] = useState<boolean | null>(null);
+  // Granted at least one repository — authorizing alone is not enough for the
+  // agent to read anything.
+  const [hasRepos, setHasRepos] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -25,7 +28,10 @@ export function GettingStarted({ hasStreams }: { hasStreams: boolean }) {
 
   useEffect(() => {
     fetch('/api/github/repos')
-      .then((r) => setGithubConnected(r.ok))
+      .then(async (r) => {
+        setGithubConnected(r.ok);
+        if (r.ok) setHasRepos(((await r.json()).repos ?? []).length > 0);
+      })
       .catch(() => setGithubConnected(false));
   }, []);
 
@@ -59,13 +65,18 @@ export function GettingStarted({ hasStreams }: { hasStreams: boolean }) {
       ),
     },
     {
-      done: githubConnected === true,
+      done: githubConnected === true && hasRepos,
       label: 'CONNECT GITHUB',
       detail:
-        'Choose which repositories the agent may read. Installing the app is what subscribes them — there is no webhook to configure.',
+        githubConnected && !hasRepos
+          ? 'Connected, but no repositories granted yet. Installing the app on one is what lets the agent read that code.'
+          : 'Choose which repositories the agent may read. Installing the app is what subscribes them — there is no webhook to configure.',
       action: (
-        <a className="ps-button" href="/api/github/login">
-          [ CONNECT GITHUB ]
+        <a
+          className="ps-button"
+          href={githubConnected && !hasRepos ? '/api/github/login?install=1' : '/api/github/login'}
+        >
+          [ {githubConnected && !hasRepos ? 'CHOOSE REPOSITORIES' : 'CONNECT GITHUB'} ]
         </a>
       ),
     },

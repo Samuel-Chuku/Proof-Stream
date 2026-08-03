@@ -950,3 +950,31 @@ code {
 .ps-bar-readout .ps-key:not(:first-child) {
   margin-left: var(--ps-3);
 }
+
+/* ---- Duration + advanced disclosure ---------------------- */
+
+.ps-duration {
+  display: grid;
+  grid-template-columns: 1fr max-content;
+  gap: var(--ps-2);
+}
+
+.ps-advanced {
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  padding: var(--ps-3);
+  margin-bottom: var(--ps-4);
+}
+
+.ps-advanced > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--ps-ink-dim);
+}
+
+.ps-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ps-advanced[open] > summary {
+  margin-bottom: var(--ps-4);
+}

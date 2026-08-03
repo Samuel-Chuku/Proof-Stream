@@ -37,6 +37,24 @@ export type StreamTerms = {
 
 export const usdc = (human: string) => parseUnits(human, 6);
 
+/// Sensible caps derived from the budget.
+///
+/// Typing these by hand produced a 30 USDC budget with a 5 USDC daily cap,
+/// which throttles the whole milestone to six days without saying so. Defaults
+/// that scale with the budget avoid quietly configuring a stream that cannot
+/// finish.
+export function suggestedCaps(budget: string) {
+  const amount = Number(budget) || 0;
+  return {
+    // A quarter per release: several releases per milestone, so the agent's
+    // judgment is exercised more than once.
+    maxTranche: amount > 0 ? (amount / 4).toFixed(2) : '',
+    // The whole budget in a day — a cap that stops a runaway key without
+    // stopping the job.
+    dailyUnlockCap: amount > 0 ? amount.toFixed(2) : '',
+  };
+}
+
 /// Fails the same checks the contract does, but in the form, where the user can
 /// still fix them — a reverted deploy costs gas and explains nothing.
 export function validate(terms: StreamTerms): string[] {
@@ -63,6 +81,13 @@ export function validate(terms: StreamTerms): string[] {
   if (maxTranche <= 0n) problems.push('The per-unlock cap must be greater than zero.');
   if (maxTranche > budget) problems.push('The per-unlock cap cannot exceed the budget.');
   if (dailyCap < maxTranche) problems.push('The daily cap cannot be below the per-unlock cap.');
+  // Not a contract rule, but a stream whose daily ceiling is under its budget
+  // cannot finish in a day, and nothing in the UI would otherwise say so.
+  if (dailyCap > 0n && dailyCap < budget) {
+    problems.push(
+      `A daily cap of ${terms.dailyUnlockCap} USDC below the ${terms.budget} USDC budget means this milestone needs more than one day to pay out in full.`,
+    );
+  }
 
   return problems;
 }

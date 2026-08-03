@@ -25,10 +25,11 @@ export async function GET(req: NextRequest) {
   if (!code) return fail('no authorization code — try connecting again');
 
   try {
-    const { token, expiresAt } = await exchangeCode(code);
+    // Same origin the login route used, or GitHub rejects the exchange.
+    const { token, expiresAt } = await exchangeCode(code, `${url.origin}/api/github/callback`);
     const { login } = await currentUser(token);
 
-    const res = NextResponse.redirect(new URL('/?github=connected', url.origin));
+    const res = NextResponse.redirect(new URL('/new?github=connected', url.origin));
 
     res.cookies.set(SESSION_COOKIE, seal({ token, login, expiresAt }), {
       httpOnly: true,

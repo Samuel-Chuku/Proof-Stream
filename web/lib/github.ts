@@ -8,9 +8,23 @@ const API = 'https://api.github.com';
 /** The App's public slug, i.e. github.com/apps/<slug>. Not a secret. */
 export const appSlug = () => process.env.GITHUB_APP_SLUG || 'proofstream';
 
-/** Where the Connect button sends people: authorize and install in one screen. */
+/** The installation screen: choose which repositories the agent may read.
+ *  Does NOT accept a redirect_uri — GitHub returns to the App's configured
+ *  callback, so this is only usable once that callback resolves. */
 export function installUrl(state: string): string {
   return `https://github.com/apps/${appSlug()}/installations/new?state=${encodeURIComponent(state)}`;
+}
+
+/** Plain user authorization. Unlike the install screen this DOES honour an
+ *  explicit redirect_uri, which is what makes local development work — provided
+ *  the URI is listed among the App's callback URLs. */
+export function authorizeUrl(state: string, redirectUri: string): string {
+  const params = new URLSearchParams({
+    client_id: process.env.GITHUB_APP_CLIENT_ID ?? '',
+    redirect_uri: redirectUri,
+    state,
+  });
+  return `https://github.com/login/oauth/authorize?${params}`;
 }
 
 export type Repo = {
@@ -35,7 +49,10 @@ async function gh<T>(path: string, token: string): Promise<T> {
 }
 
 /// Trade the callback's `code` for a user access token.
-export async function exchangeCode(code: string): Promise<{ token: string; expiresAt: number }> {
+export async function exchangeCode(
+  code: string,
+  redirectUri?: string,
+): Promise<{ token: string; expiresAt: number }> {
   const res = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json' },
@@ -43,6 +60,9 @@ export async function exchangeCode(code: string): Promise<{ token: string; expir
       client_id: process.env.GITHUB_APP_CLIENT_ID,
       client_secret: process.env.GITHUB_APP_CLIENT_SECRET,
       code,
+      // Must match the authorize request exactly when one was sent, or GitHub
+      // rejects the exchange with redirect_uri_mismatch.
+      ...(redirectUri ? { redirect_uri: redirectUri } : {}),
     }),
     cache: 'no-store',
   });
