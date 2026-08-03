@@ -34,7 +34,6 @@ contract Deploy is Script {
     function run() external {
         address agent = vm.envAddress("AGENT_ADDRESS");
         address contributor = vm.envAddress("CONTRIBUTOR_ADDRESS");
-        address vault = vm.envAddress("VAULT_ADDRESS");
 
         // The employer's terms. Set any of these in .env to deploy a stream on
         // your own numbers without touching this file.
@@ -70,7 +69,6 @@ contract Deploy is Script {
             USDC,
             contributor,
             agent,
-            vault,
             milestone,
             budget,
             duration,

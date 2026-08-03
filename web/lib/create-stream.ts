@@ -17,8 +17,6 @@ export type StreamTerms = {
   contributor: `0x${string}`;
   /** The attestor this stream appoints. */
   agent: `0x${string}`;
-  /** Receives the 15% vesting split of every tranche. */
-  vestingVault: `0x${string}`;
   /** What the agent judges work against. */
   milestone: string;
   /** Human USDC, e.g. "40". */
@@ -66,7 +64,6 @@ export function validate(terms: StreamTerms): string[] {
   for (const [label, value] of [
     ['contributor', terms.contributor],
     ['agent', terms.agent],
-    ['vesting vault', terms.vestingVault],
     ['payee', terms.payee],
   ] as const) {
     if (!value || value === zero) problems.push(`The ${label} address is required.`);
@@ -101,7 +98,6 @@ export function deployStream(terms: StreamTerms) {
       USDC,
       terms.contributor,
       terms.agent,
-      terms.vestingVault,
       terms.milestone,
       usdc(terms.budget),
       BigInt(terms.durationSeconds),

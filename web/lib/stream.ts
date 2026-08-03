@@ -27,7 +27,6 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'contributor', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   { type: 'function', name: 'withdrawable', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'milestoneClosed', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'vestingVault', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   {
     type: 'function',
     name: 'policy',
@@ -73,7 +72,6 @@ export type Stream = {
   withdrawn: string;
   nonce: number;
   agent: string;
-  vault: string;
   maxTranche: string;
   dailyUnlockCap: string;
   /** USDC physically in the contract right now. */
@@ -121,7 +119,7 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       policy, held, milestone, repo, funded, budget, duration, activatedAt, fullyFunded,
       milestoneIndex, milestoneUnlocked, pausedSeconds, pausedAt, paused, unlocked,
       contributorCredited, employer, contributor, withdrawable, milestoneClosed, withdrawn,
-      nonce, agent, vault,
+      nonce, agent,
     ] = await withRetry(() =>
       Promise.all([
         read<[bigint, bigint, `0x${string}`]>('policy'),
@@ -147,7 +145,6 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
         read<bigint>('withdrawn'),
         read<bigint>('nonce'),
         read<`0x${string}`>('agent'),
-        read<`0x${string}`>('vestingVault'),
       ]),
     );
 
@@ -177,7 +174,6 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       withdrawn: withdrawn.toString(),
       nonce: Number(nonce),
       agent,
-      vault,
       maxTranche: maxTranche.toString(),
       dailyUnlockCap: dailyUnlockCap.toString(),
       held: held.toString(),

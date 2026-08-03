@@ -46,7 +46,6 @@ export default function NewStream() {
   const [terms, setTerms] = useState<StreamTerms>({
     contributor: '' as `0x${string}`,
     agent: AGENT_ADDRESS,
-    vestingVault: '' as `0x${string}`,
     milestone: '',
     budget: '30',
     durationSeconds: 1800,
@@ -117,16 +116,14 @@ export default function NewStream() {
   const set = <K extends keyof StreamTerms>(key: K, value: StreamTerms[K]) =>
     setTerms((t) => ({ ...t, [key]: value }));
 
-  /// The payee and the vault both default to the contributor, and the caps
-  /// scale with the budget — until the user edits them. Most streams pay one
-  /// person, so asking for the same address three times is friction with no
-  /// information in it.
+  /// The payout address defaults to the contributor and the caps scale with the
+  /// budget, until the user edits them. Most streams pay one person, so asking
+  /// for the same address twice is friction with no information in it.
   function setContributor(value: `0x${string}`) {
     setTerms((t) => ({
       ...t,
       contributor: value,
       payee: touched.payee ? t.payee : value,
-      vestingVault: touched.vestingVault ? t.vestingVault : value,
     }));
   }
 
@@ -288,7 +285,7 @@ export default function NewStream() {
       </div>
 
       <details className="ps-advanced">
-        <summary className="ps-label">ADVANCED — PAYOUT ADDRESS AND VESTING ▾</summary>
+        <summary className="ps-label">ADVANCED — PAYOUT ADDRESS ▾</summary>
         <div className="ps-form">
           <Field
             label="PAYOUT ADDRESS"
@@ -305,20 +302,6 @@ export default function NewStream() {
             />
           </Field>
 
-          <Field
-            label="VESTING VAULT"
-            caption="15% of every release goes here instead of to the contributor — a fixed rule in the contract, not a setting. Use the contributor's own address to effectively disable it."
-          >
-            <input
-              className="ps-input"
-              value={terms.vestingVault}
-              placeholder="[ 0x… ]"
-              onChange={(e) => {
-                edit('vestingVault');
-                set('vestingVault', e.target.value as `0x${string}`);
-              }}
-            />
-          </Field>
         </div>
       </details>
 

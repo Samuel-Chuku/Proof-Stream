@@ -39,7 +39,6 @@ contract WorkStreamTest is Test {
     address employer = makeAddr("employer");
     address contributor = makeAddr("contributor");
     address payee = makeAddr("payee");
-    address vault = makeAddr("vault");
 
     uint256 agentPk = 0xA11CE;
     address agentAddr;
@@ -64,7 +63,6 @@ contract WorkStreamTest is Test {
             IERC20(address(usdc)),
             contributor,
             agentAddr,
-            vault,
             M1,
             BUDGET,
             DURATION,
@@ -124,20 +122,22 @@ contract WorkStreamTest is Test {
 
     // ---------------------------------------------------------- happy path
 
-    function test_HappyPath_UnlockSplitsAndWithdraws() public {
+    /// The contract takes no cut. An earlier version diverted 15% of every
+    /// tranche to an employer-chosen "vesting vault" that vested nothing — this
+    /// asserts the whole tranche reaches the contributor.
+    function test_HappyPath_UnlockCreditsTheWholeTrancheAndWithdraws() public {
         vm.warp(start + 1_000); // accrued = 100 USDC
         unlockOk(100e6);
 
         assertEq(ws.unlocked(), 100e6);
         assertEq(ws.milestoneUnlocked(), 100e6, "counted against this milestone");
-        assertEq(usdc.balanceOf(vault), 15e6, "vault got 15%");
-        assertEq(ws.contributorCredited(), 85e6, "contributor credited 85%");
-        assertEq(ws.withdrawable(), 85e6);
+        assertEq(ws.contributorCredited(), 100e6, "the whole tranche is the contributor's");
+        assertEq(ws.withdrawable(), 100e6);
         assertEq(ws.nonce(), 1, "nonce advanced");
 
         vm.prank(contributor);
-        ws.withdraw(payee, 85e6);
-        assertEq(usdc.balanceOf(payee), 85e6);
+        ws.withdraw(payee, 100e6);
+        assertEq(usdc.balanceOf(payee), 100e6, "all of it reaches the payee");
         assertEq(ws.withdrawable(), 0);
     }
 
@@ -152,7 +152,6 @@ contract WorkStreamTest is Test {
             IERC20(address(usdc)),
             contributor,
             agentAddr,
-            vault,
             M1,
             BUDGET,
             DURATION,
@@ -196,7 +195,6 @@ contract WorkStreamTest is Test {
             IERC20(address(usdc)),
             contributor,
             agentAddr,
-            vault,
             M1,
             BUDGET,
             DURATION,
@@ -387,7 +385,7 @@ contract WorkStreamTest is Test {
 
     function test_CloseReturnsUnspentAndOpensTheNext() public {
         vm.warp(start + 10_000);
-        unlockOk(100e6); // 15 to vault, 85 credited
+        unlockOk(100e6); // all 100 credited to the contributor
 
         vm.warp(start + DURATION + 1);
         uint256 employerBefore = usdc.balanceOf(employer);
@@ -396,17 +394,17 @@ contract WorkStreamTest is Test {
         ws.closeMilestone();
 
         assertTrue(ws.milestoneClosed());
-        assertEq(ws.withdrawable(), 85e6, "contributor's credit survives the close");
+        assertEq(ws.withdrawable(), 100e6, "contributor's credit survives the close");
         assertEq(
             usdc.balanceOf(employer) - employerBefore,
-            BUDGET - 15e6 - 85e6,
-            "employer got back everything but the vault share and what is owed"
+            BUDGET - 100e6,
+            "employer got back everything except what is owed to the contributor"
         );
 
         // The contributor can still collect after the close.
         vm.prank(contributor);
-        ws.withdraw(payee, 85e6);
-        assertEq(usdc.balanceOf(payee), 85e6);
+        ws.withdraw(payee, 100e6);
+        assertEq(usdc.balanceOf(payee), 100e6);
 
         // Next milestone opens, unfunded, and does not accrue until funded.
         vm.prank(employer);

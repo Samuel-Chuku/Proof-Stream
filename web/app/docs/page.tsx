@@ -64,7 +64,8 @@ export default function Docs() {
         <li className="ps-body">
           <b>If both agree</b>, the tranche is the <em>lower</em> of the two valuations, capped by
           what has actually accrued. The agent signs an EIP-712 attestation and sends the unlock
-          from its own wallet, paying its own gas. 85% is credited to the contributor, 15% vests.
+          from its own wallet, paying its own gas. The whole tranche is credited to the
+          contributor — the contract takes no cut.
         </li>
       </ol>
       <p className="ps-caption">IF THE AGENT REFUSES, NO FEE IS SPENT AND NO TRANSACTION IS SENT</p>

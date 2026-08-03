@@ -27,7 +27,6 @@ Three things are true of every payout in this repo, and each is checkable on-cha
 | Attestor agent (Circle developer-controlled wallet) | [`0x2CD7cc0407218f905731F88C08EEB86a94dd634A`](https://testnet.arcscan.app/address/0x2CD7cc0407218f905731F88C08EEB86a94dd634A) |
 | Verifier agent (Circle developer-controlled wallet) | [`0xa7aaa2324cb141a332b22c5eac12f75b46cdeb50`](https://testnet.arcscan.app/address/0xa7aaa2324cb141a332b22c5eac12f75b46cdeb50) |
 | Contributor | [`0x4e10648aDA2bFb02544B41d62D0C15B00bc56699`](https://testnet.arcscan.app/address/0x4e10648aDA2bFb02544B41d62D0C15B00bc56699) |
-| Vesting vault | [`0x806e986Ccf62EA35c4729d87060c7307Cdc63d19`](https://testnet.arcscan.app/address/0x806e986Ccf62EA35c4729d87060c7307Cdc63d19) |
 | Circle `GatewayWallet` (nanopayments) | [`0x0077777d7EBA4688BDeF3E311b846F25870A19B9`](https://testnet.arcscan.app/address/0x0077777d7EBA4688BDeF3E311b846F25870A19B9) |
 
 Transaction-by-transaction evidence is in [`EVIDENCE.md`](EVIDENCE.md), regenerated from
@@ -47,7 +46,7 @@ the agents' own logs plus live chain state with `pnpm evidence`.
    evidence, and never sees the attestor's answer.
 6. **If both agree**, the tranche is the **lower** of the two valuations, capped by what has
    actually accrued. The attestor signs an EIP-712 attestation and sends `unlock` itself.
-   85% is credited to the contributor, 15% transfers to a vesting vault.
+   The whole tranche is credited to the contributor — the contract takes no cut.
 
 If the attestor refuses, no fee is spent and no transaction is sent — refusal is free.
 

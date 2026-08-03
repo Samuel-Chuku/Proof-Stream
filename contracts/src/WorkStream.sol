@@ -32,7 +32,8 @@ interface IERC20 {
 ///
 ///      Because a milestone is fully funded before it starts, every tranche the
 ///      agent certifies is already backed by USDC in the contract and
-///      `withdraw` can never fail for lack of funds.
+///      `withdraw` can never fail for lack of funds. The full tranche is
+///      credited to the contributor — the contract takes no cut.
 ///
 /// @dev All token amounts are 6-decimal ERC-20 USDC units.
 contract WorkStream {
@@ -41,7 +42,6 @@ contract WorkStream {
     address public immutable employer;
     address public immutable contributor;
     address public immutable agent; // attestor key that signs unlocks
-    address public immutable vestingVault;
 
     // ------------------------------------------------------------- milestone
 
@@ -98,8 +98,14 @@ contract WorkStream {
     uint256 public unlockedToday;
 
     // ---------------------------------------------------------------- consts
-    uint256 public constant VAULT_BPS = 1500; // 15% of each tranche vests
-    uint256 public constant BPS = 10_000;
+    //
+    // There is deliberately NO vault split. An earlier version diverted 15% of
+    // every tranche to an address the employer chose at construction, under the
+    // name "vesting vault" — but nothing vested: no schedule, no cliff, and no
+    // way for the contributor ever to claim it. It was a withholding the
+    // employer could point at themselves, sitting inside a contract whose whole
+    // purpose is that the rules, not the counterparty, decide where money goes.
+    // Everything the agent certifies is now the contributor's.
     uint256 public constant ATTESTATION_TTL = 15 minutes;
 
     bytes32 public constant ATTESTATION_TYPEHASH = keccak256(
@@ -127,9 +133,7 @@ contract WorkStream {
         uint256 indexed prNumber,
         string commitSha,
         uint256 confidenceBps,
-        uint256 tranche,
-        uint256 contributorShare,
-        uint256 vaultShare
+        uint256 tranche
     );
     event Withdrawn(address indexed payee, uint256 amount);
     event StreamPaused(uint64 at);
@@ -164,23 +168,20 @@ contract WorkStream {
         IERC20 _usdc,
         address _contributor,
         address _agent,
-        address _vestingVault,
         string memory _milestone,
         uint256 _budget,
         uint256 _duration,
         string memory _repo,
         Policy memory _policy
     ) {
-        if (
-            _contributor == address(0) || _agent == address(0) || _vestingVault == address(0)
-                || _policy.payee == address(0)
-        ) revert ZeroAddress();
+        if (_contributor == address(0) || _agent == address(0) || _policy.payee == address(0)) {
+            revert ZeroAddress();
+        }
 
         usdc = _usdc;
         employer = msg.sender;
         contributor = _contributor;
         agent = _agent;
-        vestingVault = _vestingVault;
         repo = _repo;
         policy = _policy;
 
@@ -382,15 +383,10 @@ contract WorkStream {
         unlocked += a.tranche;
         cur.unlocked += a.tranche;
 
-        uint256 vaultShare = (a.tranche * VAULT_BPS) / BPS;
-        uint256 contributorShare = a.tranche - vaultShare;
-        contributorCredited += contributorShare;
+        // The whole tranche is the contributor's. Nothing is skimmed.
+        contributorCredited += a.tranche;
 
-        if (vaultShare > 0 && !usdc.transfer(vestingVault, vaultShare)) revert TransferFailed();
-
-        emit TrancheUnlocked(
-            a.nonce, a.prNumber, a.commitSha, a.confidenceBps, a.tranche, contributorShare, vaultShare
-        );
+        emit TrancheUnlocked(a.nonce, a.prNumber, a.commitSha, a.confidenceBps, a.tranche);
     }
 
     /// @notice Pay out unlocked funds. Only the contributor may call, and only

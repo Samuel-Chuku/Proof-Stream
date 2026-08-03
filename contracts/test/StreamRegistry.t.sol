@@ -13,7 +13,6 @@ contract StreamRegistryTest is Test {
     address stranger = makeAddr("stranger");
     address contributor = makeAddr("contributor");
     address payee = makeAddr("payee");
-    address vault = makeAddr("vault");
     address agentAddr = makeAddr("agent");
     address otherAgent = makeAddr("otherAgent");
 
@@ -33,7 +32,6 @@ contract StreamRegistryTest is Test {
             USDC,
             contributor,
             whichAgent,
-            vault,
             "Milestone 1: ship the ledger module",
             40e6,
             6 hours,
