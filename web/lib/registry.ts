@@ -47,6 +47,10 @@ export type StreamSummary = {
   /** Unix seconds when the milestone stopped accruing; 0 if never started.
    *  The agent stops certifying a fixed grace period after this. */
   endsAt: number;
+  /** Block the stream was announced in. Anchors a log scan for this one
+   *  stream's own history — scanning from the registry's deploy block instead
+   *  costs a window per 45k blocks of chain, forever, and grows daily. */
+  registeredAtBlock: string;
 };
 
 const client = () =>
@@ -63,7 +67,9 @@ const client = () =>
 /// process-level cache turns that into one sweep a minute instead of one per
 /// visitor. Deliberately not Next's cache — this must also work when the page
 /// is force-dynamic, which it is because the STREAM STATE must stay live.
-let discoveryCache: { at: number; streams: { stream: `0x${string}`; employer: `0x${string}` }[] } | null = null;
+let discoveryCache:
+  | { at: number; streams: { stream: `0x${string}`; employer: `0x${string}`; block: bigint }[] }
+  | null = null;
 const DISCOVERY_TTL_MS = 60_000;
 
 export async function listStreams(): Promise<StreamSummary[]> {
@@ -79,7 +85,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
     const from = BigInt(process.env.REGISTRY_DEPLOY_BLOCK ?? '54593230');
     let cursor = from;
     const latest = await rpc.getBlockNumber();
-    const seen = new Map<string, { stream: `0x${string}`; employer: `0x${string}` }>();
+    const seen = new Map<string, { stream: `0x${string}`; employer: `0x${string}`; block: bigint }>();
 
     while (cursor <= latest) {
       const to = cursor + MAX_LOG_WINDOW - 1n > latest ? latest : cursor + MAX_LOG_WINDOW - 1n;
@@ -94,6 +100,9 @@ export async function listStreams(): Promise<StreamSummary[]> {
         seen.set((entry.args.stream as string).toLowerCase(), {
           stream: entry.args.stream as `0x${string}`,
           employer: entry.args.employer as `0x${string}`,
+          // Re-registration (after setRepo) moves this forward, which is fine:
+          // the earlier events are still found by the scan margin below.
+          block: entry.blockNumber ?? 0n,
         });
       }
       cursor = to + 1n;
@@ -104,7 +113,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
   }
 
   const summaries: StreamSummary[] = [];
-  for (const { stream, employer } of discovered) {
+  for (const { stream, employer, block } of discovered) {
     try {
       const read = <T>(functionName: string) =>
         rpc.readContract({ address: stream, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
@@ -145,6 +154,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
         milestoneIndex: Number(index),
         state,
         endsAt: Number(endsAt),
+        registeredAtBlock: block.toString(),
       });
     } catch {
       // A registered address that no longer answers is not worth breaking the

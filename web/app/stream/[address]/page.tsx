@@ -1,6 +1,7 @@
 import { EXPLORER_URL, formatUsdc } from '@proofstream/config';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
+import { readStreamTransactions } from '../../../lib/onchain';
 import { listStreams } from '../../../lib/registry';
 import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
@@ -9,12 +10,20 @@ import { Footer } from '../../footer';
 import { Amount } from '../../amount';
 import { StreamActions } from '../../stream-actions';
 import { LockedFigure } from '../../stream-bar';
+import { Reveal } from '../../reveal';
+import { TxDecision } from '../../tx-decision';
+import { VerdictBody } from '../../verdict-body';
 
 // The chain and the agent logs both move while the page is open.
 export const dynamic = 'force-dynamic';
 
-const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
-const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
+/// Transaction rows are sorted newest-first and routinely span several days, so
+/// a bare clock time reads as out of order — 08:41 sitting above 21:07 looks
+/// wrong until you notice they are different days. Date first, UTC stated once
+/// in the caption above the list rather than on every row.
+const stamp = (iso: string) =>
+  `${iso.slice(8, 10)} ${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(11, 19)}`;
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 /// Label sitting on a dashed rule, left-aligned.
 function SectionRule({ children }: { children: string }) {
@@ -46,6 +55,15 @@ export default async function StreamPage({ params }: { params: Promise<{ address
   const spend = totalSpend(verdicts, logs.reviews.filter(mine));
   const decisions = verdicts.filter((v) => v.verdict);
   const settled = verdicts.filter((v) => v.txHash);
+
+  // What PEOPLE did, read from the stream's own event log. Anchored to the
+  // block it was announced in so the scan covers this stream's lifetime rather
+  // than the whole registry's.
+  const mySummary = allStreams.find((x) => x.address.toLowerCase() === address.toLowerCase());
+  const humanTxs = await readStreamTransactions(
+    address,
+    BigInt(mySummary?.registeredAtBlock ?? process.env.REGISTRY_DEPLOY_BLOCK ?? '54593230'),
+  );
 
   return (
     <main>
@@ -131,28 +149,81 @@ export default async function StreamPage({ params }: { params: Promise<{ address
               </p>
             </section>
           ) : (
-            decisions.map((v, i) => <VerdictCard key={`${v.at}-${i}`} event={v} />)
+            <Reveal initial={10} noun="decisions">
+              {decisions.map((v, i) => (
+                <VerdictCard key={`${v.at}-${i}`} event={v} />
+              ))}
+            </Reveal>
           )}
 
           <SectionRule>ON-CHAIN TRANSACTIONS</SectionRule>
+          <p className="ps-caption ps-tx-intro">
+            NEWEST FIRST · TIMES UTC · EVERY ROW LINKS TO ARC EXPLORER, SO NOTHING HERE HAS TO BE
+            TAKEN ON TRUST
+          </p>
+
+          <h3 className="ps-subhead">BY THE AGENT</h3>
           {settled.length === 0 ? (
             <p className="ps-caption">NONE YET</p>
           ) : (
             <div className="ps-feed">
-              {settled.map((v, i) => (
-                <div className="ps-tx-row" key={`${v.at}-tx-${i}`}>
-                  <span className="ps-tx-time">{time(v.at)}</span>
-                  <span className="ps-tx-action">UNLOCK</span>
-                  <Amount raw={Number(v.trancheUsdc ?? 0) * 1e6} size="m" />
-                  <a href={`${EXPLORER_URL}/tx/${v.txHash}`} target="_blank" rel="noreferrer">
-                    ↗
-                  </a>
-                </div>
-              ))}
+              <Reveal initial={3} noun="unlocks">
+                {settled.map((v, i) => (
+                  <div className="ps-tx-row" key={`${v.at}-tx-${i}`}>
+                    <span className="ps-tx-time">{stamp(v.at)}</span>
+                    <span className="ps-tx-action">UNLOCK</span>
+                    <Amount raw={Number(v.trancheUsdc ?? 0) * 1e6} size="m" />
+                    {/* The judgment that produced this transaction, one click
+                        away — the row is otherwise just an amount. */}
+                    {v.verdict ? (
+                      <TxDecision pr={v.pr}>
+                        <VerdictBody event={v} />
+                      </TxDecision>
+                    ) : (
+                      <span />
+                    )}
+                    <a href={`${EXPLORER_URL}/tx/${v.txHash}`} target="_blank" rel="noreferrer">
+                      ↗
+                    </a>
+                  </div>
+                ))}
+              </Reveal>
             </div>
           )}
           <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
             ● VERIFICATION FEES SETTLE IN GATEWAY BATCHES AND HAVE NO INDIVIDUAL TRANSACTION
+          </p>
+
+          <h3 className="ps-subhead">BY A HUMAN</h3>
+          {humanTxs.length === 0 ? (
+            <p className="ps-caption">NONE YET</p>
+          ) : (
+            <div className="ps-feed">
+              <Reveal initial={3} noun="actions">
+                {humanTxs.map((t) => (
+                  <div className="ps-tx-row ps-tx-row-human" key={t.txHash}>
+                    <span className="ps-tx-time">{stamp(new Date(t.at * 1000).toISOString())}</span>
+                    <span className="ps-tx-action">{t.action}</span>
+                    {t.amountRaw ? (
+                      <Amount raw={Number(t.amountRaw)} size="m" />
+                    ) : (
+                      <span className="ps-caption">{t.detail}</span>
+                    )}
+                    {t.amountRaw && t.detail ? (
+                      <span className="ps-caption ps-tx-detail">{t.detail}</span>
+                    ) : (
+                      <span />
+                    )}
+                    <a href={`${EXPLORER_URL}/tx/${t.txHash}`} target="_blank" rel="noreferrer">
+                      ↗
+                    </a>
+                  </div>
+                ))}
+              </Reveal>
+            </div>
+          )}
+          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+            ● TOKEN APPROVALS ARE OMITTED — THEY GRANT PERMISSION, THEY DO NOT MOVE MONEY
           </p>
         </>
       )}
@@ -246,58 +317,7 @@ function VerdictCard({ event }: { event: AgentEvent }) {
         </span>
       </summary>
 
-      <dl className="ps-verdict-fields">
-        <dt>Satisfies milestone</dt>
-        <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>
-        <dt>Confidence</dt>
-        <dd className="ps-num">{pct(v.confidence)}</dd>
-        <dt>Judged by</dt>
-        <dd>{event.model}</dd>
-        {event.txHash && (
-          <>
-            <dt>Transaction</dt>
-            <dd>
-              <AddressChip address={event.txHash} href={`${EXPLORER_URL}/tx/${event.txHash}`} />
-            </dd>
-          </>
-        )}
-      </dl>
-
-      <div className="ps-verdict-voice">
-        <p className="ps-label ps-verdict-voice-head">
-          <AgentMark role="attestor" /> ATTESTOR · {event.model}
-        </p>
-        <p className="ps-verdict-reasoning">{v.reasoning}</p>
-      </div>
-
-      {event.verifier ? (
-        <div className="ps-verdict-voice">
-          <p className="ps-label ps-verdict-voice-head">
-            <AgentMark role="verifier" /> VERIFIER · {event.verifier.model} · PAID{' '}
-            {event.verificationFeeUsdc} USDC
-          </p>
-          <p className="ps-verdict-reasoning">{event.verifier.reasoning}</p>
-        </div>
-      ) : (
-        <div className="ps-verdict-voice">
-          <p className="ps-label ps-verdict-voice-head">
-            <AgentMark role="verifier" /> VERIFIER · NOT CONSULTED
-          </p>
-          <p className="ps-verdict-reasoning">
-            The attestor refused on its own judgment, so no second opinion was bought and no fee was
-            spent. Refusal is free.
-          </p>
-        </div>
-      )}
-
-      <div className="ps-verdict-foot">
-        <span className="ps-label">
-          {event.verifier
-            ? `BOTH AGREED — PAID AT ${pct(event.agreedFraction)}, THE LOWER OF THE TWO`
-            : 'DECIDED BY THE ATTESTOR ALONE'}
-        </span>
-        <span className="ps-label">{time(event.at)}</span>
-      </div>
+      <VerdictBody event={event} />
     </details>
   );
 }

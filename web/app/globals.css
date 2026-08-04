@@ -340,7 +340,10 @@ a {
 
 .ps-tx-row {
   display: grid;
-  grid-template-columns: max-content max-content 1fr max-content;
+  /* time | action | amount | why-or-detail | explorer. The 1fr sits on the
+     fourth column so the explorer arrow stays pinned right whatever the row
+     carries. */
+  grid-template-columns: max-content max-content max-content 1fr max-content;
   align-items: center;
   gap: var(--ps-3);
   min-height: 32px;
@@ -399,7 +402,7 @@ a {
   }
 
   .ps-tx-row {
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: max-content 1fr max-content;
     gap: var(--ps-1) var(--ps-2);
   }
 }
@@ -1194,4 +1197,121 @@ a.ps-stream-row:hover {
   .ps-stream-head {
     display: none;
   }
+}
+
+
+/* ---- Transactions: agent vs human ------------------------ */
+
+/* Splits ON-CHAIN TRANSACTIONS into who did what. Quieter than a
+   SectionRule — these are two halves of one section, not two sections. */
+.ps-subhead {
+  font-family: var(--ps-display);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  color: var(--ps-ink-dim);
+  margin: var(--ps-4) 0 var(--ps-2);
+}
+
+.ps-tx-intro {
+  margin-bottom: var(--ps-2);
+}
+
+.ps-tx-detail {
+  justify-self: start;
+}
+
+/* The row is an amount and a link; this is the only thing on it that
+   opens something, so it reads as a control without shouting. */
+.ps-tx-why {
+  font: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  justify-self: start;
+  padding: 2px 8px;
+  background: transparent;
+  color: var(--ps-ink-dim);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-0);
+  cursor: pointer;
+}
+
+.ps-tx-why:hover {
+  color: var(--ps-ink);
+  border-color: var(--ps-green-deep);
+}
+
+/* ---- Reveal ---------------------------------------------- */
+
+.ps-reveal {
+  font: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  display: block;
+  width: 100%;
+  padding: var(--ps-2) 0;
+  background: transparent;
+  color: var(--ps-ink-dim);
+  border: 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ps-reveal:hover {
+  color: var(--ps-ink);
+  background: var(--ps-sunk);
+}
+
+/* ---- Decision dialog ------------------------------------- */
+
+.ps-dialog {
+  width: min(76ch, calc(100vw - var(--ps-5)));
+  max-height: 84dvh;
+  padding: 0;
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+  box-shadow: var(--ps-shadow-2);
+  overflow: hidden;
+}
+
+.ps-dialog::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+
+.ps-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-3);
+  padding: var(--ps-2) var(--ps-3);
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  background: var(--ps-sunk);
+}
+
+.ps-dialog-close {
+  font: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--ps-ink-dim);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-0);
+  cursor: pointer;
+}
+
+.ps-dialog-close:hover {
+  color: var(--ps-ink);
+  border-color: var(--ps-green-deep);
+}
+
+/* Only the body scrolls, so the header stays reachable on a long verdict. */
+.ps-dialog-body {
+  padding: var(--ps-3);
+  max-height: calc(84dvh - 48px);
+  overflow-y: auto;
 }
