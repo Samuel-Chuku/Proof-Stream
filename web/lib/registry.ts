@@ -25,6 +25,8 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'fullyFunded', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'isActive', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  { type: 'function', name: 'milestoneEndsAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'milestoneClosed', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
 ] as const;
 
 export type StreamSummary = {
@@ -38,7 +40,10 @@ export type StreamSummary = {
   funded: string;
   unlocked: string;
   milestoneIndex: number;
-  state: 'accruing' | 'awaiting deposit' | 'settled' | 'paused';
+  /** `ended` is NOT the same as `settled`. isActive() stays true until the
+   *  employer closes, so a milestone whose duration has run was reporting
+   *  "accruing" while nothing was accruing at all. */
+  state: 'awaiting deposit' | 'accruing' | 'paused' | 'ended' | 'settled';
 };
 
 const client = () =>
@@ -101,7 +106,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
       const read = <T>(functionName: string) =>
         rpc.readContract({ address: stream, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
 
-      const [repo, milestone, budget, funded, unlocked, index, fullyFunded, isActive, paused] =
+      const [repo, milestone, budget, funded, unlocked, index, fullyFunded, paused, endsAt, closed] =
         await Promise.all([
           read<string>('repo'),
           read<string>('milestone'),
@@ -110,9 +115,21 @@ export async function listStreams(): Promise<StreamSummary[]> {
           read<bigint>('milestoneUnlocked'),
           read<bigint>('milestoneIndex'),
           read<boolean>('fullyFunded'),
-          read<boolean>('isActive'),
           read<boolean>('paused'),
+          read<bigint>('milestoneEndsAt'),
+          read<boolean>('milestoneClosed'),
         ]);
+
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      const state: StreamSummary['state'] = closed
+        ? 'settled'
+        : !fullyFunded
+          ? 'awaiting deposit'
+          : paused
+            ? 'paused'
+            : endsAt > 0n && now >= endsAt
+              ? 'ended'
+              : 'accruing';
 
       summaries.push({
         address: stream,
@@ -123,7 +140,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
         funded: funded.toString(),
         unlocked: unlocked.toString(),
         milestoneIndex: Number(index),
-        state: !fullyFunded ? 'awaiting deposit' : paused ? 'paused' : isActive ? 'accruing' : 'settled',
+        state,
       });
     } catch {
       // A registered address that no longer answers is not worth breaking the

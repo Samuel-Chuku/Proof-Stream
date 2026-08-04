@@ -28,6 +28,21 @@ function accruedAt(stream: Stream, nowSeconds: number): number {
 
 type CellState = 'unlocked' | 'locked' | 'unaccrued';
 
+/// Coarse and readable rather than precise: "1h 04m left" tells you what to do,
+/// a ticking seconds counter only tells you to watch it. Seconds appear in the
+/// last minute, where they are the only thing that matters.
+function remaining(seconds: number): string {
+  if (seconds <= 0) return 'ENDED';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const sec = seconds % 60;
+  if (d > 0) return `${d}d ${String(h).padStart(2, '0')}h LEFT`;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m LEFT`;
+  if (m > 0) return `${m}m ${String(sec).padStart(2, '0')}s LEFT`;
+  return `${sec}s LEFT`;
+}
+
 /// THE SIGNATURE ELEMENT. One cell = one USDC, so a viewer counts green cells
 /// and knows exactly how much the agent released — no axis, no legend, no
 /// tooltip. Cells are always sorted, so the bar reads left to right as
@@ -113,6 +128,12 @@ export function LockedFigure({ stream }: { stream: Stream }) {
 
   const rate = stream.duration > 0 ? (budget / USDC / stream.duration) * 3600 : 0;
 
+  // The clock the employer and contributor are both actually watching. Paused
+  // freezes it: nothing accrues, so counting down would be a lie.
+  const endsAt = stream.activatedAt + stream.duration;
+  const secondsLeft = now === null ? null : Math.max(endsAt - now, 0);
+  const ended = secondsLeft === 0;
+
   // `withdrawn` is the stream's LIFETIME total across every milestone, while
   // this bar is one milestone. Drawing it unclamped ran the underline far past
   // the bar — 40 USDC withdrawn against a 15 USDC milestone. Cap it at the
@@ -136,6 +157,18 @@ export function LockedFigure({ stream }: { stream: Stream }) {
       <p className="ps-label ps-hero-legend">RELEASED BY THE AGENT ON THIS MILESTONE</p>
 
       <div className="ps-figures">
+        <div>
+          <span className="ps-caption">
+            {stream.paused ? 'PAUSED' : ended ? 'MILESTONE OVER' : 'TIME LEFT'}
+          </span>
+          <span className="ps-num ps-countdown" suppressHydrationWarning>
+            {stream.paused
+              ? 'CLOCK STOPPED'
+              : secondsLeft === null
+                ? '—'
+                : remaining(secondsLeft)}
+          </span>
+        </div>
         <div>
           <span className="ps-caption">EARNED SO FAR</span>
           <span suppressHydrationWarning>
@@ -200,9 +233,18 @@ export function LockedFigure({ stream }: { stream: Stream }) {
 
       <p className="ps-caption">
         {bar.perCell === 1 ? '1 CELL = 1 USDC' : `1 CELL = ${bar.perCell.toFixed(2)} USDC`}
-        {rate > 0 && ` · ACCRUING ${rate.toFixed(6)} USDC / HOUR`}
+        {rate > 0 && !ended && ` · ACCRUING ${rate.toFixed(6)} USDC / HOUR`}
         {stream.paused && ' · PAUSED, NOTHING NEW ACCRUES'}
       </p>
+
+      {/* Ended is not settled: the agent can still certify work already earned,
+          and the contributor can still withdraw. Only closing ends it. */}
+      {ended && !stream.paused && (
+        <p className="ps-caption" suppressHydrationWarning>
+          NOTHING FURTHER ACCRUES. ALREADY-EARNED WORK CAN STILL BE VERIFIED AND WITHDRAWN UNTIL THE
+          EMPLOYER CLOSES THE MILESTONE.
+        </p>
+      )}
     </section>
   );
 }

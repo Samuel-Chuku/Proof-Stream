@@ -62,8 +62,9 @@ export default async function Streams() {
             {streams.map((s) => (
               <Link key={s.address} href={`/stream/${s.address}`} className="ps-stream-row">
                 <span className="ps-tx-action">{s.repo || '(no repo set)'}</span>
-                <span className="ps-caption">
-                  MILESTONE {s.milestoneIndex} · {s.state.toUpperCase()}
+                <span className="ps-caption">MILESTONE {s.milestoneIndex}</span>
+                <span className={`ps-status ps-status-${s.state.replace(' ', '-')}`}>
+                  {s.state.toUpperCase()}
                 </span>
                 <span className="ps-stream-figures">
                   <Amount raw={Number(s.unlocked)} size="m" suffix={false} /> released of{' '}

@@ -484,7 +484,7 @@ textarea.ps-input {
 
 .ps-stream-row {
   display: grid;
-  grid-template-columns: 1fr max-content max-content var(--ps-3);
+  grid-template-columns: 1fr max-content max-content max-content var(--ps-3);
   align-items: baseline;
   gap: var(--ps-3);
   padding: var(--ps-2) 0;
@@ -1035,4 +1035,55 @@ code {
   display: grid;
   grid-template-columns: 1fr max-content;
   gap: var(--ps-2);
+}
+
+/* ---- Stream status badge ---------------------------------
+   Five states, told apart by border and fill rather than by
+   hue — the palette has no red or amber, and green stays
+   reserved for released USDC. */
+
+.ps-status {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  padding: 0 var(--ps-2);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  white-space: nowrap;
+}
+
+/* Live: solid edge, full ink. */
+.ps-status-accruing {
+  border-color: var(--ps-rule);
+  color: var(--ps-ink);
+}
+
+/* Waiting on the employer: dithered, like the funding meter. */
+.ps-status-awaiting-deposit {
+  background: var(--ps-dither-25);
+  color: var(--ps-ink);
+}
+
+/* Stopped clock. */
+.ps-status-paused {
+  border-color: var(--ps-rule);
+  color: var(--ps-ink-dim);
+}
+
+/* Time is up but the employer has not closed it — money may still be
+   unlocked and withdrawn, so this is NOT settled. */
+.ps-status-ended {
+  border-color: var(--ps-rule);
+  border-style: dashed;
+  color: var(--ps-ink-dim);
+}
+
+/* Closed and refunded. Inverted, because it is done. */
+.ps-status-settled {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border-color: var(--ps-rule);
+}
+
+.ps-countdown {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
 }
