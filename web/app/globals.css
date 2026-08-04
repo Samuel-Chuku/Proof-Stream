@@ -978,3 +978,45 @@ code {
 .ps-advanced[open] > summary {
   margin-bottom: var(--ps-4);
 }
+
+/* ---- Create-stream progress ------------------------------ */
+
+.ps-step-mark {
+  display: inline-block;
+  width: var(--ps-3);
+  text-align: center;
+}
+
+/* Completed reads as settled: dimmed, with a tick. */
+.ps-step-done {
+  color: var(--ps-ink-dim);
+}
+
+/* The step awaiting a signature is the only thing that should draw the eye. */
+.ps-step-active {
+  background: var(--ps-sunk);
+  box-shadow: inset var(--ps-2) 0 0 0 var(--ps-rule);
+  padding-left: var(--ps-3);
+}
+
+.ps-step-active .ps-label {
+  color: var(--ps-ink);
+}
+
+/* ---- Repoint a stream ------------------------------------ */
+
+.ps-repoint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-2);
+  margin-top: var(--ps-4);
+  padding-top: var(--ps-3);
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+  max-width: 60ch;
+}
+
+.ps-repoint-row {
+  display: grid;
+  grid-template-columns: 1fr max-content;
+  gap: var(--ps-2);
+}

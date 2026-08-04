@@ -34,6 +34,7 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'pause', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { type: 'function', name: 'resume', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { type: 'function', name: 'closeMilestone', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { type: 'function', name: 'setRepo', stateMutability: 'nonpayable', inputs: [{ name: 'newRepo', type: 'string' }], outputs: [] },
   {
     type: 'function',
     name: 'withdraw',
@@ -61,6 +62,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
+  const [newRepo, setNewRepo] = useState('');
 
   const me = address?.toLowerCase();
   const isEmployer = me === stream.employer.toLowerCase();
@@ -212,6 +214,49 @@ export function StreamActions({ stream }: { stream: Stream }) {
             'NOTHING TO WITHDRAW YET — THE AGENT RELEASES A TRANCHE WHEN IT VERIFIES WORK'
           )}
         </p>
+      )}
+
+      {/* setRepo exists on the contract and had no interface at all, which left
+          the only route to it exporting a private key into a keystore. An
+          employer legitimately needs this: repositories get renamed, and two
+          streams claiming one repo are BOTH refused by the agent until one is
+          pointed elsewhere. */}
+      {isEmployer && (
+        <div className="ps-repoint">
+          <label className="ps-label" htmlFor="repoint">
+            REPOSITORY THE AGENT WATCHES
+          </label>
+          <div className="ps-repoint-row">
+            <input
+              id="repoint"
+              className="ps-input"
+              value={newRepo}
+              placeholder={`[ ${stream.repo || 'owner/name'} ]`}
+              onChange={(e) => setNewRepo(e.target.value)}
+            />
+            <button
+              type="button"
+              className="ps-button"
+              disabled={busy !== null || !/^[^/\s]+\/[^/\s]+$/.test(newRepo)}
+              onClick={() =>
+                run('repo', () =>
+                  writeContractAsync({
+                    address: stream.address as `0x${string}`,
+                    abi: WORK_STREAM_ABI,
+                    functionName: 'setRepo',
+                    args: [newRepo],
+                  }),
+                )
+              }
+            >
+              [ {busy === 'repo' ? 'UPDATING…' : 'REPOINT'} ]
+            </button>
+          </div>
+          <p className="ps-caption">
+            THE AGENT READS THIS FROM THE CONTRACT, SO IT TAKES EFFECT WITHIN A MINUTE WITH NO
+            RE-REGISTRATION. USE A DEAD NAME LIKE RETIRED/DUPLICATE TO TAKE A STREAM OUT OF SERVICE.
+          </p>
+        </div>
       )}
 
       {isEmployer && (

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAccount, useConfig, useDeployContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
@@ -29,6 +30,14 @@ export default function NewStream() {
   const [stream, setStream] = useState<`0x${string}` | null>(null);
   const [done, setDone] = useState<Step[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
+  // Which step is awaiting a signature right now, and a hard guard against a
+  // second concurrent run. Without the guard a second click started an
+  // independent run that saw `stream` still null and DEPLOYED A SECOND
+  // CONTRACT — two streams, two funded budgets, and both refused by the agent
+  // for claiming the same repository.
+  const [active, setActive] = useState<Step | null>(null);
+  const [running, setRunning] = useState(false);
+  const router = useRouter();
 
   // Duration as a number plus a unit. A single "hours" box coerced its own
   // value on every keystroke, so typing "0.5" became 0 the moment the decimal
@@ -75,12 +84,15 @@ export default function NewStream() {
   const ready = isConnected && problems.length === 0 && terms.repo !== '';
 
   async function run() {
+    if (running) return;
+    setRunning(true);
     setFailure(null);
     try {
       // 1. Deploy from the user's own wallet. This is what makes msg.sender —
       //    and therefore the immutable `employer` — actually them.
       let deployed = stream;
       if (!deployed) {
+        setActive('deploy');
         const hash = await deployContractAsync(deployStream({ ...terms, durationSeconds }) as never);
         // The deploy has to be awaited: the next step needs the address, and
         // it only exists once the receipt lands.
@@ -93,11 +105,13 @@ export default function NewStream() {
       // 2. Announce it. A stream that is deployed but never registered is
       //    invisible to the agent — the one way to end up with an orphan.
       if (!done.includes('register')) {
+        setActive('register');
         await writeContractAsync(registerStream(deployed) as never);
         setDone((d) => [...d, 'register']);
       }
 
       if (!done.includes('approve')) {
+        setActive('approve');
         await writeContractAsync(approveBudget(deployed, terms.budget) as never);
         setDone((d) => [...d, 'approve']);
       }
@@ -105,11 +119,20 @@ export default function NewStream() {
       // 4. THIS starts the clock. Until the budget is in full the milestone
       //    accrues nothing, by design.
       if (!done.includes('fund')) {
+        setActive('fund');
         await writeContractAsync(fundStream(deployed, terms.budget) as never);
         setDone((d) => [...d, 'fund']);
       }
+
+      // The stream exists and is funded, so the place to be is its ledger —
+      // not this form, still holding the values that created it.
+      setActive(null);
+      router.push(`/stream/${deployed}`);
     } catch (err) {
       setFailure(err instanceof Error ? err.message.split('\n')[0] : String(err));
+    } finally {
+      setActive(null);
+      setRunning(false);
     }
   }
 
@@ -335,11 +358,19 @@ export default function NewStream() {
       <ol className="ps-steps">
         {ORDER.map((step, i) => {
           const complete = done.includes(step.key);
-          const current = !complete && done.length === i;
+          const signing = active === step.key;
+          const next = !complete && !signing && done.length === i;
           return (
-            <li key={step.key} className="ps-step">
+            <li
+              key={step.key}
+              className={`ps-step${complete ? ' ps-step-done' : ''}${signing ? ' ps-step-active' : ''}`}
+            >
               <span className="ps-label">
-                {complete ? '●' : current ? '◆' : '○'} {i + 1}. {step.label}
+                <span className="ps-step-mark" aria-hidden>
+                  {complete ? '✓' : signing || next ? '→' : '○'}
+                </span>{' '}
+                {i + 1}. {step.label}
+                {signing && ' — CONFIRM IN YOUR WALLET'}
               </span>
               <span className="ps-caption">{step.detail}</span>
             </li>
@@ -368,9 +399,20 @@ export default function NewStream() {
         </div>
       )}
 
-      <button type="button" className="ps-button" disabled={!ready} onClick={run}>
-        [ {done.length === 0 ? 'CREATE STREAM' : done.length === 4 ? 'DONE' : 'CONTINUE'} ]
+      <button type="button" className="ps-button" disabled={!ready || running} onClick={run}>
+        [{' '}
+        {running
+          ? 'WAITING FOR YOUR WALLET…'
+          : done.length === 0
+            ? 'CREATE STREAM'
+            : 'CONTINUE'}{' '}
+        ]
       </button>
+      {running && (
+        <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+          DO NOT RELOAD OR PRESS AGAIN — EACH PRESS WOULD DEPLOY ANOTHER STREAM
+        </p>
+      )}
 
       {done.length === 4 && (
         <p className="ps-caption" style={{ marginTop: 'var(--ps-3)' }}>
