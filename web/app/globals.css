@@ -1243,6 +1243,9 @@ a.ps-stream-row:hover {
 
 /* ---- Reveal ---------------------------------------------- */
 
+/* Centred and unruled ON PURPOSE. Left-aligned with a bottom border it
+   was indistinguishable from another row of the list — the one thing it
+   must not look like, since its job is to say the list stopped. */
 .ps-reveal {
   font: inherit;
   font-size: var(--ps-size-label);
@@ -1250,18 +1253,16 @@ a.ps-stream-row:hover {
   text-transform: uppercase;
   display: block;
   width: 100%;
-  padding: var(--ps-2) 0;
+  padding: var(--ps-3) 0 var(--ps-2);
   background: transparent;
   color: var(--ps-ink-dim);
   border: 0;
-  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
 }
 
 .ps-reveal:hover {
   color: var(--ps-ink);
-  background: var(--ps-sunk);
 }
 
 /* ---- Decision dialog ------------------------------------- */
@@ -1372,4 +1373,43 @@ a.ps-stream-row:hover {
   .ps-conf-note {
     flex: 1 0 100%;
   }
+}
+
+
+/* ---- Filter chips -----------------------------------------
+   Pills are the one place 4px corners are allowed. The count
+   rides in the label so a chip that would empty the list can be
+   dropped before it is ever offered. */
+
+.ps-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-2);
+  margin-bottom: var(--ps-3);
+}
+
+.ps-chip {
+  font: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--ps-ink-dim);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+  cursor: pointer;
+}
+
+.ps-chip:hover {
+  color: var(--ps-ink);
+  border-color: var(--ps-rule);
+}
+
+/* Selected reads as pressed in, matching every other control here. */
+.ps-chip-on {
+  color: var(--ps-ink);
+  border-color: var(--ps-rule);
+  background: var(--ps-sunk);
+  box-shadow: var(--ps-shadow-pressed);
 }

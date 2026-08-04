@@ -5,7 +5,7 @@ import { listStreams } from '../../lib/registry';
 import { AddressChip } from '../address-chip';
 import { Footer } from '../footer';
 import { GettingStarted } from '../getting-started';
-import { Amount } from '../amount';
+import { StreamList } from '../stream-list';
 
 // The registry and every stream's state move while the page is open.
 export const dynamic = 'force-dynamic';
@@ -84,40 +84,10 @@ export default async function Streams() {
         </section>
       ) : (
         <>
-          <div className="ps-feed ps-stream-list">
-            <div className="ps-stream-row ps-stream-head">
-              <span className="ps-caption">REPOSITORY</span>
-              <span className="ps-caption">MILESTONE</span>
-              <span className="ps-caption">STATE</span>
-              <span className="ps-caption ps-stream-figures">RELEASED OF BUDGET</span>
-              <span />
-            </div>
-            {streams.map((s) => (
-              <Link key={s.address} href={`/stream/${s.address}`} className="ps-stream-row">
-                <span className="ps-tx-action ps-stream-repo">
-                  {/* Only the EXCEPTION is marked. Labelling every healthy row
-                      "watched" added a column of noise to say nothing. */}
-                  {s.state !== 'settled' && !health.serving.has(s.address.toLowerCase()) && (
-                    <span className="ps-stream-warn" title="The agent is not watching this stream">
-                      ⚠
-                    </span>
-                  )}
-                  {s.repo || '(no repo set)'}
-                </span>
-                <span className="ps-caption">MILESTONE {s.milestoneIndex}</span>
-                <span className={`ps-status ps-status-${s.state.replace(' ', '-')}`}>
-                  {s.state.toUpperCase()}
-                </span>
-                <span className="ps-stream-figures">
-                  <Amount raw={Number(s.unlocked)} size="m" suffix={false} /> of{' '}
-                  <Amount raw={Number(s.budget)} size="m" />
-                </span>
-                <span className="ps-stream-go" aria-hidden>
-                  →
-                </span>
-              </Link>
-            ))}
-          </div>
+          <StreamList
+            streams={streams}
+            serving={[...health.serving]}
+          />
 
           <p style={{ marginTop: 'var(--ps-4)' }}>
             <Link className="ps-button" href="/new">
