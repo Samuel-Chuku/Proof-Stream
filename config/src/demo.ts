@@ -34,18 +34,22 @@ export const VERIFICATION_FEE = '$0.005' as const;
  *  what the running seller reports and catch a stale process before a paid call
  *  discovers it.
  *
- *  Raised 8000 -> 24000 on 2026-08-04, after a live merge escalated instead of
- *  paying: `cohere/north-mini-code:free` spent 9511 tokens reasoning about a
- *  real PR and had none left to answer with, so the reply arrived truncated and
- *  presented as "not valid JSON". Same failure as the 1200 -> 8000 raise; only
- *  the model changed. The earlier figure of ~1100 reasoning tokens came from a
- *  short synthetic diff and did not survive contact with a real one.
+ *  Raised 8000 -> 24000 on 2026-08-04 and it did NOT fix what it was raised
+ *  for. `cohere/north-mini-code:free` spent 9511 reasoning tokens against the
+ *  8000 ceiling, then 27476 against the 24000 one — it expands its reasoning to
+ *  consume whatever budget it is given, so no ceiling is high enough and each
+ *  raise only makes the failure slower and dearer.
  *
- *  Two things make the headroom safe to over-provision: a ceiling is not a
- *  reservation, so unused budget costs nothing, and the failure it prevents is
- *  expensive in a way a wasted token is not — x402 settles the fee BEFORE the
- *  handler runs, so every truncated review is paid for in full and returns
- *  nothing. */
+ *  **A ceiling is not the lever for a model that reasons unboundedly; the model
+ *  choice is.** VERIFIER_MODEL was moved to a non-reasoning model, verified on
+ *  the same real diff with `pnpm review:test` before deploying. Leave this
+ *  headroom in place — it costs nothing against a model that does not reason,
+ *  and it is what keeps a future reasoning model from truncating at 8000 —
+ *  but do not reach for it again as a fix.
+ *
+ *  Why this failure is worth spending tokens to avoid: x402 settles the fee
+ *  BEFORE the handler runs, so every truncated review is paid for in full and
+ *  returns nothing. */
 export const VERIFIER_MAX_TOKENS = 24000;
 
 /** Token ceiling for the attestor's reply. Was 1200, which was safe ONLY while
