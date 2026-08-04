@@ -24,10 +24,30 @@ export function BrandMark({ size = 20, className }: { size?: number; className?:
       aria-hidden
       focusable="false"
     >
-      <rect x="24" y="48" width="34" height="10" fill="currentColor" />
-      <rect x="18" y="34" width="34" height="10" fill="currentColor" />
-      <rect x="13" y="21" width="32" height="8" fill="none" stroke="currentColor" strokeWidth="2" />
-      <rect x="7" y="7" width="32" height="8" fill="none" stroke="currentColor" strokeWidth="2" />
+      {/* Each bar is addressable so a container can animate them in sequence
+          without a second copy of the geometry. See .ps-loading in globals.css. */}
+      <rect className="ps-mark-bar ps-mark-bar-1" x="24" y="48" width="34" height="10" fill="currentColor" />
+      <rect className="ps-mark-bar ps-mark-bar-2" x="18" y="34" width="34" height="10" fill="currentColor" />
+      <rect
+        className="ps-mark-bar ps-mark-bar-3"
+        x="13"
+        y="21"
+        width="32"
+        height="8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <rect
+        className="ps-mark-bar ps-mark-bar-4"
+        x="7"
+        y="7"
+        width="32"
+        height="8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
     </svg>
   );
 }

@@ -1469,3 +1469,86 @@ a.ps-stream-row:hover {
     height: 36px;
   }
 }
+
+/* ---- Route loading ----------------------------------------
+   Shown the instant a navigation starts, so a nav click changes
+   the screen rather than leaving the reader on the old page
+   while the server sweeps the registry. */
+
+.ps-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ps-3);
+  min-height: 50dvh;
+  color: var(--ps-ink);
+}
+
+.ps-loading-name {
+  margin: 0;
+}
+
+.ps-loading-label {
+  color: var(--ps-ink-dim);
+  margin: 0;
+}
+
+/* The mark's own bars filling bottom to top — the same gesture as the
+   stream bar, money accruing upward. A spinner would be a foreign
+   object in a system with no curves. */
+.ps-loading .ps-mark-bar {
+  animation: ps-mark-climb 1.4s steps(1, end) infinite;
+}
+
+.ps-loading .ps-mark-bar-1 { animation-delay: 0s; }
+.ps-loading .ps-mark-bar-2 { animation-delay: 0.18s; }
+.ps-loading .ps-mark-bar-3 { animation-delay: 0.36s; }
+.ps-loading .ps-mark-bar-4 { animation-delay: 0.54s; }
+
+/* steps(), not a fade: this system does not do easing, and a hard
+   switch keeps the bars countable at every frame. */
+@keyframes ps-mark-climb {
+  0%   { opacity: 0.2; }
+  25%  { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ps-loading .ps-mark-bar {
+    animation: none;
+  }
+}
+
+/* ---- Footer socials --------------------------------------- */
+
+.ps-footer-end {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-4);
+  flex-wrap: wrap;
+}
+
+.ps-socials {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-3);
+}
+
+.ps-social {
+  display: inline-flex;
+  color: var(--ps-ink-dim);
+  text-decoration: none;
+}
+
+.ps-social:hover {
+  color: var(--ps-ink);
+}
+
+/* No URL yet. Visible so the row is not rearranged when one lands,
+   but plainly not a link — a dead destination is worse than a gap. */
+.ps-social-pending {
+  opacity: 0.35;
+  cursor: default;
+}
