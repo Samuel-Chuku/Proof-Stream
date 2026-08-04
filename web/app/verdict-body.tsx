@@ -13,6 +13,55 @@ import { AgentMark } from './agent-mark';
 const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
 const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
 
+/// The same bar the agent applies. Below it the attestor escalates instead of
+/// unlocking, so this is the one line on the scale that means anything.
+const THRESHOLD = Number(process.env.AGENT_CONFIDENCE_THRESHOLD ?? 0.7);
+
+/// Confidence as ten cells, not a traffic light.
+///
+/// A red/amber/green scale was the obvious answer and it is the wrong one here:
+/// the palette has exactly one colour, green, and it means RELEASED USDC. Spend
+/// it on a confidence score and the green cells in the stream bar stop meaning
+/// money — which is the one thing a judge is supposed to be able to count.
+/// Amber and red do not exist in the system at all.
+///
+/// So confidence is told the way everything else in this app is told: by fill.
+/// Solid cells are a score the agent would act on; dithered cells are one it
+/// would not, and the heavier rule marks exactly where that line falls. It also
+/// survives being printed, screenshotted in greyscale, or read by someone who
+/// cannot separate red from green.
+function Confidence({ value }: { value: number | undefined }) {
+  if (value === undefined) return <span className="ps-num">—</span>;
+
+  const filled = Math.round(value * 10);
+  const acts = value >= THRESHOLD;
+  // The rule sits on the right edge of the last cell below the bar.
+  const markAt = Math.round(THRESHOLD * 10) - 1;
+
+  return (
+    <span className="ps-conf">
+      <span className="ps-num">{value.toFixed(2)}</span>
+      <span className="ps-conf-cells" aria-hidden>
+        {Array.from({ length: 10 }, (_, i) => (
+          <span
+            key={i}
+            className={[
+              'ps-conf-cell',
+              i < filled ? (acts ? 'ps-conf-on' : 'ps-conf-low') : '',
+              i === markAt ? 'ps-conf-mark' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          />
+        ))}
+      </span>
+      <span className="ps-caption ps-conf-note">
+        {acts ? `AT OR ABOVE THE ${THRESHOLD.toFixed(2)} BAR` : `BELOW THE ${THRESHOLD.toFixed(2)} BAR`}
+      </span>
+    </span>
+  );
+}
+
 export function VerdictBody({ event }: { event: AgentEvent }) {
   const v = event.verdict!;
 
@@ -22,7 +71,9 @@ export function VerdictBody({ event }: { event: AgentEvent }) {
         <dt>Satisfies milestone</dt>
         <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>
         <dt>Confidence</dt>
-        <dd className="ps-num">{pct(v.confidence)}</dd>
+        <dd>
+          <Confidence value={v.confidence} />
+        </dd>
         <dt>Judged by</dt>
         <dd>{event.model}</dd>
         {event.txHash && (
