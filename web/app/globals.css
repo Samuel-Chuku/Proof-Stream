@@ -484,7 +484,7 @@ textarea.ps-input {
 
 .ps-stream-row {
   display: grid;
-  grid-template-columns: 1fr max-content max-content max-content var(--ps-3);
+  grid-template-columns: 1fr max-content max-content max-content max-content var(--ps-3);
   align-items: baseline;
   gap: var(--ps-3);
   padding: var(--ps-2) 0;
@@ -1086,4 +1086,73 @@ code {
 .ps-countdown {
   font-size: var(--ps-size-data-m);
   line-height: var(--ps-lh-data-m);
+}
+
+.ps-watch {
+  white-space: nowrap;
+}
+
+/* ---- Coverage notice --------------------------------------
+   A status line, not an alarm. The inverted panel is reserved
+   for a policy revert — borrowing it here made every ordinary
+   "not watched yet" look like a failure and pushed the hero
+   below the fold. */
+
+.ps-notice {
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  background: var(--ps-surface);
+  margin-bottom: var(--ps-4);
+  max-width: 72ch;
+}
+
+/* Something needs doing: a hatched left edge, the system's
+   existing "blocked" language, at strip scale. */
+.ps-notice-warn {
+  border-left: var(--ps-2) solid var(--ps-rule);
+}
+
+.ps-notice > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: var(--ps-2);
+  padding: var(--ps-2) var(--ps-3);
+}
+
+.ps-notice > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ps-notice > summary:hover {
+  background: var(--ps-sunk);
+}
+
+.ps-notice-mark {
+  flex: 0 0 auto;
+}
+
+.ps-notice-title {
+  flex: 1;
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
+}
+
+.ps-notice-more {
+  font-size: var(--ps-size-nav);
+  letter-spacing: var(--ps-track-label);
+  color: var(--ps-ink-dim);
+  white-space: nowrap;
+}
+
+.ps-notice[open] .ps-notice-more {
+  visibility: hidden;
+}
+
+.ps-notice-detail {
+  margin: 0;
+  padding: 0 var(--ps-3) var(--ps-3);
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
+  color: var(--ps-ink-dim);
 }

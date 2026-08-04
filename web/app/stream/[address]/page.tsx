@@ -1,5 +1,7 @@
 import { EXPLORER_URL } from '@proofstream/config';
+import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
+import { listStreams } from '../../../lib/registry';
 import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
 import { AgentMark } from '../../agent-mark';
@@ -27,6 +29,11 @@ export default async function StreamPage({ params }: { params: Promise<{ address
   const { address } = await params;
   const stream = await readStream(address);
   const logs = await readAgentLogs();
+
+  // Whether the agent is ACTUALLY watching this stream. Everything else on this
+  // page describes the contract; this is the only thing that says whether
+  // anyone is listening.
+  const [health, allStreams] = await Promise.all([readAgentHealth(), listStreams()]);
 
   // BOTH logs are fleet-wide, and both must be filtered. Passing the reviews
   // through unfiltered made a brand-new stream report the whole fleet's
@@ -69,6 +76,33 @@ export default async function StreamPage({ params }: { params: Promise<{ address
         </section>
       ) : (
         <>
+          {(() => {
+            const coverage = diagnose(
+              stream.address,
+              stream.repo,
+              stream.milestoneClosed,
+              stream.agent,
+              health,
+              allStreams,
+            );
+            if (coverage.served) return null;
+            // One line, expandable. This is a status note, not the headline —
+            // the money is. A full-width panel above the hero buried the thing
+            // the page exists to show.
+            return (
+              <details className={`ps-notice${coverage.expected ? '' : ' ps-notice-warn'}`}>
+                <summary>
+                  <span className="ps-notice-mark" aria-hidden>
+                    {coverage.expected ? '○' : '⚠'}
+                  </span>
+                  <span className="ps-notice-title">{coverage.title}</span>
+                  <span className="ps-notice-more">DETAIL ▾</span>
+                </summary>
+                <p className="ps-notice-detail">{coverage.detail}</p>
+              </details>
+            );
+          })()}
+
           <LockedFigure stream={stream} />
 
           <SectionRule>YOUR ACTIONS</SectionRule>

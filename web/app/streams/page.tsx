@@ -1,5 +1,6 @@
 import { EXPLORER_URL } from '@proofstream/config';
 import Link from 'next/link';
+import { readAgentHealth } from '../../lib/agent-health';
 import { listStreams } from '../../lib/registry';
 import { AddressChip } from '../address-chip';
 import { Footer } from '../footer';
@@ -20,7 +21,13 @@ export const dynamic = 'force-dynamic';
 /// nobody can count those cells, so the green would become decoration. Green
 /// stays a claim about released USDC, on the stream page where it can be read.
 export default async function Streams() {
-  const streams = await listStreams();
+  const [streams, health] = await Promise.all([listStreams(), readAgentHealth()]);
+
+  // A stream nobody is watching looks identical to a healthy one on this list,
+  // which is how work gets done against a stream that will never pay.
+  const unwatched = streams.filter(
+    (s) => s.state !== 'settled' && !health.serving.has(s.address.toLowerCase()),
+  );
 
   return (
     <main>
@@ -41,6 +48,25 @@ export default async function Streams() {
       </p>
 
       <GettingStarted hasStreams={streams.length > 0} />
+
+      {unwatched.length > 0 && (
+        <details className="ps-notice ps-notice-warn">
+          <summary>
+            <span className="ps-notice-mark" aria-hidden>
+              ⚠
+            </span>
+            <span className="ps-notice-title">
+              {unwatched.length} stream{unwatched.length === 1 ? ' is' : 's are'} not being watched
+            </span>
+            <span className="ps-notice-more">DETAIL ▾</span>
+          </summary>
+          <p className="ps-notice-detail">
+            {health.reachable
+              ? 'Merged work on them will not be judged or paid. Open one to see why.'
+              : 'The agent cannot be reached, so nothing is being judged. The streams keep accruing regardless.'}
+          </p>
+        </details>
+      )}
 
       <div className="ps-section-rule">
         <span className="ps-label">STREAMS</span>
@@ -65,6 +91,13 @@ export default async function Streams() {
                 <span className="ps-caption">MILESTONE {s.milestoneIndex}</span>
                 <span className={`ps-status ps-status-${s.state.replace(' ', '-')}`}>
                   {s.state.toUpperCase()}
+                </span>
+                <span className="ps-caption ps-watch">
+                  {s.state === 'settled'
+                    ? ''
+                    : health.serving.has(s.address.toLowerCase())
+                      ? 'WATCHED'
+                      : '⚠ NOT WATCHED'}
                 </span>
                 <span className="ps-stream-figures">
                   <Amount raw={Number(s.unlocked)} size="m" suffix={false} /> released of{' '}

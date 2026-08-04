@@ -74,7 +74,7 @@ export async function refresh(log: Logger): Promise<void> {
   const next = new Map<string, StreamEntry>();
 
   for (const entry of streams.values()) {
-    let identity: { agent: `0x${string}`; repo: string };
+    let identity: { agent: `0x${string}`; repo: string; closed: boolean };
     try {
       identity = await readIdentity(entry.stream);
     } catch (err) {
@@ -105,6 +105,20 @@ export async function refresh(log: Logger): Promise<void> {
       continue;
     }
 
+    // A settled milestone cannot pay: the pipeline skips it on isActive, so
+    // serving it does nothing. More importantly it must not COMPETE — a closed
+    // stream was blocking a live one on the same repo, which is the strictness
+    // being wrong rather than safe.
+    if (identity.closed) {
+      log({
+        event: 'registry_settled',
+        stream: entry.stream,
+        repo: identity.repo,
+        reason: 'milestone is settled — not served, and it no longer claims the repo',
+      });
+      continue;
+    }
+
     entry.repo = identity.repo;
     const key = identity.repo.toLowerCase();
 
@@ -116,7 +130,8 @@ export async function refresh(log: Logger): Promise<void> {
         event: 'registry_conflict',
         repo: identity.repo,
         streams: [clash.stream, entry.stream],
-        reason: 'two streams claim the same repo — neither will be served until one is retired',
+        reason:
+          'two LIVE streams claim the same repo — neither is served until one is closed or repointed',
       });
       next.delete(key);
       continue;

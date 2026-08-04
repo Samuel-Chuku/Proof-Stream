@@ -6,6 +6,7 @@ import { env } from './env';
 
 const WORK_STREAM_ABI = [
   { type: 'function', name: 'agent', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { type: 'function', name: 'milestoneClosed', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
   { type: 'function', name: 'milestoneHash', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
   { type: 'function', name: 'repo', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
@@ -114,7 +115,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
 /// watch. Trusting the log's copy would route events to a stale repo.
 export async function readIdentity(
   streamAddress: `0x${string}`,
-): Promise<{ agent: `0x${string}`; repo: string }> {
+): Promise<{ agent: `0x${string}`; repo: string; closed: boolean }> {
   const read = <T>(functionName: string) =>
     withRetry(
       () =>
@@ -127,7 +128,10 @@ export async function readIdentity(
 
   const agent = await read<`0x${string}`>('agent');
   const repo = await read<string>('repo');
-  return { agent, repo };
+  // A settled milestone can never be paid — the pipeline skips it on isActive.
+  // Knowing that here lets a dead stream stop blocking a live one.
+  const closed = await read<boolean>('milestoneClosed');
+  return { agent, repo, closed };
 }
 
 export async function readStream(streamAddress: `0x${string}`): Promise<StreamState> {
