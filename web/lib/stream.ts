@@ -14,12 +14,14 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'activatedAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint64' }] },
   { type: 'function', name: 'fullyFunded', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'milestoneIndex', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'milestoneUnlocked', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'certifiedBps', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'target', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'earned', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'settledCredit', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'closableAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'pausedSeconds', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'pausedAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint64' }] },
   { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'unlocked', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'contributorCredited', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'withdrawn', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'nonce', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'agent', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
@@ -53,12 +55,23 @@ export type Stream = {
   activatedAt: number;
   fullyFunded: boolean;
   milestoneIndex: number;
-  milestoneUnlocked: string;
+  /** The agent's standing verdict on this milestone, 0-10_000. Monotonic. */
+  certifiedBps: number;
+  /** What the agent certified is owed: budget × certifiedBps. The clock never
+   *  moves this — only a new judgment does. */
+  target: string;
+  /** What the contributor can actually take: min(accrued, target). The gap
+   *  between this and `target` is certified work the stream has not delivered
+   *  yet, which is the one thing the bar could never show before. */
+  earned: string;
+  /** Owed from milestones already closed. Closing crystallises `target` into
+   *  here so a new milestone cannot wipe out what an old one still owed. */
+  settledCredit: string;
+  /** Earliest the employer may close, including the certification grace. */
+  closableAt: number;
   pausedSeconds: number;
   pausedAt: number;
   paused: boolean;
-  unlocked: string;
-  contributorCredited: string;
   /** Who may call the employer-only functions. Immutable. */
   employer: string;
   /** Who may call withdraw(). Immutable. */
@@ -117,8 +130,9 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
     // request. Awaiting them one at a time is what made this page take 5s.
     const [
       policy, held, milestone, repo, funded, budget, duration, activatedAt, fullyFunded,
-      milestoneIndex, milestoneUnlocked, pausedSeconds, pausedAt, paused, unlocked,
-      contributorCredited, employer, contributor, withdrawable, milestoneClosed, withdrawn,
+      milestoneIndex, certifiedBps, target, earned, settledCredit, closableAt,
+      pausedSeconds, pausedAt, paused,
+      employer, contributor, withdrawable, milestoneClosed, withdrawn,
       nonce, agent,
     ] = await withRetry(() =>
       Promise.all([
@@ -132,12 +146,14 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
         read<bigint>('activatedAt'),
         read<boolean>('fullyFunded'),
         read<bigint>('milestoneIndex'),
-        read<bigint>('milestoneUnlocked'),
+        read<bigint>('certifiedBps'),
+        read<bigint>('target'),
+        read<bigint>('earned'),
+        read<bigint>('settledCredit'),
+        read<bigint>('closableAt'),
         read<bigint>('pausedSeconds'),
         read<bigint>('pausedAt'),
         read<boolean>('paused'),
-        read<bigint>('unlocked'),
-        read<bigint>('contributorCredited'),
         read<`0x${string}`>('employer'),
         read<`0x${string}`>('contributor'),
         read<bigint>('withdrawable'),
@@ -160,12 +176,14 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       activatedAt: Number(activatedAt),
       fullyFunded,
       milestoneIndex: Number(milestoneIndex),
-      milestoneUnlocked: milestoneUnlocked.toString(),
+      certifiedBps: Number(certifiedBps),
+      target: target.toString(),
+      earned: earned.toString(),
+      settledCredit: settledCredit.toString(),
+      closableAt: Number(closableAt),
       pausedSeconds: Number(pausedSeconds),
       pausedAt: Number(pausedAt),
       paused,
-      unlocked: unlocked.toString(),
-      contributorCredited: contributorCredited.toString(),
       employer,
       contributor,
       payee,

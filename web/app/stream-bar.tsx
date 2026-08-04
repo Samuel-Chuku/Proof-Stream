@@ -47,22 +47,27 @@ function remaining(seconds: number): string {
 /// and knows exactly how much the agent released — no axis, no legend, no
 /// tooltip. Cells are always sorted, so the bar reads left to right as
 /// released → earned-but-locked → not yet earned.
-function cells(budget: number, unlocked: number, accrued: number) {
+/// Three fills, and the middle one is new. `earned` is what the contributor can
+/// take right now — certified by the agent AND delivered by the clock. `target`
+/// is everything the agent certified. The gap between them is certified work
+/// the stream has not paid out yet, which the previous model could not express
+/// at all: certification and payment were the same event.
+function cells(budget: number, earned: number, target: number) {
   const whole = Math.max(Math.ceil(budget / USDC), 1);
   const count = Math.min(whole, MAX_CELLS);
   // Above 60 USDC one cell stands for several, and the caption says so rather
   // than letting the count quietly stop meaning anything.
   const perCell = whole / count;
 
-  const unlockedCells = Math.round(unlocked / USDC / perCell);
-  const accruedCells = Math.round(accrued / USDC / perCell);
+  const earnedCells = Math.round(earned / USDC / perCell);
+  const targetCells = Math.round(target / USDC / perCell);
 
   return {
     perCell,
     count,
     states: Array.from({ length: count }, (_, i): CellState => {
-      if (i < unlockedCells) return 'unlocked';
-      if (i < accruedCells) return 'locked';
+      if (i < earnedCells) return 'unlocked';
+      if (i < targetCells) return 'locked';
       return 'unaccrued';
     }),
   };
@@ -121,10 +126,22 @@ export function LockedFigure({ stream }: { stream: Stream }) {
     );
   }
 
-  const accrued = now === null ? 0 : accruedAt(stream, now);
-  const unlocked = Number(stream.milestoneUnlocked);
+  const target = Number(stream.target);
   const withdrawn = Number(stream.withdrawn);
-  const bar = cells(budget, unlocked, accrued);
+
+  // Still ticking every second — that is the whole point of a stream — but now
+  // clamped to what the agent certified, because accrual alone earns nothing.
+  // At 100% the schedule is over, so the contract stops metering and the figure
+  // sits at the full certified amount.
+  const fullyCertified = stream.certifiedBps >= 10_000;
+  const earned =
+    now === null
+      ? Number(stream.earned)
+      : fullyCertified
+        ? target
+        : Math.min(accruedAt(stream, now), target);
+
+  const bar = cells(budget, earned, target);
 
   const rate = stream.duration > 0 ? (budget / USDC / stream.duration) * 3600 : 0;
 
@@ -144,17 +161,19 @@ export function LockedFigure({ stream }: { stream: Stream }) {
 
   const describe = (state: CellState) =>
     state === 'unlocked'
-      ? 'RELEASED BY THE AGENT'
+      ? 'EARNED AND RELEASED'
       : state === 'locked'
-        ? 'EARNED, AWAITING VERIFICATION'
-        : 'NOT EARNED YET';
+        ? 'CERTIFIED BY THE AGENT, STILL ARRIVING'
+        : 'NOT CERTIFIED';
 
   return (
     <section className="ps-hero">
       <p className="ps-hero-amount">
-        <Amount raw={unlocked} size="xl" />
+        <span suppressHydrationWarning>
+          <Amount raw={earned} size="xl" />
+        </span>
       </p>
-      <p className="ps-label ps-hero-legend">RELEASED BY THE AGENT ON THIS MILESTONE</p>
+      <p className="ps-label ps-hero-legend">EARNED ON THIS MILESTONE</p>
 
       <div className="ps-figures">
         <div>
@@ -170,10 +189,8 @@ export function LockedFigure({ stream }: { stream: Stream }) {
           </span>
         </div>
         <div>
-          <span className="ps-caption">EARNED SO FAR</span>
-          <span suppressHydrationWarning>
-            <Amount raw={now === null ? 0 : accrued} size="m" />
-          </span>
+          <span className="ps-caption">CERTIFIED BY THE AGENT</span>
+          <Amount raw={target} size="m" />
         </div>
         <div>
           <span className="ps-caption">MILESTONE BUDGET</span>
@@ -188,7 +205,7 @@ export function LockedFigure({ stream }: { stream: Stream }) {
       <div
         className="ps-bar"
         role="img"
-        aria-label={`${(unlocked / USDC).toFixed(6)} of ${(budget / USDC).toFixed(6)} USDC released`}
+        aria-label={`${(earned / USDC).toFixed(6)} of ${(budget / USDC).toFixed(6)} USDC earned`}
         onMouseLeave={() => setHovered(null)}
       >
         {bar.states.map((state, i) => (
@@ -224,9 +241,9 @@ export function LockedFigure({ stream }: { stream: Stream }) {
           </>
         ) : (
           <>
-            <span className="ps-key ps-fill-unlocked" /> RELEASED
-            <span className="ps-key ps-fill-locked" /> EARNED, LOCKED
-            <span className="ps-key ps-fill-unaccrued" /> NOT EARNED YET
+            <span className="ps-key ps-fill-unlocked" /> EARNED
+            <span className="ps-key ps-fill-locked" /> CERTIFIED, ARRIVING
+            <span className="ps-key ps-fill-unaccrued" /> NOT CERTIFIED
           </>
         )}
       </p>

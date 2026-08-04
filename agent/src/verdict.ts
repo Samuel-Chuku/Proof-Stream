@@ -5,7 +5,8 @@ import type { MergedPr } from './github';
 export type Verdict = {
   satisfies_milestone: boolean;
   confidence: number; // 0-1
-  tranche_fraction: number; // 0-1 of the policy's maxTranche
+  /** 0-1 of the WHOLE milestone completed, not of any per-release ceiling. */
+  tranche_fraction: number;
   reasoning: string;
   concerns: string[];
 };
@@ -31,10 +32,16 @@ Decide three things:
    proves nothing on its own; anyone can merge anything. Read the code. A PR that only touches
    comments, docs, formatting, or tests unrelated to the milestone does NOT satisfy it.
 
-2. tranche_fraction — how much of the available tranche this work has earned, from 0.0 to 1.0. This
-   MUST vary with the substance of the work. Complete, correct implementation of everything the
-   milestone asks for earns 0.9-1.0. Solid partial progress earns 0.4-0.7. A token or cosmetic
-   change earns 0.0-0.2. Do not default to 1.0 — that would make this system a rubber stamp.
+2. tranche_fraction — how much of THE WHOLE MILESTONE is complete once this work is counted, from
+   0.0 to 1.0. Judge the milestone's total state, not the size of this one diff: this is a running
+   position, so a later PR that finishes the job reports the finished total rather than its own
+   increment. It MUST vary with the substance of the work. Everything the milestone asks for,
+   correctly implemented, is 0.9-1.0. Solid partial progress is 0.4-0.7. A token or cosmetic change
+   is 0.0-0.2. Do not default to 1.0 — that would make this system a rubber stamp.
+
+   This number sets what the contributor is owed: the contract pays out budget × tranche_fraction,
+   released on the stream's schedule. It can only ever be raised by a later judgment, never lowered,
+   so do not inflate it in the expectation of correcting it.
 
 3. confidence — how certain you are in this judgment, from 0.0 to 1.0. Be honest. If the diff is
    ambiguous, if the milestone is vague, if you cannot see enough context to tell whether the code

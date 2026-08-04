@@ -4,7 +4,7 @@
 // gates are the product.
 import { appendFileSync } from 'node:fs';
 import { formatUsdc } from '@proofstream/config';
-import { readStream, sendUnlock, signAttestation, type Attestation } from './chain';
+import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
 import { env } from './env';
 import { fetchDiff, type MergedPr } from './github';
 import { buySecondOpinion } from './pay';
@@ -189,23 +189,54 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // shrink the payout, which is what makes buying it worth anything.
   const agreedFraction = Math.min(verdict.tranche_fraction, opinion.tranche_fraction);
 
-  // The fraction scales the policy ceiling, then accrual caps it — the agent
-  // can never certify money that has not been earned yet. Measured against
-  // THIS milestone's accrual and its own released total, which is what
-  // `unlock` checks on-chain; using the stream's lifetime `unlocked` here
-  // would under-count on every milestone after the first.
-  const available = stream.accrued - stream.milestoneUnlocked;
-  const desired = (stream.maxTranche * BigInt(Math.round(agreedFraction * 10_000))) / 10_000n;
-  const tranche = desired < available ? desired : available;
+  // The fraction IS the certification: how much of the milestone this work
+  // satisfies. It no longer scales a per-release ceiling, which is what used to
+  // cap an honest contributor at a quarter of the budget for finishing the job.
+  //
+  // Deliberately NOT clamped to accrual. Certification records what was EARNED;
+  // the contract's `earned()` meters when it arrives. The agent may certify a
+  // milestone complete on day one and the contributor still collects on
+  // schedule — which is why one certification keeps paying with no further PRs.
+  const desiredBps = BigInt(Math.round(agreedFraction * 10_000));
 
-  if (tranche <= 0n) {
-    log({ event: 'skipped', ...base, ...verification, reason: 'nothing accrued to unlock yet' });
+  // On-chain `certifiedBps` is monotonic, so a verdict at or below the standing
+  // one reverts. Judging the same work twice — a redelivered webhook, a
+  // reconcile after a restart — is normal and must not burn gas on a revert.
+  if (desiredBps <= stream.certifiedBps) {
+    log({
+      event: 'skipped',
+      ...base,
+      ...verification,
+      agreedFraction,
+      reason: `already certified at ${Number(stream.certifiedBps) / 100}% — this verdict (${Number(desiredBps) / 100}%) would not raise it`,
+    });
+    return 'skipped';
+  }
+
+  // Meter to the policy rather than reverting against it. `maxTranche` caps how
+  // much entitlement ONE attestation may create; exceeding it would revert and
+  // throw the verdict away, when certification is monotonic and the remainder
+  // can simply be added by the next judgment.
+  const fullTarget = (stream.budget * desiredBps) / 10_000n;
+  const headroom = stream.target + stream.maxTranche;
+  const cappedTarget = fullTarget > headroom ? headroom : fullTarget;
+  const certifiedBps = (cappedTarget * 10_000n) / stream.budget;
+  const metered = certifiedBps < desiredBps;
+
+  if (certifiedBps <= stream.certifiedBps) {
+    log({
+      event: 'skipped',
+      ...base,
+      ...verification,
+      agreedFraction,
+      reason: `policy maxTranche ${formatUsdc(stream.maxTranche)} leaves no room to raise certification above ${Number(stream.certifiedBps) / 100}%`,
+    });
     return 'skipped';
   }
 
   const attestation: Attestation = {
     nonce: stream.nonce,
-    tranche,
+    certifiedBps,
     prNumber: BigInt(pr.number),
     commitSha: pr.commitSha,
     confidenceBps: BigInt(Math.round(verdict.confidence * 10_000)),
@@ -217,7 +248,7 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // stream address, so a signature is only ever valid at the contract it was
   // made for.
   const signature = await signAttestation(streamAddress, attestation);
-  const result = await sendUnlock(streamAddress, attestation, signature);
+  const result = await sendCertification(streamAddress, attestation, signature);
   const outcome: PipelineOutcome = result.state === 'COMPLETE' ? 'unlocked' : 'unlock_failed';
 
   log({
@@ -225,7 +256,12 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     ...base,
     ...verification,
     agreedFraction,
-    trancheUsdc: formatUsdc(tranche),
+    certifiedPercent: Number(certifiedBps) / 100,
+    // What this attestation added to the contributor's claim. The money itself
+    // arrives on the stream's schedule, not here.
+    trancheUsdc: formatUsdc(cappedTarget - stream.target),
+    claimUsdc: formatUsdc(cappedTarget),
+    meteredByPolicy: metered || undefined,
     nonce: Number(attestation.nonce),
     circleTransactionId: result.transactionId,
     state: result.state,

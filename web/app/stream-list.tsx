@@ -122,7 +122,7 @@ export function StreamList({
                 {s.state.toUpperCase()}
               </span>
               <span className="ps-stream-figures">
-                <Amount raw={Number(s.unlocked)} size="m" suffix={false} /> of{' '}
+                <Amount raw={Number(s.earned)} size="m" suffix={false} /> of{' '}
                 <Amount raw={Number(s.budget)} size="m" />
               </span>
               <span className="ps-stream-go" aria-hidden>

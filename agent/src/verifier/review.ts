@@ -4,7 +4,8 @@ import { env } from '../env';
 export type Review = {
   satisfies_milestone: boolean;
   confidence: number; // 0-1
-  tranche_fraction: number; // 0-1 of the policy's maxTranche
+  /** 0-1 of the WHOLE milestone completed. */
+  tranche_fraction: number;
   reasoning: string;
   red_flags: string[];
 };
@@ -47,9 +48,11 @@ Weigh these, in this order:
 Then report:
 
 - satisfies_milestone: whether this diff genuinely implements what the milestone asks.
-- tranche_fraction (0.0-1.0): the share of the tranche this work has earned. The attestor takes the
-  LOWER of your number and its own, so this is a real cap on the payout, not advice. Complete and
-  correct is 0.9-1.0; solid partial is 0.4-0.7; cosmetic or padded is 0.0-0.2.
+- tranche_fraction (0.0-1.0): how much of THE WHOLE MILESTONE is complete once this work is counted
+  — the milestone's total state, not the size of this one diff. The attestor takes the LOWER of your
+  number and its own, and the contract pays the contributor budget × that number on the stream's
+  schedule, so this is a real cap on the payout, not advice. Complete and correct is 0.9-1.0; solid
+  partial is 0.4-0.7; cosmetic or padded is 0.0-0.2.
 - confidence (0.0-1.0): how certain you are. If the diff is truncated, the milestone is vague, or
   you cannot see enough context to judge correctness, say so with a LOW number. Low confidence
   blocks the release and escalates to a human, which is the safe outcome and costs nobody anything.

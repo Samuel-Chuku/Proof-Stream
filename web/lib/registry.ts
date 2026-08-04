@@ -24,7 +24,8 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
   { type: 'function', name: 'budget', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'funded', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'milestoneUnlocked', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'earned', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'target', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'milestoneIndex', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'fullyFunded', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'isActive', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
@@ -42,7 +43,11 @@ export type StreamSummary = {
   milestone: string;
   budget: string;
   funded: string;
-  unlocked: string;
+  /** What the contributor can take now: min(accrued, target). */
+  earned: string;
+  /** What the agent certified is owed. The gap to `earned` is certified work
+   *  the stream has not delivered yet. */
+  target: string;
   milestoneIndex: number;
   /** `ended` is NOT the same as `settled`. isActive() stays true until the
    *  employer closes, so a milestone whose duration has run was reporting
@@ -147,13 +152,14 @@ export async function listStreams(): Promise<StreamSummary[]> {
       const read = <T>(functionName: string) =>
         rpc.readContract({ address: stream, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
 
-      const [repo, milestone, budget, funded, unlocked, index, fullyFunded, paused, endsAt, closed] =
+      const [repo, milestone, budget, funded, earned, target, index, fullyFunded, paused, endsAt, closed] =
         await Promise.all([
           read<string>('repo'),
           read<string>('milestone'),
           read<bigint>('budget'),
           read<bigint>('funded'),
-          read<bigint>('milestoneUnlocked'),
+          read<bigint>('earned'),
+          read<bigint>('target'),
           read<bigint>('milestoneIndex'),
           read<boolean>('fullyFunded'),
           read<boolean>('paused'),
@@ -179,7 +185,8 @@ export async function listStreams(): Promise<StreamSummary[]> {
         milestone,
         budget: budget.toString(),
         funded: funded.toString(),
-        unlocked: unlocked.toString(),
+        earned: earned.toString(),
+        target: target.toString(),
         milestoneIndex: Number(index),
         state,
         endsAt: Number(endsAt),

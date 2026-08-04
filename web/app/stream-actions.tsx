@@ -81,7 +81,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
   // has already moved against the old repository — the employer editing the
   // deal mid-job. Before any unlock it is harmless, and it is the only way to
   // retire a duplicate stream or follow a renamed repository.
-  const canRepoint = BigInt(stream.milestoneUnlocked) === 0n && !settled;
+  const canRepoint = stream.certifiedBps === 0 && !settled;
 
   async function run(label: string, send: () => Promise<`0x${string}`>) {
     setBusy(label);

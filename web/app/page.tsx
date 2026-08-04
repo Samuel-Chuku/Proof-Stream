@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 /// their own route and this page does the job a home page should.
 export default async function Home() {
   const streams = await listStreams();
-  const released = streams.reduce((sum, s) => sum + Number(s.unlocked), 0);
+  const released = streams.reduce((sum, s) => sum + Number(s.earned), 0);
 
   return (
     <main>

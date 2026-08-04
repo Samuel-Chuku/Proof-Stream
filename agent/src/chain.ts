@@ -15,11 +15,12 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'budget', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'fullyFunded', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'isActive', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'milestoneUnlocked', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'certifiedBps', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'target', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'earned', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'milestoneIndex', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'nonce', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'accrued', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'unlocked', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   {
     type: 'function',
@@ -30,7 +31,7 @@ const WORK_STREAM_ABI = [
   },
   {
     type: 'function',
-    name: 'unlock',
+    name: 'certify',
     stateMutability: 'nonpayable',
     inputs: [
       {
@@ -38,7 +39,7 @@ const WORK_STREAM_ABI = [
         name: 'a',
         components: [
           { name: 'nonce', type: 'uint256' },
-          { name: 'tranche', type: 'uint256' },
+          { name: 'certifiedBps', type: 'uint256' },
           { name: 'prNumber', type: 'uint256' },
           { name: 'commitSha', type: 'string' },
           { name: 'confidenceBps', type: 'uint256' },
@@ -66,12 +67,18 @@ export type StreamState = {
   fullyFunded: boolean;
   /** Accruing right now: funded, started, not closed. */
   isActive: boolean;
-  /** Released from THIS milestone (unlock is checked against this). */
-  milestoneUnlocked: bigint;
+  /** The agent's standing verdict on this milestone, 0-10_000. Monotonic, so
+   *  a new judgment may only raise it. */
+  certifiedBps: bigint;
+  /** What the agent has certified is owed, in USDC: budget × certifiedBps.
+   *  The clock never moves this. */
+  target: bigint;
+  /** What the contributor can actually take: min(accrued, target). The agent
+   *  decides `target`, the clock meters it into `earned`. */
+  earned: bigint;
   milestoneIndex: bigint;
   nonce: bigint;
   accrued: bigint;
-  unlocked: bigint;
   paused: boolean;
   maxTranche: bigint;
   dailyUnlockCap: bigint;
@@ -79,7 +86,8 @@ export type StreamState = {
 
 export type Attestation = {
   nonce: bigint;
-  tranche: bigint;
+  /** How much of the milestone the work satisfies, in basis points. */
+  certifiedBps: bigint;
   prNumber: bigint;
   commitSha: string;
   confidenceBps: bigint;
@@ -157,11 +165,12 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
   const budget = await read<bigint>('budget');
   const fullyFunded = await read<boolean>('fullyFunded');
   const isActive = await read<boolean>('isActive');
-  const milestoneUnlocked = await read<bigint>('milestoneUnlocked');
+  const certifiedBps = await read<bigint>('certifiedBps');
+  const target = await read<bigint>('target');
+  const earned = await read<bigint>('earned');
   const milestoneIndex = await read<bigint>('milestoneIndex');
   const nonce = await read<bigint>('nonce');
   const accrued = await read<bigint>('accrued');
-  const unlocked = await read<bigint>('unlocked');
   const paused = await read<boolean>('paused');
   const [maxTranche, dailyUnlockCap] = await read<[bigint, bigint, string]>('policy');
 
@@ -173,11 +182,12 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
     budget,
     fullyFunded,
     isActive,
-    milestoneUnlocked,
+    certifiedBps,
+    target,
+    earned,
     milestoneIndex,
     nonce,
     accrued,
-    unlocked,
     paused,
     maxTranche,
     dailyUnlockCap,
@@ -203,7 +213,7 @@ function typedData(streamAddress: `0x${string}`, a: Attestation) {
       ],
       Attestation: [
         { name: 'nonce', type: 'uint256' },
-        { name: 'tranche', type: 'uint256' },
+        { name: 'certifiedBps', type: 'uint256' },
         { name: 'prNumber', type: 'uint256' },
         { name: 'commitSha', type: 'string' },
         { name: 'confidenceBps', type: 'uint256' },
@@ -220,7 +230,7 @@ function typedData(streamAddress: `0x${string}`, a: Attestation) {
     },
     message: {
       nonce: a.nonce.toString(),
-      tranche: a.tranche.toString(),
+      certifiedBps: a.certifiedBps.toString(),
       prNumber: a.prNumber.toString(),
       commitSha: a.commitSha,
       confidenceBps: a.confidenceBps.toString(),
@@ -244,24 +254,27 @@ export async function signAttestation(
   return signature as `0x${string}`;
 }
 
-export type UnlockResult = {
+export type CertifyResult = {
   transactionId: string;
   state: string;
   txHash?: string;
   errorReason?: string;
 };
 
-/// Sends `unlock` from the agent's own wallet, paying its own gas in USDC.
+/// Sends `certify` from the agent's own wallet, paying its own gas in USDC.
 /// callData is viem-encoded because Circle's abiParameters cannot express a
 /// struct argument.
-export async function sendUnlock(
+///
+/// This raises the contributor's claim; it does not move money. The clock
+/// meters payment out afterwards, which is why one call keeps paying.
+export async function sendCertification(
   streamAddress: `0x${string}`,
   a: Attestation,
   signature: `0x${string}`,
-): Promise<UnlockResult> {
+): Promise<CertifyResult> {
   const callData = encodeFunctionData({
     abi: WORK_STREAM_ABI,
-    functionName: 'unlock',
+    functionName: 'certify',
     args: [a, signature],
   });
 
@@ -282,7 +295,7 @@ const TERMINAL = new Set(['COMPLETE', 'FAILED', 'DENIED', 'CANCELLED']);
 
 /// A policy revert surfaces here as FAILED — that is a demo feature, not a
 /// bug: it proves the agent physically cannot exceed its on-chain mandate.
-async function waitForTransaction(transactionId: string, timeoutMs = 120_000): Promise<UnlockResult> {
+async function waitForTransaction(transactionId: string, timeoutMs = 120_000): Promise<CertifyResult> {
   const deadline = Date.now() + timeoutMs;
   let last = 'INITIATED';
 
