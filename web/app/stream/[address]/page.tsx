@@ -1,4 +1,4 @@
-import { EXPLORER_URL } from '@proofstream/config';
+import { EXPLORER_URL, formatUsdc } from '@proofstream/config';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { listStreams } from '../../../lib/registry';
@@ -77,14 +77,20 @@ export default async function StreamPage({ params }: { params: Promise<{ address
       ) : (
         <>
           {(() => {
-            const coverage = diagnose(
-              stream.address,
-              stream.repo,
-              stream.milestoneClosed,
-              stream.agent,
+            // What closeMilestone would refund, computed the same way the
+            // contract does: everything held that is not already owed.
+            const held = BigInt(stream.held);
+            const owed = BigInt(stream.withdrawable);
+            const coverage = diagnose({
+              address: stream.address,
+              repo: stream.repo,
+              settled: stream.milestoneClosed,
+              endsAt: stream.activatedAt === 0 ? 0 : stream.activatedAt + stream.duration,
+              reclaimableUsdc: formatUsdc(held > owed ? held - owed : 0n),
+              agentOnChain: stream.agent,
               health,
               allStreams,
-            );
+            });
             if (coverage.served) return null;
             // One line, expandable. This is a status note, not the headline —
             // the money is. A full-width panel above the hero buried the thing

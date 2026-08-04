@@ -49,6 +49,25 @@ export const env = {
   // How often to re-scan for newly registered streams.
   registryRefreshMs: Number(process.env.REGISTRY_REFRESH_MS || 60_000),
 
+  /// How long after a milestone's end date the agent keeps certifying work.
+  ///
+  /// Earning and certifying are separate events with real time between them. A
+  /// pull request merged minutes before the end still has to be fetched,
+  /// judged, verified, signed and sent — so a hard stop at the end date would
+  /// leave money that was genuinely earned permanently unpayable, and
+  /// `closeMilestone` would refund it to the EMPLOYER. That is the contributor
+  /// losing pay to a race they do not control.
+  ///
+  /// But the window must not be unbounded: the contract's `unlock` has no
+  /// end-date check at all, so without this an unrelated merge months later
+  /// still releases from a stream everyone considered finished. Four hours is
+  /// long enough to absorb any plausible delivery delay and short enough that a
+  /// finished stream stops being armed the same day.
+  ///
+  /// This is ROUTING, not a security boundary — a malicious agent could ignore
+  /// it. What bounds a compromised key is the on-chain policy (T1/T6).
+  milestoneGraceHours: Number(process.env.MILESTONE_GRACE_HOURS ?? 4),
+
   circleApiKey: required('CIRCLE_API_KEY'),
   entitySecret: required('ENTITY_SECRET'),
   agentWalletId: required('AGENT_WALLET_ID'),

@@ -7,6 +7,7 @@ import { env } from './env';
 const WORK_STREAM_ABI = [
   { type: 'function', name: 'agent', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   { type: 'function', name: 'milestoneClosed', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  { type: 'function', name: 'milestoneEndsAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
   { type: 'function', name: 'milestoneHash', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
   { type: 'function', name: 'repo', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
@@ -115,7 +116,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
 /// watch. Trusting the log's copy would route events to a stale repo.
 export async function readIdentity(
   streamAddress: `0x${string}`,
-): Promise<{ agent: `0x${string}`; repo: string; closed: boolean }> {
+): Promise<{ agent: `0x${string}`; repo: string; closed: boolean; endsAt: bigint }> {
   const read = <T>(functionName: string) =>
     withRetry(
       () =>
@@ -131,7 +132,11 @@ export async function readIdentity(
   // A settled milestone can never be paid — the pipeline skips it on isActive.
   // Knowing that here lets a dead stream stop blocking a live one.
   const closed = await read<boolean>('milestoneClosed');
-  return { agent, repo, closed };
+  // Nothing accrues past this instant — `accrued()` caps `elapsed` at
+  // `duration`. The registry uses it to retire a stream whose milestone has
+  // run its course. 0 means the milestone has not started.
+  const endsAt = await read<bigint>('milestoneEndsAt');
+  return { agent, repo, closed, endsAt };
 }
 
 export async function readStream(streamAddress: `0x${string}`): Promise<StreamState> {

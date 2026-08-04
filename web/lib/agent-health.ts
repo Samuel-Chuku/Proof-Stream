@@ -54,6 +54,10 @@ export async function readAgentHealth(): Promise<AgentHealth> {
 /// the bound moves there, move it here.
 const MAX_STREAMS_PER_REPO = 5;
 
+/// Mirrors MILESTONE_GRACE_HOURS in agent/src/env.ts, and reads the same
+/// variable so a host running both stays consistent.
+const GRACE_HOURS = Number(process.env.MILESTONE_GRACE_HOURS ?? 4);
+
 export type Coverage =
   | { served: true }
   | { served: false; expected: true; title: string; detail: string }
@@ -62,15 +66,21 @@ export type Coverage =
 /// Why this stream is not being watched, in terms the reader can act on.
 ///
 /// `expected: true` means the silence is correct and needs no alarm — a settled
-/// milestone is finished, so of course nobody is watching it.
-export function diagnose(
-  address: string,
-  repo: string,
-  settled: boolean,
-  agentOnChain: string,
-  health: AgentHealth,
-  allStreams: StreamSummary[],
-): Coverage {
+/// or long-ended milestone is finished, so of course nobody is watching it.
+export function diagnose(s: {
+  address: string;
+  repo: string;
+  /** milestoneClosed — the permanent end. */
+  settled: boolean;
+  /** Unix seconds the milestone stopped accruing; 0 if it never started. */
+  endsAt: number;
+  /** What closeMilestone would send back, already formatted. */
+  reclaimableUsdc: string;
+  agentOnChain: string;
+  health: AgentHealth;
+  allStreams: StreamSummary[];
+}): Coverage {
+  const { address, repo, settled, endsAt, agentOnChain, health, allStreams } = s;
   if (health.serving.has(address.toLowerCase())) return { served: true };
 
   if (settled) {
@@ -79,6 +89,19 @@ export function diagnose(
       expected: true,
       title: 'Finished — the agent has stopped watching',
       detail: 'Open a new milestone to put this stream back to work.',
+    };
+  }
+
+  // Ended, and past the window the agent keeps certifying in. Checked before
+  // reachability because "this milestone is over" is the true explanation even
+  // when the agent also happens to be down — and it is not a fault.
+  const graceEnds = endsAt > 0 ? (endsAt + GRACE_HOURS * 3600) * 1000 : 0;
+  if (graceEnds > 0 && Date.now() > graceEnds) {
+    return {
+      served: false,
+      expected: true,
+      title: `Ended — close it to reclaim ${s.reclaimableUsdc} USDC`,
+      detail: `This milestone stopped accruing on ${new Date(endsAt * 1000).toLocaleString()}, and the agent certifies work for ${GRACE_HOURS} more hours after that so nothing merged near the deadline is stranded. That window has passed, so no further merge will release from this stream. Closing the milestone is the permanent end: it sends the ${s.reclaimableUsdc} USDC nobody earned back to the employer and frees the stream to open a new milestone.`,
     };
   }
 
@@ -107,7 +130,7 @@ export function diagnose(
   // exists because every extra stream costs another inference call and another
   // verifier fee per merge.
   const alsoLive = allStreams.filter(
-    (s) => s.repo.toLowerCase() === repo.toLowerCase() && s.state !== 'settled',
+    (other) => other.repo.toLowerCase() === repo.toLowerCase() && other.state !== 'settled',
   );
   if (alsoLive.length > MAX_STREAMS_PER_REPO) {
     return {

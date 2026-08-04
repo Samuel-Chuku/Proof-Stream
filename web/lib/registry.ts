@@ -44,6 +44,9 @@ export type StreamSummary = {
    *  employer closes, so a milestone whose duration has run was reporting
    *  "accruing" while nothing was accruing at all. */
   state: 'awaiting deposit' | 'accruing' | 'paused' | 'ended' | 'settled';
+  /** Unix seconds when the milestone stopped accruing; 0 if never started.
+   *  The agent stops certifying a fixed grace period after this. */
+  endsAt: number;
 };
 
 const client = () =>
@@ -141,6 +144,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
         unlocked: unlocked.toString(),
         milestoneIndex: Number(index),
         state,
+        endsAt: Number(endsAt),
       });
     } catch {
       // A registered address that no longer answers is not worth breaking the

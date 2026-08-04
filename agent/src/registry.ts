@@ -85,7 +85,9 @@ export async function refresh(log: Logger): Promise<void> {
   const next = new Map<string, StreamEntry[]>();
 
   for (const entry of streams.values()) {
-    let identity: { agent: `0x${string}`; repo: string; closed: boolean };
+    // Derived, not restated: a hand-written copy of this shape silently went
+    // stale the moment readIdentity learned a new field.
+    let identity: Awaited<ReturnType<typeof readIdentity>>;
     try {
       identity = await readIdentity(entry.stream);
     } catch (err) {
@@ -120,12 +122,39 @@ export async function refresh(log: Logger): Promise<void> {
     // serving it does nothing. More importantly it must not COMPETE — a closed
     // stream was blocking a live one on the same repo, which is the strictness
     // being wrong rather than safe.
+    //
+    // Closing is the PERMANENT end. Nothing below can bring a settled stream
+    // back, and nothing should: `closeMilestone` has already refunded the
+    // unspent budget to the employer.
     if (identity.closed) {
       log({
         event: 'registry_settled',
         stream: entry.stream,
         repo: identity.repo,
         reason: 'milestone is settled — not served, and it no longer claims the repo',
+      });
+      continue;
+    }
+
+    // Past its end date plus the grace window. The contract's `unlock` has no
+    // end-date check, so a stream stays armed until the employer closes it —
+    // this is what stops an unrelated merge, weeks later, releasing from a
+    // milestone everyone considered over. Retiring it here also frees the repo
+    // slot and costs no inference.
+    //
+    // Uses the contract's own `milestoneEndsAt()` — activation plus duration.
+    // It deliberately ignores paused time, exactly as `accrued()` does: pausing
+    // stops the earning clock but never moves the end date, so nothing accrues
+    // past this instant either way.
+    const graceEndsAt = identity.endsAt + BigInt(Math.round(env.milestoneGraceHours * 3600));
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    if (identity.endsAt > 0n && now > graceEndsAt) {
+      log({
+        event: 'registry_expired',
+        stream: entry.stream,
+        repo: identity.repo,
+        endedAt: new Date(Number(identity.endsAt) * 1000).toISOString(),
+        reason: `milestone ended more than ${env.milestoneGraceHours}h ago — no longer certified; close it to reclaim the unspent budget`,
       });
       continue;
     }
