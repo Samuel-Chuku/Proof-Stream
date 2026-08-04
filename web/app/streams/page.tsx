@@ -84,26 +84,37 @@ export default async function Streams() {
         </section>
       ) : (
         <>
-          <div className="ps-feed">
+          <div className="ps-feed ps-stream-list">
+            <div className="ps-stream-row ps-stream-head">
+              <span className="ps-caption">REPOSITORY</span>
+              <span className="ps-caption">MILESTONE</span>
+              <span className="ps-caption">STATE</span>
+              <span className="ps-caption ps-stream-figures">RELEASED OF BUDGET</span>
+              <span />
+            </div>
             {streams.map((s) => (
               <Link key={s.address} href={`/stream/${s.address}`} className="ps-stream-row">
-                <span className="ps-tx-action">{s.repo || '(no repo set)'}</span>
+                <span className="ps-tx-action ps-stream-repo">
+                  {/* Only the EXCEPTION is marked. Labelling every healthy row
+                      "watched" added a column of noise to say nothing. */}
+                  {s.state !== 'settled' && !health.serving.has(s.address.toLowerCase()) && (
+                    <span className="ps-stream-warn" title="The agent is not watching this stream">
+                      ⚠
+                    </span>
+                  )}
+                  {s.repo || '(no repo set)'}
+                </span>
                 <span className="ps-caption">MILESTONE {s.milestoneIndex}</span>
                 <span className={`ps-status ps-status-${s.state.replace(' ', '-')}`}>
                   {s.state.toUpperCase()}
                 </span>
-                <span className="ps-caption ps-watch">
-                  {s.state === 'settled'
-                    ? ''
-                    : health.serving.has(s.address.toLowerCase())
-                      ? 'WATCHED'
-                      : '⚠ NOT WATCHED'}
-                </span>
                 <span className="ps-stream-figures">
-                  <Amount raw={Number(s.unlocked)} size="m" suffix={false} /> released of{' '}
+                  <Amount raw={Number(s.unlocked)} size="m" suffix={false} /> of{' '}
                   <Amount raw={Number(s.budget)} size="m" />
                 </span>
-                <span aria-hidden>→</span>
+                <span className="ps-stream-go" aria-hidden>
+                  →
+                </span>
               </Link>
             ))}
           </div>

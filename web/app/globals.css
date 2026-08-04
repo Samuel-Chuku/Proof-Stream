@@ -28,12 +28,6 @@ main {
   padding: var(--ps-5) var(--ps-6) var(--ps-7);
 }
 
-/* Prose stays measured even though the page is wide — a 1200px line of 16px
-   text is unreadable regardless of how much room there is. */
-.ps-body {
-  max-width: 72ch;
-}
-
 a {
   color: inherit;
   text-underline-offset: 2px;
@@ -49,14 +43,14 @@ a {
   margin: 0;
 }
 
-.ps-display-xl {
-  font-size: var(--ps-size-display-xl);
-  line-height: var(--ps-lh-display-xl);
-}
-
 .ps-display-l {
   font-size: var(--ps-size-display-l);
   line-height: var(--ps-lh-display-l);
+}
+
+.ps-display-xl {
+  font-size: var(--ps-size-display-xl);
+  line-height: var(--ps-lh-display-xl);
 }
 
 .ps-label {
@@ -76,10 +70,12 @@ a {
   margin: 0;
 }
 
+/* Prose stays measured even though the page is wide — a 1200px line of 16px
+   text is unreadable regardless of how much room there is. */
 .ps-body {
   font-size: var(--ps-size-body);
   line-height: var(--ps-lh-body);
-  max-width: 60ch;
+  max-width: 72ch;
 }
 
 /* ---- Amount ---------------------------------------------- */
@@ -184,6 +180,8 @@ a {
   width: var(--ps-cell-w);
   height: var(--ps-cell-h);
   flex: 0 0 auto;
+  /* Cells carry information, so the pointer should say so. */
+  cursor: help;
 }
 
 /* Adjacent green cells must stay individually countable — the whole
@@ -480,34 +478,6 @@ textarea.ps-input {
   }
 }
 
-/* ---- Stream list ----------------------------------------- */
-
-.ps-stream-row {
-  display: grid;
-  grid-template-columns: 1fr max-content max-content max-content max-content var(--ps-3);
-  align-items: baseline;
-  gap: var(--ps-3);
-  padding: var(--ps-2) 0;
-  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
-  text-decoration: none;
-}
-
-.ps-stream-row:hover {
-  background: var(--ps-surface);
-}
-
-.ps-stream-figures {
-  font-size: var(--ps-size-data-m);
-  line-height: var(--ps-lh-data-m);
-  color: var(--ps-ink-dim);
-}
-
-@media (max-width: 720px) {
-  .ps-stream-row {
-    grid-template-columns: 1fr max-content;
-    gap: var(--ps-1) var(--ps-2);
-  }
-}
 
 /* ---- Footer ---------------------------------------------- */
 
@@ -915,11 +885,6 @@ code {
   gap: var(--ps-1);
 }
 
-/* Cells respond to the pointer so it is obvious they carry information. */
-.ps-cell {
-  cursor: help;
-}
-
 .ps-cell:hover {
   box-shadow: inset 0 0 0 var(--ps-bw-struct) var(--ps-rule);
 }
@@ -1042,14 +1007,6 @@ code {
    hue — the palette has no red or amber, and green stays
    reserved for released USDC. */
 
-.ps-status {
-  font-size: var(--ps-size-label);
-  letter-spacing: var(--ps-track-label);
-  padding: 0 var(--ps-2);
-  border: var(--ps-bw-hair) solid var(--ps-border);
-  white-space: nowrap;
-}
-
 /* Live: solid edge, full ink. */
 .ps-status-accruing {
   border-color: var(--ps-rule);
@@ -1155,4 +1112,86 @@ code {
   font-size: var(--ps-size-detail);
   line-height: var(--ps-lh-detail);
   color: var(--ps-ink-dim);
+}
+
+/* ---- Stream list ------------------------------------------
+   ONE template shared by the header and every row. Each row used
+   to be its own grid, so `max-content` was measured per row and
+   no two lined up — the columns only appeared to be columns. */
+
+.ps-stream-list {
+  --ps-cols: minmax(0, 1fr) 108px 96px 200px var(--ps-4);
+}
+
+.ps-stream-row {
+  display: grid;
+  grid-template-columns: var(--ps-cols);
+  align-items: center;
+  gap: var(--ps-3);
+  padding: var(--ps-2) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  text-decoration: none;
+}
+
+.ps-stream-head {
+  border-bottom-color: var(--ps-rule);
+  padding-bottom: var(--ps-1);
+}
+
+.ps-stream-head:hover {
+  background: none;
+}
+
+a.ps-stream-row:hover {
+  background: var(--ps-surface);
+}
+
+.ps-stream-repo {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ps-stream-warn {
+  flex: 0 0 auto;
+}
+
+/* Figures right-align so the decimal points stack down the column. */
+.ps-stream-figures {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  color: var(--ps-ink-dim);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ps-stream-go {
+  text-align: right;
+  color: var(--ps-ink-dim);
+}
+
+/* Badges share a width so the column reads as a column. */
+.ps-status {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  padding: 0 var(--ps-1);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .ps-stream-list {
+    --ps-cols: minmax(0, 1fr) max-content;
+  }
+
+  .ps-stream-row > :nth-child(2),
+  .ps-stream-head {
+    display: none;
+  }
 }
