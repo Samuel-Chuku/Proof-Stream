@@ -130,5 +130,24 @@ export const env = {
 
   // A different vendor on purpose — a second opinion from the same model is
   // not a second opinion. Free tier by default, same reasoning as above.
-  verifierModel: process.env.VERIFIER_MODEL || 'cohere/north-mini-code:free',
+  //
+  // Was `cohere/north-mini-code:free`, which could not return a verdict at all:
+  // it expands its reasoning to fill whatever `max_tokens` it is given (9511
+  // against a 8000 ceiling, then 27476 against 24000), so every review arrived
+  // truncated and every one was PAID FOR — x402 settles before the handler runs.
+  //
+  // Chosen against the alternatives on a real diff with `pnpm review:test`, and
+  // the negative control is what picked it: given the same diff and a milestone
+  // it does not satisfy, it returns `satisfies=false, fraction 0` with specific
+  // red flags rather than rubber-stamping (T5).
+  //
+  // `nvidia/nemotron-3-super-120b-a12b:free` was rejected, and HOW it failed is
+  // the point. It judged the easy case correctly in seconds, then on the
+  // mismatch spent 8384 completion tokens of which 8384 were reasoning — every
+  // single one — and returned nothing after seven minutes. Same class of
+  // failure as the model it would have replaced, and it only appeared on the
+  // case that needed judgment. **A verifier must be qualified on a diff that
+  // does NOT satisfy the milestone.** Testing only the happy path would have
+  // shipped this one.
+  verifierModel: process.env.VERIFIER_MODEL || 'poolside/laguna-s-2.1:free',
 };
