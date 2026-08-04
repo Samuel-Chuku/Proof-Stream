@@ -10,3 +10,4 @@ broadcast/
 .next/
 *.tsbuildinfo
 .next-verify/
+placeholder.md

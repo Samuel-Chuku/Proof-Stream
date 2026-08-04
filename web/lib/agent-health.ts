@@ -49,6 +49,11 @@ export async function readAgentHealth(): Promise<AgentHealth> {
   }
 }
 
+/// Mirrors MAX_STREAMS_PER_REPO in agent/src/registry.ts. Duplicated rather
+/// than imported because the web app does not depend on the agent package — if
+/// the bound moves there, move it here.
+const MAX_STREAMS_PER_REPO = 5;
+
 export type Coverage =
   | { served: true }
   | { served: false; expected: true; title: string; detail: string }
@@ -96,20 +101,20 @@ export function diagnose(
     };
   }
 
-  // Another LIVE stream on the same repository — the ambiguity the agent
-  // refuses to guess its way through.
-  const rivals = allStreams.filter(
-    (s) =>
-      s.address.toLowerCase() !== address.toLowerCase() &&
-      s.repo.toLowerCase() === repo.toLowerCase() &&
-      s.state !== 'settled',
+  // Sharing a repository with other streams is NORMAL — a merged pull request
+  // is judged against each one separately, against its own milestone and out of
+  // its own budget. The only failure is crowding past the agent's bound, which
+  // exists because every extra stream costs another inference call and another
+  // verifier fee per merge.
+  const alsoLive = allStreams.filter(
+    (s) => s.repo.toLowerCase() === repo.toLowerCase() && s.state !== 'settled',
   );
-  if (rivals.length > 0) {
+  if (alsoLive.length > MAX_STREAMS_PER_REPO) {
     return {
       served: false,
       expected: false,
-      title: 'Another stream claims this repository',
-      detail: `${rivals.map((r) => r.address).join(' and ')} also watches ${repo}. Rather than guess which one a merged pull request should pay, the agent serves neither. Close or repoint one and this resumes within a minute.`,
+      title: 'Too many live streams on this repository',
+      detail: `${alsoLive.length} streams watch ${repo}, and the agent judges at most ${MAX_STREAMS_PER_REPO} of them per merge — each one it takes on costs another inference call and another verifier fee. Close or repoint a finished stream and this resumes within a minute.`,
     };
   }
 

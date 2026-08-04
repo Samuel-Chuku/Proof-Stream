@@ -32,6 +32,11 @@ const STREAM_REGISTERED = parseAbiItem(
 // A probe that does not send the same request the code sends proves nothing.
 const MAX_LOG_WINDOW = 45_000n;
 
+/// How many live streams one repository may have judged per merge. Each costs
+/// an inference call and a verifier fee, so this is a spend bound, not a
+/// correctness one.
+const MAX_STREAMS_PER_REPO = 5;
+
 export type StreamEntry = {
   stream: `0x${string}`;
   employer: `0x${string}`;
@@ -44,9 +49,15 @@ const publicClient = createPublicClient({ chain: arcTestnet, transport: http(env
 /** stream -> entry. Keyed by stream because a stream is the durable identity;
  *  the repo is a mutable property of it. */
 const streams = new Map<string, StreamEntry>();
-/** repo (lowercased) -> entry. Rebuilt from scratch every refresh so a rename
- *  cannot leave the old repo pointing at the stream. */
-let repoIndex = new Map<string, StreamEntry>();
+/** repo (lowercased) -> EVERY live stream watching it. Rebuilt from scratch
+ *  each refresh so a rename cannot leave an old repo pointing at a stream.
+ *
+ *  Several streams on one repository is normal, not a conflict: two
+ *  contributors can be paid from two budgets against two different milestones
+ *  in the same codebase. An earlier version refused to serve any of them,
+ *  which made a perfectly ordinary arrangement look broken — and blocked a new
+ *  stream whenever an old one on the same repo had merely run out of time. */
+let repoIndex = new Map<string, StreamEntry[]>();
 /** Highest block already scanned; the next scan starts after it. */
 let cursor: bigint | null = null;
 /** Streams that named a different agent. Remembered so the refusal is logged
@@ -71,7 +82,7 @@ export async function refresh(log: Logger): Promise<void> {
     });
   }
 
-  const next = new Map<string, StreamEntry>();
+  const next = new Map<string, StreamEntry[]>();
 
   for (const entry of streams.values()) {
     let identity: { agent: `0x${string}`; repo: string; closed: boolean };
@@ -121,23 +132,22 @@ export async function refresh(log: Logger): Promise<void> {
 
     entry.repo = identity.repo;
     const key = identity.repo.toLowerCase();
+    const existing = next.get(key) ?? [];
 
-    // Two streams claiming one repo is ambiguous, and guessing would route a
-    // payout to whichever happened to register last. Refuse both.
-    const clash = next.get(key);
-    if (clash && clash.stream.toLowerCase() !== entry.stream.toLowerCase()) {
+    // A runaway repo would otherwise cost one judgment — and one verifier fee —
+    // per stream per merge. Settled streams are already excluded above, so
+    // reaching this bound means someone is funding a lot of live streams.
+    if (existing.length >= MAX_STREAMS_PER_REPO) {
       log({
-        event: 'registry_conflict',
+        event: 'registry_repo_crowded',
         repo: identity.repo,
-        streams: [clash.stream, entry.stream],
-        reason:
-          'two LIVE streams claim the same repo — neither is served until one is closed or repointed',
+        skipped: entry.stream,
+        reason: `more than ${MAX_STREAMS_PER_REPO} live streams watch this repo — the rest are not served`,
       });
-      next.delete(key);
       continue;
     }
 
-    next.set(key, entry);
+    next.set(key, [...existing, entry]);
   }
 
   repoIndex = next;
@@ -217,21 +227,21 @@ async function scanForNewStreams(log: Logger): Promise<void> {
   }
 }
 
-/// The routing decision: which stream, if any, owns this repo.
-export function resolveStream(repo: string): StreamEntry | undefined {
-  return repoIndex.get(repo.toLowerCase());
+/// Every stream watching this repo. A merged pull request is judged against
+/// each of them separately, because each carries its own milestone and pays
+/// from its own budget.
+export function resolveStreams(repo: string): StreamEntry[] {
+  return repoIndex.get(repo.toLowerCase()) ?? [];
 }
 
 export function knownStreams(): StreamEntry[] {
-  return [...repoIndex.values()];
+  return [...repoIndex.values()].flat();
 }
 
 /// Look a stream up by address — the webhook route carries one, and it must be
 /// checked against what we actually serve rather than trusted.
 export function isServed(streamAddress: string): StreamEntry | undefined {
-  return [...repoIndex.values()].find(
-    (e) => e.stream.toLowerCase() === streamAddress.toLowerCase(),
-  );
+  return knownStreams().find((e) => e.stream.toLowerCase() === streamAddress.toLowerCase());
 }
 
 /// Refresh now, then keep refreshing. Returns once the first scan is done so

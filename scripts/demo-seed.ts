@@ -534,10 +534,12 @@ for (let pass = 1; pass <= passes; pass++) {
       const pr = await openChangeset(cs, i + 1, pass);
       console.log(`   PR #${pr.number} opened`);
 
-      const outcome: PipelineOutcome = await processPr(pr);
-      tally[outcome] = (tally[outcome] ?? 0) + 1;
-      console.log(`   → ${outcome}`);
-      note({ event: 'seeded', pass, index: i + 1, pr: pr.number, title: cs.title, outcome });
+      // One outcome per stream watching the repo, so the tally counts
+      // decisions rather than pull requests.
+      const outcomes: PipelineOutcome[] = await processPr(pr);
+      for (const outcome of outcomes) tally[outcome] = (tally[outcome] ?? 0) + 1;
+      console.log(`   → ${outcomes.join(', ')}`);
+      note({ event: 'seeded', pass, index: i + 1, pr: pr.number, title: cs.title, outcomes });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       tally.error = (tally.error ?? 0) + 1;

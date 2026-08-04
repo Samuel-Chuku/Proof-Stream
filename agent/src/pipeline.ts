@@ -8,7 +8,7 @@ import { readStream, sendUnlock, signAttestation, type Attestation } from './cha
 import { env } from './env';
 import { fetchDiff, type MergedPr } from './github';
 import { buySecondOpinion } from './pay';
-import { resolveStream } from './registry';
+import { resolveStreams, type StreamEntry } from './registry';
 import { judge } from './verdict';
 
 const LOG_PATH = new URL('../verdicts.jsonl', import.meta.url).pathname;
@@ -27,27 +27,63 @@ export type PipelineOutcome =
   | 'unlocked'
   | 'unlock_failed';
 
-/// Judge one PR and, if it earns it, unlock a tranche. Returns what happened so
-/// a caller can tally outcomes; every step is also written to verdicts.jsonl.
-export async function processPr(pr: MergedPr): Promise<PipelineOutcome> {
-  // Route the event to the stream that owns this repo. Deliberately refuses to
-  // guess: with many streams served by one agent, picking "probably that one"
-  // would mean signing an attestation against the wrong employer's money.
+/// Judge one PR against EVERY stream watching its repo.
+///
+/// One repository can carry several streams — two contributors, two milestones,
+/// two budgets, one codebase — and each is a separate employer's money with its
+/// own definition of done. So each is judged on its own: the same merge can
+/// satisfy one milestone and fail another, and a decision on one stream never
+/// touches the other's funds.
+///
+/// An earlier version routed to a single stream and refused to act when it
+/// found two. That treated an ordinary arrangement as an error, and left a new
+/// stream unserved whenever a previous one on the same repo had merely run out
+/// of time without being closed.
+export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
   if (!pr.repo) {
     log({ event: 'skipped', pr: pr.number, reason: 'event carries no repo — cannot route it to a stream' });
-    return 'skipped';
+    return ['skipped'];
   }
 
-  const entry = resolveStream(pr.repo);
-  if (!entry) {
+  const entries = resolveStreams(pr.repo);
+  if (entries.length === 0) {
+    log({ event: 'skipped', pr: pr.number, reason: `no registered stream watches ${pr.repo}` });
+    return ['skipped'];
+  }
+
+  if (entries.length > 1) {
     log({
-      event: 'skipped',
+      event: 'fan_out',
       pr: pr.number,
-      reason: `no registered stream watches ${pr.repo}`,
+      repo: pr.repo,
+      streams: entries.map((e) => e.stream),
+      reason: 'several streams watch this repo — each is judged separately against its own milestone',
     });
-    return 'skipped';
   }
 
+  // Sequential, not parallel. Each stream costs an inference call and a
+  // verifier fee, and Arc's RPC rate-limits hard enough that a burst of
+  // concurrent reads is the thing most likely to fail.
+  const outcomes: PipelineOutcome[] = [];
+  for (const entry of entries) {
+    try {
+      outcomes.push(await judgeForStream(pr, entry));
+    } catch (err) {
+      log({
+        event: 'unlock_failed',
+        workStream: entry.stream,
+        repo: entry.repo,
+        pr: pr.number,
+        reason: `judgment threw: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      outcomes.push('unlock_failed');
+    }
+  }
+  return outcomes;
+}
+
+/// One PR, one stream. Every gate below is about THIS stream's terms.
+async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<PipelineOutcome> {
   const streamAddress = entry.stream;
   const stream = await readStream(streamAddress);
 
