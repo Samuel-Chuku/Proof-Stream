@@ -48,6 +48,9 @@ export type AgentEvent = {
 export type Review = {
   at: string;
   event: string;
+  /** Which stream the review was bought for. The verifier records this, and a
+   *  per-stream page MUST filter on it — the log is fleet-wide. */
+  workStream?: string;
   pr: number;
   inferenceCostUsd?: number;
   feeUsdc?: string;

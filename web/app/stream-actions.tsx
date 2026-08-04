@@ -76,6 +76,13 @@ export function StreamActions({ stream }: { stream: Stream }) {
   // the contract already refuses, so the UI should not pretend otherwise.
   const settled = stream.milestoneClosed;
 
+  // Repointing is only offered before the agent has released anything.
+  // Afterwards it would change what future work is judged against while money
+  // has already moved against the old repository — the employer editing the
+  // deal mid-job. Before any unlock it is harmless, and it is the only way to
+  // retire a duplicate stream or follow a renamed repository.
+  const canRepoint = BigInt(stream.milestoneUnlocked) === 0n && !settled;
+
   async function run(label: string, send: () => Promise<`0x${string}`>) {
     setBusy(label);
     setError(null);
@@ -220,11 +227,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
           the only route to it exporting a private key into a keystore. An
           employer legitimately needs this: repositories get renamed, and two
           streams claiming one repo are BOTH refused by the agent until one is
-          pointed elsewhere. */}
-      {isEmployer && (
-        <div className="ps-repoint">
-          <label className="ps-label" htmlFor="repoint">
-            REPOSITORY THE AGENT WATCHES
+          pointed elsewhere. Folded away, because it is a rare action. */}
+      {isEmployer && canRepoint && (
+        <details className="ps-repoint">
+          <summary className="ps-label">CHANGE THE REPOSITORY ▾</summary>
+          <label className="ps-caption" htmlFor="repoint">
+            CURRENTLY WATCHING {stream.repo || '(none)'}
           </label>
           <div className="ps-repoint-row">
             <input
@@ -254,9 +262,11 @@ export function StreamActions({ stream }: { stream: Stream }) {
           </div>
           <p className="ps-caption">
             THE AGENT READS THIS FROM THE CONTRACT, SO IT TAKES EFFECT WITHIN A MINUTE WITH NO
-            RE-REGISTRATION. USE A DEAD NAME LIKE RETIRED/DUPLICATE TO TAKE A STREAM OUT OF SERVICE.
+            RE-REGISTRATION. TWO STREAMS ON ONE REPOSITORY ARE BOTH REFUSED, SO POINT ONE AT A DEAD
+            NAME LIKE RETIRED/DUPLICATE TO RETIRE IT. UNAVAILABLE ONCE THE AGENT HAS RELEASED
+            ANYTHING.
           </p>
-        </div>
+        </details>
       )}
 
       {isEmployer && (

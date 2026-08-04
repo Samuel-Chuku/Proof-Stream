@@ -1006,13 +1006,29 @@ code {
 /* ---- Repoint a stream ------------------------------------ */
 
 .ps-repoint {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ps-2);
   margin-top: var(--ps-4);
   padding-top: var(--ps-3);
   border-top: var(--ps-bw-hair) dashed var(--ps-border);
   max-width: 60ch;
+}
+
+.ps-repoint > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--ps-ink-dim);
+}
+
+.ps-repoint > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ps-repoint[open] > summary {
+  margin-bottom: var(--ps-3);
+}
+
+.ps-repoint > label {
+  display: block;
+  margin-bottom: var(--ps-2);
 }
 
 .ps-repoint-row {

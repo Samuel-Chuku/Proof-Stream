@@ -27,11 +27,16 @@ export default async function StreamPage({ params }: { params: Promise<{ address
   const { address } = await params;
   const stream = await readStream(address);
   const logs = await readAgentLogs();
-  // Only this stream's judgments. The agent's log is fleet-wide.
-  const verdicts = logs.verdicts.filter(
-    (v) => !v.workStream || v.workStream.toLowerCase() === address.toLowerCase(),
-  );
-  const spend = totalSpend(verdicts, logs.reviews);
+
+  // BOTH logs are fleet-wide, and both must be filtered. Passing the reviews
+  // through unfiltered made a brand-new stream report the whole fleet's
+  // verifier spend against its own zero decisions.
+  //
+  // An explicit match, not "untagged counts as mine": an entry that names no
+  // stream cannot be attributed to one, and guessing inflates the newest page.
+  const mine = (x: { workStream?: string }) => x.workStream?.toLowerCase() === address.toLowerCase();
+  const verdicts = logs.verdicts.filter(mine);
+  const spend = totalSpend(verdicts, logs.reviews.filter(mine));
   const decisions = verdicts.filter((v) => v.verdict);
   const settled = verdicts.filter((v) => v.txHash);
 
@@ -112,12 +117,40 @@ export default async function StreamPage({ params }: { params: Promise<{ address
         </>
       )}
 
-      <SectionRule>WHAT THE AGENTS SPENT</SectionRule>
-      <p className="ps-body">
-        ${spend.total.toFixed(4)} across {decisions.length} decisions — inference plus{' '}
-        {spend.paidReviews} second opinions bought at $0.005 each, paid by the attestor from its own
-        wallet.
-      </p>
+      <SectionRule>WHAT THE AGENTS SPENT ON THIS STREAM</SectionRule>
+      {decisions.length === 0 ? (
+        <p className="ps-body">
+          Nothing yet. The agents only spend when there is work to judge — the attestor pays for its
+          own reasoning, and pays the verifier $0.005 for a second opinion, out of their own
+          wallets.
+        </p>
+      ) : (
+        <>
+          <p className="ps-body">
+            <b>${spend.total.toFixed(4)}</b> of the agents&rsquo; own money, to decide{' '}
+            {decisions.length} pull request{decisions.length === 1 ? '' : 's'} on this stream.
+          </p>
+          <div className="ps-figures">
+            <div>
+              <span className="ps-caption">ATTESTOR REASONING</span>
+              <span className="ps-num">${spend.attestorInference.toFixed(4)}</span>
+            </div>
+            <div>
+              <span className="ps-caption">VERIFIER REASONING</span>
+              <span className="ps-num">${spend.verifierInference.toFixed(4)}</span>
+            </div>
+            <div>
+              <span className="ps-caption">
+                SECOND OPINIONS BOUGHT ({spend.paidReviews})
+              </span>
+              <span className="ps-num">${spend.verificationFees.toFixed(4)}</span>
+            </div>
+          </div>
+          <p className="ps-caption" style={{ marginTop: 'var(--ps-3)' }}>
+            REFUSING IS FREE — NO SECOND OPINION IS BOUGHT WHEN THE ATTESTOR DECLINES ON ITS OWN
+          </p>
+        </>
+      )}
       <Footer />
 
     </main>
