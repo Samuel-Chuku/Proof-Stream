@@ -149,5 +149,16 @@ export const env = {
   // case that needed judgment. **A verifier must be qualified on a diff that
   // does NOT satisfy the milestone.** Testing only the happy path would have
   // shipped this one.
+  //
+  // The default stays on the FREE tier so a stranger who clones this is never
+  // billed by surprise. For a recorded run set VERIFIER_MODEL to the paid slug
+  // `poolside/laguna-s-2.1` — the same model on dedicated capacity, off the
+  // shared free pool and its 429s. Measured on both cases above: $0.0003 to
+  // approve, $0.0001 to refuse, verdicts identical to the free tier.
+  //
+  // That price is the interesting part. VERIFICATION_FEE is $0.005, so at
+  // ~$0.0002 a review the verifier finally earns more than it spends. It has
+  // sold at a loss since Phase 3 (roadmap R1) — $0.005 charged against
+  // $0.0103-$0.0124 of measured inference, about 6x underwater on every call.
   verifierModel: process.env.VERIFIER_MODEL || 'poolside/laguna-s-2.1:free',
 };
