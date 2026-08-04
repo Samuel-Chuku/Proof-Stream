@@ -1243,26 +1243,38 @@ a.ps-stream-row:hover {
 
 /* ---- Reveal ---------------------------------------------- */
 
-/* Centred and unruled ON PURPOSE. Left-aligned with a bottom border it
-   was indistinguishable from another row of the list — the one thing it
-   must not look like, since its job is to say the list stopped. */
+/* Centred and boxed. Left-aligned with a bottom border it was
+   indistinguishable from another row of the list — the one thing it must
+   not look like, since its job is to say the list stopped. But centred
+   dim text was not obviously a control either, so it takes the theme
+   toggle's weight: a real edge and a shadow, at half the presence of a
+   primary button. */
 .ps-reveal {
   font: inherit;
   font-size: var(--ps-size-label);
   letter-spacing: var(--ps-track-label);
   text-transform: uppercase;
   display: block;
-  width: 100%;
-  padding: var(--ps-3) 0 var(--ps-2);
-  background: transparent;
+  width: fit-content;
+  margin: var(--ps-3) auto var(--ps-2);
+  padding: 7px 16px;
+  background: var(--ps-surface);
   color: var(--ps-ink-dim);
-  border: 0;
+  border: var(--ps-bw-hair) solid var(--ps-rule);
+  border-radius: var(--ps-r-1);
+  box-shadow: var(--ps-shadow-1);
   cursor: pointer;
-  text-align: center;
 }
 
 .ps-reveal:hover {
   color: var(--ps-ink);
+  border-color: var(--ps-green-deep);
+}
+
+/* It lands on the page, like every other control here. */
+.ps-reveal:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--ps-shadow-pressed);
 }
 
 /* ---- Decision dialog ------------------------------------- */

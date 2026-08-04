@@ -30,7 +30,7 @@ export function Reveal({
     <>
       {open ? children : children.slice(0, initial)}
       <button type="button" className="ps-reveal" onClick={() => setOpen(!open)}>
-        {open ? `[ SHOW FEWER ]` : `[ SHOW ALL ${total} ${noun.toUpperCase()} ]`}
+        {open ? '[ SHOW FEWER ] ▴' : `[ SHOW ALL ${total} ${noun.toUpperCase()} ] ▾`}
       </button>
     </>
   );
