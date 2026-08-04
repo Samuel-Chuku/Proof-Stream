@@ -30,8 +30,9 @@ const GATEWAY_ABI = [
 
 const WORK_STREAM_ABI = [
   { type: 'function', name: 'accrued', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'unlocked', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'contributorCredited', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'target', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'earned', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'certifiedBps', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'withdrawn', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'nonce', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
@@ -98,10 +99,11 @@ const read = <T>(functionName: string) =>
 const gatewayBalance = (who: `0x${string}`) =>
   client.readContract({ address: GATEWAY_WALLET, abi: GATEWAY_ABI, functionName: 'availableBalance', args: [USDC_ADDRESS, who] });
 
-const [accrued, unlocked, credited, withdrawn, nonce, milestone] = [
+const [accrued, target, earned, certifiedBps, withdrawn, nonce, milestone] = [
   await read<bigint>('accrued'),
-  await read<bigint>('unlocked'),
-  await read<bigint>('contributorCredited'),
+  await read<bigint>('target'),
+  await read<bigint>('earned'),
+  await read<bigint>('certifiedBps'),
   await read<bigint>('withdrawn'),
   await read<bigint>('nonce'),
   await read<string>('milestone'),
@@ -128,7 +130,7 @@ const unlockRows = verdicts
   .filter((v) => v.txHash)
   .map(
     (v) =>
-      `| ${v.at.slice(0, 19).replace('T', ' ')} | unlock | #${v.pr} | ${v.trancheUsdc ?? '—'} | ${pctOf(v.agreedFraction)} | ${tx(v.txHash!)} |`,
+      `| ${v.at.slice(0, 19).replace('T', ' ')} | certify | #${v.pr} | ${v.trancheUsdc ?? '—'} | ${pctOf(v.agreedFraction)} | ${tx(v.txHash!)} |`,
   );
 
 const payoutRows = payouts.map(
@@ -167,13 +169,21 @@ Every hash below is a real transaction on Arc Testnet (chain \`5042002\`).
 
 | Field | Value |
 | --- | --- |
-| Accrued | ${formatUsdc(accrued)} USDC |
-| Unlocked | ${formatUsdc(unlocked)} USDC |
-| Credited to contributor | ${formatUsdc(credited)} USDC |
+| Certified by the agent | ${Number(certifiedBps) / 100}% of the milestone |
+| Owed on that verdict | ${formatUsdc(target)} USDC |
+| Released by the clock | ${formatUsdc(earned)} USDC |
+| Certified but still arriving | ${formatUsdc(target > earned ? target - earned : 0n)} USDC |
+| Streamed on schedule | ${formatUsdc(accrued)} USDC |
 | Paid out | ${formatUsdc(withdrawn)} USDC |
-| Still withdrawable | ${formatUsdc(credited - withdrawn)} USDC |
+| Still withdrawable | ${formatUsdc(earned > withdrawn ? earned - withdrawn : 0n)} USDC |
 | Held by contract | ${formatUsdc(held)} USDC |
 | Attestation nonce | ${nonce} |
+
+Two of those rows are the design, not an accident. **Owed** is the agent's
+judgment and only the agent moves it. **Released** is what the stream's clock has
+delivered against that judgment. The gap between them is work the agent has
+certified and the contributor will collect as the milestone runs — no further
+pull requests required.
 
 ## Direct on-chain transactions
 

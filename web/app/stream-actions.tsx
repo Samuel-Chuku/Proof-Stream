@@ -69,6 +69,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
   const isContributor = me === stream.contributor.toLowerCase();
 
   const withdrawable = BigInt(stream.withdrawable);
+  // Certified by the agent but not yet delivered by the clock. This is the
+  // state the old model had no way to be in — certification and payment used
+  // to be the same event.
+  const arriving = BigInt(stream.target) > BigInt(stream.earned)
+    ? BigInt(stream.target) - BigInt(stream.earned)
+    : 0n;
   const outstanding = BigInt(stream.budget) - BigInt(stream.funded);
 
   // A settled milestone rejects fund, pause and close. Offering a button that
@@ -212,13 +218,32 @@ export function StreamActions({ stream }: { stream: Stream }) {
 
       {isContributor && (
         <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+          {/* Zero withdrawable has three quite different causes, and collapsing
+              them into one message told a contributor who had just been paid
+              that they had never earned anything. */}
           {withdrawable > 0n ? (
             <>
               <Amount raw={Number(withdrawable)} size="s" /> READY — PAID ONLY TO THE ALLOWLISTED
               PAYEE
             </>
+          ) : BigInt(stream.withdrawn) > 0n ? (
+            <>
+              ALL EARNED PAY WITHDRAWN — <Amount raw={Number(stream.withdrawn)} size="s" /> PAID OUT
+              SO FAR
+              {arriving > 0n && (
+                <>
+                  {' · '}
+                  <Amount raw={Number(arriving)} size="s" /> CERTIFIED, ARRIVING AS THE STREAM RUNS
+                </>
+              )}
+            </>
+          ) : arriving > 0n ? (
+            <>
+              <Amount raw={Number(arriving)} size="s" /> CERTIFIED BY THE AGENT — IT ARRIVES AS THE
+              STREAM RUNS, WITH NO FURTHER PULL REQUESTS
+            </>
           ) : (
-            'NOTHING TO WITHDRAW YET — THE AGENT RELEASES A TRANCHE WHEN IT VERIFIES WORK'
+            'NOTHING TO WITHDRAW YET — THE AGENT CERTIFIES WORK BEFORE ANYTHING IS OWED'
           )}
         </p>
       )}

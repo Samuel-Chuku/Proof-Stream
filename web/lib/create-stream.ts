@@ -44,9 +44,17 @@ export const usdc = (human: string) => parseUnits(human, 6);
 export function suggestedCaps(budget: string) {
   const amount = Number(budget) || 0;
   return {
-    // A quarter per release: several releases per milestone, so the agent's
-    // judgment is exercised more than once.
-    maxTranche: amount > 0 ? (amount / 4).toFixed(2) : '',
+    // The WHOLE budget. This was a quarter, on the assumption that a milestone
+    // would be merged about four times — and a well-scoped milestone is
+    // satisfied ONCE, so a contributor who finished the job could be certified
+    // for a quarter of it and the rest refunded to the employer on close.
+    //
+    // Nothing is lost by raising it. The cap now bounds how much entitlement a
+    // single attestation may CREATE, and money still only leaves at the speed
+    // the stream accrues, so the clock is a second rate limit no key can
+    // bypass. What actually bounds a compromised agent is dailyUnlockCap and
+    // the fact that the employer funds one milestone at a time.
+    maxTranche: amount > 0 ? amount.toFixed(2) : '',
     // The whole budget in a day — a cap that stops a runaway key without
     // stopping the job.
     dailyUnlockCap: amount > 0 ? amount.toFixed(2) : '',

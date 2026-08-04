@@ -30,7 +30,9 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
 const WORK_STREAM_ABI = [
   { type: 'function', name: 'withdrawable', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'contributor', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
-  { type: 'function', name: 'contributorCredited', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'settledCredit', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'earned', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'target', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'withdrawn', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   {
     type: 'function',
@@ -79,9 +81,20 @@ try {
   const withdrawable = await read<bigint>('withdrawable');
   add('there is something to withdraw', withdrawable > 0n, `${formatUsdc(withdrawable)} USDC withdrawable`);
 
-  const credited = await read<bigint>('contributorCredited');
+  const settledCredit = await read<bigint>('settledCredit');
+  const earned = await read<bigint>('earned');
+  const target = await read<bigint>('target');
   const withdrawn = await read<bigint>('withdrawn');
+  const credited = settledCredit + earned;
   add('credited/withdrawn consistent', credited >= withdrawn, `credited ${formatUsdc(credited)}, withdrawn ${formatUsdc(withdrawn)}`);
+
+  // Certified work the stream has not delivered yet. Not a fault — it is the
+  // model working — but without it "0 withdrawable" reads as "you earned
+  // nothing" when it actually means "wait for the clock".
+  const arriving = target > earned ? target - earned : 0n;
+  if (arriving > 0n) {
+    add('certified but still arriving', true, `${formatUsdc(arriving)} USDC certified, released as the stream runs`);
+  }
 
   // The known drift risk: accrual outpaces funding, so the contract can credit
   // more than it actually holds. withdraw() reverts on transfer if so.

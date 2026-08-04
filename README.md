@@ -2,7 +2,8 @@
 
 USDC payroll on [Arc](https://docs.arc.network) that accrues by the second but stays
 **locked** until an autonomous agent reads the actual work, judges it, and signs an
-attestation that releases a tranche. Stop shipping, and the money pauses itself.
+attestation certifying how much of the milestone is done. Stop shipping, and the money
+pauses itself.
 
 The attestor agent has its own wallet, forms its own opinion, and **buys an independent
 second opinion from another agent** before it will move a cent. Both agents pay their own
@@ -44,9 +45,13 @@ the agents' own logs plus live chain state with `pnpm evidence`.
 5. **The attestor buys a second opinion** for $0.005 over x402, paid from its own Gateway
    balance. The verifier runs a different vendor's model, fetches its own copy of the
    evidence, and never sees the attestor's answer.
-6. **If both agree**, the tranche is the **lower** of the two valuations, capped by what has
-   actually accrued. The attestor signs an EIP-712 attestation and sends `unlock` itself.
-   The whole tranche is credited to the contributor — the contract takes no cut.
+6. **If both agree**, the certified share is the **lower** of the two valuations. The
+   attestor signs an EIP-712 attestation and sends `certify` itself. The whole amount is
+   the contributor's — the contract takes no cut.
+7. **The contributor collects on the stream's schedule.** Certifying raises what is owed;
+   it does not move money. **One certification keeps paying** as the clock runs, so a
+   contributor who finishes a milestone never has to invent further pull requests to
+   collect the rest of it.
 
 If the attestor refuses, no fee is spent and no transaction is sent — refusal is free.
 
@@ -58,16 +63,32 @@ employer cannot take completed work against a budget they never funded. A contri
 checks one boolean, `fullyFunded()`, before starting, and the dashboard shows a dedicated
 "not started, waiting on the employer's deposit" state.
 
-Because the budget is fully deposited before the clock starts, every tranche the agent
+Because the budget is fully deposited before the clock starts, everything the agent
 certifies is already backed by USDC in the contract, so `withdraw()` can never fail for
 lack of funds.
+
+Two quantities decide what a contributor may take, and keeping them apart is the design:
+
+```
+target()  = budget × certifiedBps / 10_000     the AGENT decides this
+earned()  = min(accrued(), target())           the CLOCK meters it
+```
+
+The agent owns *what was earned*; the clock owns *when it arrives*. `certifiedBps` is
+monotonic, so a later judgment can raise a claim but never reduce one, and every merged PR
+can move it closer to the full amount. Time alone pays nothing — an uncertified stream
+releases zero however long it runs. The one exception is completion: at 100% the schedule
+is over, so the full amount is earned immediately rather than metered out for its own sake.
 
 Accrual is computed fresh as `budget × elapsed / duration` with no stored per-second rate,
 so "40 USDC over 6 hours" accrues to exactly 40 with no rounding dust.
 
-`closeMilestone()` returns whatever was never released to the employer, but only once the
-duration has run — so an employer cannot close mid-job and claw back money the agent has
-not yet certified.
+`closeMilestone()` returns to the employer only what the agent never certified, and not
+until **four hours after** the duration has run. Judging a diff, buying a second opinion and
+landing a transaction all take real time, so without that window an employer could close the
+second the clock expired and reclaim work that merged minutes earlier. Closing settles the
+**certified** amount rather than merely what the clock had reached, which is what stops
+pausing or closing being used to strand work the agent already approved.
 
 The terms are the employer's, not the protocol's. Every one is a constructor argument, and
 `Deploy.s.sol` reads them from the environment — see `.env.example`.
@@ -75,9 +96,15 @@ The terms are the employer's, not the protocol's. Every one is a constructor arg
 ## How the on-chain policy bounds the agent
 
 The attestor is a single trusted key, so `WorkStream.sol` enforces its mandate itself: no
-unlock above `maxTranche`, no more than `dailyUnlockCap` per UTC day, withdrawals only to
-an allowlisted payee, one-use nonces, attestations older than 15 minutes rejected, and
-nothing above what has accrued. A compromised agent key drains at most one day's cap.
+single attestation may add more than `maxTranche` to what is owed, no more than
+`dailyUnlockCap` per UTC day, withdrawals only to an allowlisted payee, one-use nonces, and
+attestations older than 15 minutes rejected. A compromised agent key raises what is owed by
+at most one day's cap — and because money still leaves only at the speed the stream accrues,
+the clock is a second rate limit no key can bypass.
+
+Note `maxTranche` bounds the agent, not the contributor. Setting it below the budget does
+not make a stream safer; it caps an honest contributor who finished the job and refunds the
+remainder to the employer. It defaults to the whole budget for that reason.
 
 Pause stops the clock but deliberately does **not** block certification — otherwise an
 employer could watch work land, pause, and strand pay already earned.

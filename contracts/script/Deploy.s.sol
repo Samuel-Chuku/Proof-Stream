@@ -26,7 +26,14 @@ contract Deploy is Script {
     // scripts) reads them from the contract, never from here.
     uint256 constant DEFAULT_BUDGET = 40e6; // 40 USDC for this milestone
     uint256 constant DEFAULT_DURATION = 6 hours; // accrues over 6 hours
-    uint256 constant DEFAULT_MAX_TRANCHE = 4e6; // per-unlock ceiling
+    // The WHOLE budget. This was 4e6 — a tenth — from when a certification
+    // released money directly and several were expected per milestone. It now
+    // caps how much ENTITLEMENT one attestation may create, and a well-scoped
+    // milestone is certified once: leaving it low would cap an honest
+    // contributor at a tenth of the job and refund the rest to the employer.
+    // Matches `suggestedCaps` in the web app, because the terminal path must
+    // get the same sane defaults as the UI (non-negotiable #1).
+    uint256 constant DEFAULT_MAX_TRANCHE = 40e6; // ceiling on entitlement per attestation
     uint256 constant DEFAULT_DAILY_UNLOCK_CAP = 50e6; // per-UTC-day ceiling
     string constant DEFAULT_MILESTONE =
         "Milestone 1: implement transfer() with balance and overdraft checks in src/ledger.ts";

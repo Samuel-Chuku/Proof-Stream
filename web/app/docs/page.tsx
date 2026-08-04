@@ -35,8 +35,8 @@ export default function Docs() {
       <p className="ps-body">
         ProofStream pays contributors in USDC that accrues by the second but stays locked until an
         autonomous agent reads the merged work, judges it against the milestone, buys a second
-        opinion from a different agent, and signs an attestation releasing a tranche. Stop shipping
-        and the money pauses itself. No human approves a payment.
+        opinion from a different agent, and signs an attestation certifying how much of the
+        milestone is done. Stop shipping and the money pauses itself. No human approves a payment.
       </p>
 
       <Rule>THE SHAPE OF IT</Rule>
@@ -62,10 +62,15 @@ export default function Docs() {
           copy of the evidence and never sees the first one&rsquo;s answer.
         </li>
         <li className="ps-body">
-          <b>If both agree</b>, the tranche is the <em>lower</em> of the two valuations, capped by
-          what has actually accrued. The agent signs an EIP-712 attestation and sends the unlock
-          from its own wallet, paying its own gas. The whole tranche is credited to the
-          contributor — the contract takes no cut.
+          <b>If both agree</b>, the certified share is the <em>lower</em> of the two valuations. The
+          agent signs an EIP-712 attestation and sends it from its own wallet, paying its own gas.
+          The whole amount is the contributor&rsquo;s — the contract takes no cut.
+        </li>
+        <li className="ps-body">
+          <b>The contributor collects on the stream&rsquo;s schedule.</b> Certifying raises what is
+          owed; it does not move money. The clock pays it out from there, so <em>one</em>
+          certification keeps paying with no further pull requests — and a contributor who finishes
+          a milestone never has to invent work to collect the rest of it.
         </li>
       </ol>
       <p className="ps-caption">IF THE AGENT REFUSES, NO FEE IS SPENT AND NO TRANSACTION IS SENT</p>
@@ -79,7 +84,7 @@ export default function Docs() {
           cannot take completed work against a budget they never funded.
         </dd>
 
-        <dt className="ps-label">EVERY RELEASED TRANCHE IS ALREADY BACKED</dt>
+        <dt className="ps-label">EVERYTHING CERTIFIED IS ALREADY BACKED</dt>
         <dd className="ps-body">
           Because the budget is deposited before the clock starts, <code>withdraw()</code> can never
           fail for lack of funds.
@@ -87,24 +92,28 @@ export default function Docs() {
 
         <dt className="ps-label">THE AGENT CANNOT EXCEED ITS MANDATE</dt>
         <dd className="ps-body">
-          <code>maxTranche</code> caps a single unlock, <code>dailyUnlockCap</code> caps a UTC day,
-          withdrawals only reach an allowlisted payee, attestations are single-use and expire after
-          15 minutes, and nothing above what has accrued can be released. These are enforced in the
-          contract, not in the agent — a compromised agent key drains at most one day&rsquo;s cap.
+          <code>maxTranche</code> caps how much a single attestation may add to what is owed,
+          <code>dailyUnlockCap</code> caps a UTC day, withdrawals only reach an allowlisted payee,
+          and attestations are single-use and expire after 15 minutes. Certification is also
+          monotonic: it can raise a contributor&rsquo;s claim, never reduce one. These are enforced
+          in the contract, not in the agent — and money still leaves only at the speed the stream
+          accrues, so the clock is a second rate limit no key can bypass.
         </dd>
 
         <dt className="ps-label">PAUSING DOES NOT STRAND EARNED PAY</dt>
         <dd className="ps-body">
           Pause stops the clock so nothing new accrues, but deliberately does not block
-          certification. Otherwise an employer could watch work land, pause, and freeze pay already
-          earned.
+          certification — and closing settles whatever the agent certified, not merely what the
+          clock had reached. So the worst a pause can do is delay certified pay to the deadline. It
+          can never reduce it.
         </dd>
 
         <dt className="ps-label">CLOSING RETURNS ONLY THE UNSPENT</dt>
         <dd className="ps-body">
-          <code>closeMilestone()</code> refunds what was never released, and only once the duration
-          has run — so an employer cannot close mid-job and claw back money the agent has not yet
-          certified.
+          <code>closeMilestone()</code> refunds only what the agent never certified, and not until
+          four hours <em>after</em> the duration has run. Judging a diff, buying a second opinion and
+          landing a transaction all take real time, so without that window an employer could close
+          the second the clock expired and reclaim work that merged minutes earlier.
         </dd>
       </dl>
 

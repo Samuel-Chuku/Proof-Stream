@@ -17,6 +17,14 @@ import { VerdictBody } from '../../verdict-body';
 // The chain and the agent logs both move while the page is open.
 export const dynamic = 'force-dynamic';
 
+/// Never rounded to a whole unit. This is an on-chain policy value a judge can
+/// read off the contract, and `.toFixed(0)` was rendering a 7.5 USDC ceiling as
+/// "8" — a number that does not appear anywhere in the deployment.
+function formatCeiling(raw: string): string {
+  const usdc = Number(raw) / 1e6;
+  return Number.isInteger(usdc) ? usdc.toFixed(0) : String(usdc);
+}
+
 /// Transaction rows are sorted newest-first and routinely span several days, so
 /// a bare clock time reads as out of order — 08:41 sitting above 21:07 looks
 /// wrong until you notice they are different days. Date first, UTC stated once
@@ -135,7 +143,7 @@ export default async function StreamPage({ params }: { params: Promise<{ address
           <SectionRule>MILESTONE</SectionRule>
           <p className="ps-body">{stream.milestone}</p>
           <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
-            WATCHING {stream.repo} · CEILING {(Number(stream.maxTranche) / 1e6).toFixed(0)} USDC PER
+            WATCHING {stream.repo} · CEILING {formatCeiling(stream.maxTranche)} USDC PER
             UNLOCK · {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} PER DAY
           </p>
 

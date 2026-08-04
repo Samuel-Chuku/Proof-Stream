@@ -564,7 +564,7 @@ for (let pass = 1; pass <= passes; pass++) {
     // hurrying it.
     const s = await readStream(SEED_STREAM);
     console.log(
-      `\n   waiting ${intervalMin}m for accrual — ${formatUsdc(s.accrued - s.milestoneUnlocked)} USDC available now`,
+      `\n   waiting ${intervalMin}m for accrual — ${formatUsdc(s.earned)} USDC earned so far`,
     );
     await new Promise((r) => setTimeout(r, intervalMin * 60_000));
   }
@@ -576,7 +576,8 @@ console.log('\n──────── summary');
 for (const [k, v] of Object.entries(tally)) console.log(`  ${k.padEnd(14)} ${v}`);
 console.log(`  payouts        ${payouts}`);
 console.log(`  nonce          ${before.nonce} → ${after.nonce}`);
-console.log(`  unlocked       ${formatUsdc(before.unlocked)} → ${formatUsdc(after.unlocked)} USDC`);
-console.log(`  accrued        ${formatUsdc(after.accrued)} USDC of ${formatUsdc(after.budget)} budget`);
+console.log(`  certified      ${Number(before.certifiedBps) / 100}% → ${Number(after.certifiedBps) / 100}% of the milestone`);
+console.log(`  owed           ${formatUsdc(before.target)} → ${formatUsdc(after.target)} USDC`);
+console.log(`  released       ${formatUsdc(after.earned)} USDC of ${formatUsdc(after.budget)} budget`);
 console.log(`\n  contract ${EXPLORER_URL}/address/${env.workStream}`);
 console.log('  next: pnpm evidence');

@@ -101,7 +101,7 @@ let liveStreams = 0;
 const ATTESTATION_TYPES = {
   Attestation: [
     { name: 'nonce', type: 'uint256' },
-    { name: 'tranche', type: 'uint256' },
+    { name: 'certifiedBps', type: 'uint256' },
     { name: 'prNumber', type: 'uint256' },
     { name: 'commitSha', type: 'string' },
     { name: 'confidenceBps', type: 'uint256' },
@@ -148,10 +148,16 @@ for (const entry of served) {
   // sign for that tenant at all, which is worth knowing before it is funded.
   if (live) {
     add(`stream not paused${label}`, !stream.paused, stream.paused ? 'PAUSED — unlocks will revert' : 'active');
+    // NOT an accrual check any more. Certification records what was earned and
+    // the contract meters payment separately, so the agent can certify a
+    // milestone with nothing yet accrued. What would actually make it idle is a
+    // milestone already certified in full.
     add(
-      `stream has accrued${label}`,
-      stream.accrued > stream.milestoneUnlocked,
-      `${formatUsdc(stream.accrued - stream.milestoneUnlocked)} USDC unlockable`,
+      `room to certify${label}`,
+      stream.certifiedBps < 10_000n,
+      stream.certifiedBps < 10_000n
+        ? `certified ${Number(stream.certifiedBps) / 100}% — ${formatUsdc(stream.budget - stream.target)} USDC still uncertified`
+        : 'fully certified — nothing further to judge on this milestone',
     );
 
     try {
@@ -172,7 +178,7 @@ for (const entry of served) {
   try {
     const probe = {
       nonce: stream.nonce,
-      tranche: 1n,
+      certifiedBps: 1n,
       prNumber: 0n,
       commitSha: 'preflight',
       confidenceBps: 10_000n,
