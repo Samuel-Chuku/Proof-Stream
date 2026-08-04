@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { BrandMark } from './brand-mark';
 import { Connect } from './connect';
 import { ThemeToggle } from './theme-toggle';
 
@@ -28,6 +29,7 @@ export function Nav() {
     <nav className="ps-nav">
       <div className="ps-nav-inner">
         <Link href="/" className="ps-nav-mark">
+          <BrandMark size={18} />
           PROOFSTREAM
         </Link>
 

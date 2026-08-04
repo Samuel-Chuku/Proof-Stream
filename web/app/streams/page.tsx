@@ -1,7 +1,7 @@
 import { EXPLORER_URL } from '@proofstream/config';
 import Link from 'next/link';
 import { readAgentHealth } from '../../lib/agent-health';
-import { listStreams } from '../../lib/registry';
+import { isOpen, listStreams } from '../../lib/registry';
 import { AddressChip } from '../address-chip';
 import { Footer } from '../footer';
 import { GettingStarted } from '../getting-started';
@@ -24,10 +24,10 @@ export default async function Streams() {
   const [streams, health] = await Promise.all([listStreams(), readAgentHealth()]);
 
   // A stream nobody is watching looks identical to a healthy one on this list,
-  // which is how work gets done against a stream that will never pay.
-  const unwatched = streams.filter(
-    (s) => s.state !== 'settled' && !health.serving.has(s.address.toLowerCase()),
-  );
+  // which is how work gets done against a stream that will never pay. Only
+  // streams that SHOULD be watched count — a settled or ended milestone is
+  // meant to have stopped.
+  const unwatched = streams.filter((s) => isOpen(s) && !health.serving.has(s.address.toLowerCase()));
 
   return (
     <main>

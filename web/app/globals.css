@@ -596,6 +596,11 @@ code {
   text-transform: uppercase;
   text-decoration: none;
   flex: 0 0 auto;
+  /* The mark inherits `currentColor`, so it tracks the wordmark in both
+     themes without a second asset. */
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-2);
 }
 
 .ps-nav-links {
@@ -1393,14 +1398,15 @@ a.ps-stream-row:hover {
    rides in the label so a chip that would empty the list can be
    dropped before it is ever offered. */
 
-.ps-chips {
+.ps-filters {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ps-2);
   margin-bottom: var(--ps-3);
 }
 
-.ps-chip {
+/* NOT `.ps-chip` — that is the address chip, used on every page. */
+.ps-filter {
   font: inherit;
   font-size: var(--ps-size-label);
   letter-spacing: var(--ps-track-label);
@@ -1413,15 +1419,53 @@ a.ps-stream-row:hover {
   cursor: pointer;
 }
 
-.ps-chip:hover {
+.ps-filter:hover {
   color: var(--ps-ink);
   border-color: var(--ps-rule);
 }
 
 /* Selected reads as pressed in, matching every other control here. */
-.ps-chip-on {
+.ps-filter-on {
   color: var(--ps-ink);
   border-color: var(--ps-rule);
   background: var(--ps-sunk);
   box-shadow: var(--ps-shadow-pressed);
+}
+
+
+/* ---- Brand mark ------------------------------------------- */
+
+/* The one place the mark is shown at size. Its bars line up with the
+   baseline of the heading beside it rather than floating above.
+
+   NOT `.ps-hero` — that is LockedFigure's container, and a second rule of
+   the same name turned the stream page's figure into a flex row. */
+.ps-brand-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ps-4);
+}
+
+.ps-brand-hero-mark {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+.ps-footer-sig {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-2);
+}
+
+@media (max-width: 720px) {
+  /* At this width the heading needs the full measure more than the
+     mark needs to sit beside it. */
+  .ps-brand-hero {
+    gap: var(--ps-3);
+  }
+
+  .ps-brand-hero-mark {
+    width: 36px;
+    height: 36px;
+  }
 }

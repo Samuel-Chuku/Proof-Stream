@@ -15,6 +15,10 @@ const STREAM_REGISTERED = parseAbiItem(
 
 const MAX_LOG_WINDOW = 45_000n;
 
+/// How many log windows to request at once. Enough to collapse the sweep,
+/// few enough not to trip Arc's rate limiter.
+const SWEEP_CONCURRENCY = 4;
+
 const WORK_STREAM_ABI = [
   { type: 'function', name: 'repo', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
   { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
@@ -53,6 +57,15 @@ export type StreamSummary = {
   registeredAtBlock: string;
 };
 
+/// Is the agent expected to be watching this stream?
+///
+/// Only while the arrangement is still running. A SETTLED milestone is closed
+/// and an ENDED one has run its course — the agent stops certifying a few hours
+/// after the end date by design, so flagging either as "not being watched"
+/// reports the intended behaviour as a fault. The warning is for a stream that
+/// should be watched and is not.
+export const isOpen = (s: StreamSummary) => s.state !== 'settled' && s.state !== 'ended';
+
 const client = () =>
   createPublicClient({
     chain: arcTestnet,
@@ -83,37 +96,53 @@ export async function listStreams(): Promise<StreamSummary[]> {
 
   if (!discovered) {
     const from = BigInt(process.env.REGISTRY_DEPLOY_BLOCK ?? '54593230');
-    let cursor = from;
     const latest = await rpc.getBlockNumber();
-    const seen = new Map<string, { stream: `0x${string}`; employer: `0x${string}`; block: bigint }>();
 
-    while (cursor <= latest) {
+    // Every window up front, then run them a few at a time. Sequentially this
+    // was fourteen round trips end to end and growing by one every seven hours
+    // — the single largest cost of loading any page in this app. Concurrency is
+    // capped rather than unbounded because Arc's public RPC rate-limits, and a
+    // burst of fourteen is exactly what trips it.
+    const windows: [bigint, bigint][] = [];
+    for (let cursor = from; cursor <= latest; ) {
       const to = cursor + MAX_LOG_WINDOW - 1n > latest ? latest : cursor + MAX_LOG_WINDOW - 1n;
-      const logs = await rpc.getLogs({
-        address: registry,
-        event: STREAM_REGISTERED,
-        fromBlock: cursor,
-        toBlock: to,
-      });
-      // Ascending, so a later registration of the same stream simply overwrites.
-      for (const entry of logs) {
-        seen.set((entry.args.stream as string).toLowerCase(), {
-          stream: entry.args.stream as `0x${string}`,
-          employer: entry.args.employer as `0x${string}`,
-          // Re-registration (after setRepo) moves this forward, which is fine:
-          // the earlier events are still found by the scan margin below.
-          block: entry.blockNumber ?? 0n,
-        });
-      }
+      windows.push([cursor, to]);
       cursor = to + 1n;
+    }
+
+    // Named so the return type keeps the event's decoded `args`; inferring it
+    // from `rpc.getLogs` in the abstract loses them.
+    const fetchWindow = (fromBlock: bigint, toBlock: bigint) =>
+      rpc.getLogs({ address: registry, event: STREAM_REGISTERED, fromBlock, toBlock });
+
+    const batches: Awaited<ReturnType<typeof fetchWindow>>[] = [];
+    for (let i = 0; i < windows.length; i += SWEEP_CONCURRENCY) {
+      const slice = windows.slice(i, i + SWEEP_CONCURRENCY);
+      batches.push(...(await Promise.all(slice.map(([f, t]) => fetchWindow(f, t)))));
+    }
+
+    // Sorted by block so a later registration of the same stream — after
+    // `setRepo` — still overwrites the earlier one. The windows come back in
+    // request order, not necessarily block order, so this cannot be skipped.
+    const seen = new Map<string, { stream: `0x${string}`; employer: `0x${string}`; block: bigint }>();
+    for (const entry of batches.flat().sort((a, b) => Number((a.blockNumber ?? 0n) - (b.blockNumber ?? 0n)))) {
+      seen.set((entry.args.stream as string).toLowerCase(), {
+        stream: entry.args.stream as `0x${string}`,
+        employer: entry.args.employer as `0x${string}`,
+        block: entry.blockNumber ?? 0n,
+      });
     }
 
     discovered = [...seen.values()];
     discoveryCache = { at: Date.now(), streams: discovered };
   }
 
-  const summaries: StreamSummary[] = [];
-  for (const { stream, employer, block } of discovered) {
+  // Across streams as well as within one. This loop used to await each stream
+  // in turn, so ten multicalled reads became six round trips end to end — the
+  // whole list took as long as the slowest stream times the number of streams.
+  // The multicall batcher also has more to work with when they overlap.
+  const settled = await Promise.all(
+    discovered.map(async ({ stream, employer, block }): Promise<StreamSummary | null> => {
     try {
       const read = <T>(functionName: string) =>
         rpc.readContract({ address: stream, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
@@ -143,7 +172,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
               ? 'ended'
               : 'accruing';
 
-      summaries.push({
+      return {
         address: stream,
         employer,
         repo,
@@ -155,12 +184,16 @@ export async function listStreams(): Promise<StreamSummary[]> {
         state,
         endsAt: Number(endsAt),
         registeredAtBlock: block.toString(),
-      });
+      };
     } catch {
       // A registered address that no longer answers is not worth breaking the
       // page over — omit it rather than rendering a broken row.
+      return null;
     }
-  }
+    }),
+  );
 
-  return summaries.sort((a, b) => a.repo.localeCompare(b.repo));
+  return settled
+    .filter((s): s is StreamSummary => s !== null)
+    .sort((a, b) => a.repo.localeCompare(b.repo));
 }

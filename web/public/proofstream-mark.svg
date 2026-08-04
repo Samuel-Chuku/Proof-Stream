@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges" role="img" aria-label="ProofStream">
+  <rect x="24" y="48" width="34" height="10" fill="#333333"/>
+  <rect x="18" y="34" width="34" height="10" fill="#333333"/>
+  <rect x="13" y="21" width="32" height="8" fill="none" stroke="#333333" stroke-width="2"/>
+  <rect x="7" y="7" width="32" height="8" fill="none" stroke="#333333" stroke-width="2"/>
+</svg>

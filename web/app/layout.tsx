@@ -32,6 +32,9 @@ const mono = localFont({
 export const metadata = {
   title: 'ProofStream',
   description: 'USDC payroll streams on Arc, unlocked by verified work.',
+  // Pointed at the asset in public/ rather than copied to app/icon.svg, so the
+  // tab icon and the file the deck uses can never drift apart.
+  icons: { icon: '/proofstream-favicon.svg' },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { listStreams } from '../lib/registry';
 import { AgentMark } from './agent-mark';
+import { BrandMark } from './brand-mark';
 import { Footer } from './footer';
 import { GettingStarted } from './getting-started';
 
@@ -18,14 +19,19 @@ export default async function Home() {
   return (
     <main>
       <header className="ps-masthead">
-        <div>
-          <h1 className="ps-display-xl">Payroll that verifies itself</h1>
-          <div className="ps-masthead-meta ps-label">
-            <span>ARC TESTNET · 5042002</span>
-            <span>
-              {streams.length} STREAM{streams.length === 1 ? '' : 'S'}
-            </span>
-            <span>{(released / 1e6).toFixed(2)} USDC RELEASED BY AGENTS</span>
+        {/* The mark is full size ONLY here. Every other page carries it in the
+            nav 40px above its own heading, where repeating it would be noise. */}
+        <div className="ps-brand-hero">
+          <BrandMark size={56} className="ps-brand-hero-mark" />
+          <div>
+            <h1 className="ps-display-xl">Payroll that verifies itself</h1>
+            <div className="ps-masthead-meta ps-label">
+              <span>ARC TESTNET · 5042002</span>
+              <span>
+                {streams.length} STREAM{streams.length === 1 ? '' : 'S'}
+              </span>
+              <span>{(released / 1e6).toFixed(2)} USDC RELEASED BY AGENTS</span>
+            </div>
           </div>
         </div>
       </header>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandMark } from './brand-mark';
 
 /// Present on every page. Carries the two things a first-time visitor needs
 /// (how this works, and where to get testnet USDC) plus the repository, so the
@@ -35,7 +36,8 @@ export function Footer() {
           SOURCE ↗
         </a>
       </div>
-      <p className="ps-caption">
+      <p className="ps-caption ps-footer-sig">
+        <BrandMark size={14} />
         ARC TESTNET · CHAIN 5042002 · NOTHING HERE IS REAL MONEY
       </p>
     </footer>

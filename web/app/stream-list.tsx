@@ -9,7 +9,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
-import type { StreamSummary } from '../lib/registry';
+import { isOpen, type StreamSummary } from '../lib/registry';
 import { Amount } from './amount';
 import { Reveal } from './reveal';
 
@@ -17,8 +17,6 @@ import { Reveal } from './reveal';
 /// paused, or waiting on its deposit. ENDED ran its course without being
 /// closed; SETTLED was closed and its unspent budget returned.
 type Filter = 'all' | 'open' | 'ended' | 'settled' | 'mine';
-
-const isOpen = (s: StreamSummary) => s.state !== 'settled' && s.state !== 'ended';
 
 const CHIPS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'ALL' },
@@ -81,12 +79,12 @@ export function StreamList({
   return (
     <>
       {chips.length > 1 && (
-        <div className="ps-chips" role="group" aria-label="Filter streams">
+        <div className="ps-filters" role="group" aria-label="Filter streams">
           {chips.map((c) => (
             <button
               key={c.key}
               type="button"
-              className={`ps-chip${filter === c.key ? ' ps-chip-on' : ''}`}
+              className={`ps-filter${filter === c.key ? ' ps-filter-on' : ''}`}
               aria-pressed={filter === c.key}
               onClick={() => setFilter(c.key)}
             >
@@ -109,9 +107,10 @@ export function StreamList({
           {shown.map((s) => (
             <Link key={s.address} href={`/stream/${s.address}`} className="ps-stream-row">
               <span className="ps-tx-action ps-stream-repo">
-                {/* Only the EXCEPTION is marked. Labelling every healthy row
-                    "watched" added a column of noise to say nothing. */}
-                {s.state !== 'settled' && !watched.has(s.address.toLowerCase()) && (
+                {/* Only the EXCEPTION is marked, and only for a stream that
+                    SHOULD be watched. An ended milestone is meant to stop being
+                    certified, so warning about it reports the design as a bug. */}
+                {isOpen(s) && !watched.has(s.address.toLowerCase()) && (
                   <span className="ps-stream-warn" title="The agent is not watching this stream">
                     ⚠
                   </span>
