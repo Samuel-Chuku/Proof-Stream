@@ -29,11 +29,24 @@ export const GATEWAY_FACILITATOR_URL = 'https://gateway-api-testnet.circle.com' 
 export const VERIFICATION_FEE = '$0.005' as const;
 
 /** Token ceiling for the verifier's reply. Its model reasons, and reasoning
- *  counts against this before a character is written (~1100 on a 1kB diff), so
- *  this is far above what the JSON itself needs. Lives here so the preflight
- *  can compare it against what the running seller reports and catch a stale
- *  process before a paid call discovers it. */
-export const VERIFIER_MAX_TOKENS = 8000;
+ *  counts against this before a character is written, so this is far above what
+ *  the JSON itself needs. Lives here so the preflight can compare it against
+ *  what the running seller reports and catch a stale process before a paid call
+ *  discovers it.
+ *
+ *  Raised 8000 -> 24000 on 2026-08-04, after a live merge escalated instead of
+ *  paying: `cohere/north-mini-code:free` spent 9511 tokens reasoning about a
+ *  real PR and had none left to answer with, so the reply arrived truncated and
+ *  presented as "not valid JSON". Same failure as the 1200 -> 8000 raise; only
+ *  the model changed. The earlier figure of ~1100 reasoning tokens came from a
+ *  short synthetic diff and did not survive contact with a real one.
+ *
+ *  Two things make the headroom safe to over-provision: a ceiling is not a
+ *  reservation, so unused budget costs nothing, and the failure it prevents is
+ *  expensive in a way a wasted token is not — x402 settles the fee BEFORE the
+ *  handler runs, so every truncated review is paid for in full and returns
+ *  nothing. */
+export const VERIFIER_MAX_TOKENS = 24000;
 
 /** Token ceiling for the attestor's reply. Was 1200, which was safe ONLY while
  *  the attestor ran a non-reasoning model: a reasoning model spends this budget

@@ -193,7 +193,16 @@ export async function listStreams(): Promise<StreamSummary[]> {
     }),
   );
 
+  // Newest announcement first. Sorting by repository name read as stable but
+  // collapsed exactly where it mattered: every stream on ONE repository compares
+  // equal, so the order fell through to discovery order — which is block
+  // ASCENDING — and a stream created a minute ago sorted below three dead ones
+  // on the same repo. Registration block is the only recency signal the registry
+  // gives us, and it is monotonic, so it orders these correctly by construction.
   return settled
     .filter((s): s is StreamSummary => s !== null)
-    .sort((a, b) => a.repo.localeCompare(b.repo));
+    .sort((a, b) => {
+      const byBlock = BigInt(b.registeredAtBlock) - BigInt(a.registeredAtBlock);
+      return byBlock > 0n ? 1 : byBlock < 0n ? -1 : 0;
+    });
 }
