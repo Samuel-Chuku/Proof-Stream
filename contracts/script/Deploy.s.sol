@@ -26,15 +26,12 @@ contract Deploy is Script {
     // scripts) reads them from the contract, never from here.
     uint256 constant DEFAULT_BUDGET = 40e6; // 40 USDC for this milestone
     uint256 constant DEFAULT_DURATION = 6 hours; // accrues over 6 hours
-    // The WHOLE budget. This was 4e6 — a tenth — from when a certification
-    // released money directly and several were expected per milestone. It now
-    // caps how much ENTITLEMENT one attestation may create, and a well-scoped
-    // milestone is certified once: leaving it low would cap an honest
-    // contributor at a tenth of the job and refund the rest to the employer.
-    // Matches `suggestedCaps` in the web app, because the terminal path must
-    // get the same sane defaults as the UI (non-negotiable #1).
-    uint256 constant DEFAULT_MAX_TRANCHE = 40e6; // ceiling on entitlement per attestation
-    uint256 constant DEFAULT_DAILY_UNLOCK_CAP = 50e6; // per-UTC-day ceiling
+    // NOTE: the caps DEFAULT TO THE BUDGET and are not constants — see run().
+    // A fixed 40e6 was wrong the moment anyone set a different budget: a 60 USDC
+    // stream got a 40 USDC per-attestation ceiling and a 50 USDC daily cap, so
+    // certifying it in two steps hit DailyCapExceeded and the second half could
+    // not be released until the next UTC day. The web form already derives both
+    // from the budget; the terminal path must match (non-negotiable #1).
     string constant DEFAULT_MILESTONE =
         "Milestone 1: implement transfer() with balance and overdraft checks in src/ledger.ts";
 
@@ -46,8 +43,12 @@ contract Deploy is Script {
         // your own numbers without touching this file.
         uint256 budget = vm.envOr("STREAM_BUDGET", DEFAULT_BUDGET);
         uint256 duration = vm.envOr("STREAM_DURATION_SECONDS", DEFAULT_DURATION);
-        uint256 maxTranche = vm.envOr("POLICY_MAX_TRANCHE", DEFAULT_MAX_TRANCHE);
-        uint256 dailyUnlockCap = vm.envOr("POLICY_DAILY_UNLOCK_CAP", DEFAULT_DAILY_UNLOCK_CAP);
+        // Both default to the whole budget. Setting either below it does not make
+        // a stream safer — it caps an honest contributor and refunds the rest to
+        // the employer on close. What bounds a compromised agent is that money
+        // still leaves only at the speed the stream accrues.
+        uint256 maxTranche = vm.envOr("POLICY_MAX_TRANCHE", budget);
+        uint256 dailyUnlockCap = vm.envOr("POLICY_DAILY_UNLOCK_CAP", budget);
         string memory milestone = vm.envOr("STREAM_MILESTONE", DEFAULT_MILESTONE);
         address payee = vm.envOr("POLICY_PAYEE", contributor);
 
