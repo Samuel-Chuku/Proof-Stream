@@ -52,6 +52,22 @@ export const VERIFICATION_FEE = '$0.005' as const;
  *  returns nothing. */
 export const VERIFIER_MAX_TOKENS = 24000;
 
+/** Hard ceiling on the tokens a model may spend THINKING before it answers.
+ *
+ *  `max_tokens` cannot express this: it bounds the whole completion, and a
+ *  reasoning model expands to fill whatever it is given — 9511 against 8000,
+ *  27476 against 24000, and on a real 3 kB diff `poolside/laguna-s-2.1` spent
+ *  all 24000 reasoning and wrote nothing at all. Raising the ceiling only makes
+ *  the failure slower and dearer.
+ *
+ *  OpenRouter's `reasoning.max_tokens` bounds the thinking alone, which leaves
+ *  the rest of the budget for the answer. Generous enough to judge a diff
+ *  properly, small enough that it cannot consume the reply.
+ *
+ *  This is also the latency fix: burning 24000 reasoning tokens takes minutes,
+ *  and the agent looked slow for exactly as long as it was producing nothing. */
+export const REASONING_MAX_TOKENS = 4000;
+
 /** Token ceiling for the attestor's reply. Was 1200, which was safe ONLY while
  *  the attestor ran a non-reasoning model: a reasoning model spends this budget
  *  thinking before it writes anything and the JSON arrives truncated, which

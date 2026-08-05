@@ -1,4 +1,4 @@
-import { AGENT_MAX_TOKENS } from '@proofstream/config';
+import { AGENT_MAX_TOKENS, REASONING_MAX_TOKENS } from '@proofstream/config';
 import { env } from './env';
 import type { MergedPr } from './github';
 
@@ -88,6 +88,8 @@ ${truncated}`;
         { role: 'user', content: userPrompt },
       ],
       max_tokens: AGENT_MAX_TOKENS,
+      // Bounds the THINKING, not the whole reply — see REASONING_MAX_TOKENS.
+      reasoning: { max_tokens: REASONING_MAX_TOKENS },
       temperature: 0,
     },
     env.llmApiKey,
