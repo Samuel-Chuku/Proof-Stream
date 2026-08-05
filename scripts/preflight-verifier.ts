@@ -1,7 +1,7 @@
 // Dry run for the Phase 3 agent-to-agent economy (§5.10). Read-only: it asks
 // Circle to sign one throwaway EIP-712 payload to prove the x402 signer path
 // works, but never sends a payment or a transaction.
-import { GATEWAY_FACILITATOR_URL, GATEWAY_WALLET_ADDRESS, USDC_ADDRESS, VERIFICATION_FEE, VERIFIER_MAX_TOKENS, formatUsdc, parseUsdc } from '@proofstream/config';
+import { GATEWAY_FACILITATOR_URL, GATEWAY_WALLET_ADDRESS, REASONING_MAX_TOKENS, USDC_ADDRESS, VERIFICATION_FEE, VERIFIER_MAX_TOKENS, formatUsdc, parseUsdc } from '@proofstream/config';
 import { createPublicClient, erc20Abi, http, recoverTypedDataAddress } from 'viem';
 import { arcTestnet } from 'viem/chains';
 
@@ -121,10 +121,10 @@ try {
   // serving old code, the buyer pays in full, and the call fails anyway.
   add(
     'verifier is running current code',
-    body?.maxTokens === VERIFIER_MAX_TOKENS,
+    body?.maxTokens === VERIFIER_MAX_TOKENS && body?.reasoningMaxTokens === REASONING_MAX_TOKENS,
     body?.maxTokens === VERIFIER_MAX_TOKENS
-      ? `maxTokens ${body.maxTokens}`
-      : `serving maxTokens ${body?.maxTokens} but config says ${VERIFIER_MAX_TOKENS} — RESTART pnpm verifier:dev`,
+      ? `maxTokens ${body.maxTokens}, reasoning cap ${body.reasoningMaxTokens}`
+      : `serving maxTokens ${body?.maxTokens} / reasoning ${body?.reasoningMaxTokens}, config says ${VERIFIER_MAX_TOKENS} / ${REASONING_MAX_TOKENS} — STALE PROCESS, restart the verifier`,
   );
 
   const unpaid = await fetch(env.verifierUrl, {
