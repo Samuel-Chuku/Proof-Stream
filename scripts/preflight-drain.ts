@@ -145,10 +145,9 @@ try {
   }
 
   // ---- pots 2 and 3: the fixture wallets ----------------------------------
-  for (const [label, keyVar] of [
-    ['contributor', 'CONTRIBUTOR_PRIVATE_KEY'],
-    ['vault', 'VAULT_PRIVATE_KEY'],
-  ] as const) {
+  // Contributor only. The vault wallet was dropped when the 15% split was
+  // removed from the contract — nothing credits it any more.
+  for (const [label, keyVar] of [['contributor', 'CONTRIBUTOR_PRIVATE_KEY']] as const) {
     const key = process.env[keyVar];
     if (!key) {
       add(`${label} key present`, false, `${keyVar} not set — that wallet's USDC cannot be swept`);

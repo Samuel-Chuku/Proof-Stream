@@ -56,7 +56,9 @@ const OPERATING_RESERVE: Record<string, bigint> = {
 const only = process.argv[2];
 const wallets = [
   { label: 'contributor', keyVar: 'CONTRIBUTOR_PRIVATE_KEY' },
-  { label: 'vault', keyVar: 'VAULT_PRIVATE_KEY' },
+  // No vault entry. WorkStream stopped diverting 15% to a "vesting vault" that
+  // vested nothing, so nothing pays that wallet any more; what is left in it is
+  // historical dust worth less than the gas to move it.
 ].filter((w) => !only || w.label === only);
 
 if (wallets.length === 0) {

@@ -24,7 +24,10 @@ type Check = { name: string; ok: boolean; detail: string };
 const checks: Check[] = [];
 
 const env = (name: string) => process.env[name] ?? '';
-const addressVars = ['DEPLOYER_ADDRESS', 'AGENT_ADDRESS', 'CONTRIBUTOR_ADDRESS', 'VAULT_ADDRESS'] as const;
+// VAULT_ADDRESS was here until 2026-08-05 and blocked the deploy preflight on a
+// variable the contract has not used since the 15% vesting split was removed —
+// a fresh clone failed for a wallet it never needs.
+const addressVars = ['DEPLOYER_ADDRESS', 'AGENT_ADDRESS', 'CONTRIBUTOR_ADDRESS'] as const;
 
 for (const name of addressVars) {
   const ok = isAddress(env(name));
