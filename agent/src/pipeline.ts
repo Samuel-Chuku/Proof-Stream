@@ -136,8 +136,15 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   };
 
   // Judgment gates, in order. None of them is "the PR merged, therefore pay" (T5).
+  //
+  // This asks whether the work is CREDITABLE, not whether the milestone is
+  // finished. Those came apart when certification replaced tranches: the
+  // fraction became a running measure of milestone completion, so gating on
+  // "is it complete" threw away every partial position before it could be
+  // certified — a contract built for monotonic partial certification could
+  // never certify anything but a finished milestone.
   if (!verdict.satisfies_milestone) {
-    log({ event: 'declined', ...base, reason: 'work does not satisfy the milestone' });
+    log({ event: 'declined', ...base, reason: 'work earns nothing against this milestone' });
     return 'declined';
   }
   if (verdict.confidence < env.confidenceThreshold) {

@@ -2,6 +2,8 @@ import { VERIFIER_MAX_TOKENS } from '@proofstream/config';
 import { env } from '../env';
 
 export type Review = {
+  /** Creditable work toward the milestone, NOT milestone completion. A false
+   *  here vetoes the release outright, so it must mean "this earns nothing". */
   satisfies_milestone: boolean;
   confidence: number; // 0-1
   /** 0-1 of the WHOLE milestone completed. */
@@ -26,8 +28,12 @@ const SYSTEM_PROMPT = `You are an independent verification agent. A separate att
 release real money against the merged pull request below. You are paid per review to be the second
 pair of eyes. You have NOT been told what the attestor concluded, and you should not try to guess it.
 
-Your job is to answer, from the diff alone: would this release survive scrutiny from someone who
-wanted to argue it was wrong?
+Your job is to answer, from the diff alone: how much of this milestone has genuinely been delivered,
+and would that valuation survive scrutiny from someone who wanted to argue it was too generous?
+
+A milestone is normally delivered across several pull requests. You are pricing the work, not
+signing off a finished project — so INCOMPLETE IS NOT A REJECTION. Incompleteness belongs in
+tranche_fraction and nowhere else.
 
 Weigh these, in this order:
 
@@ -42,20 +48,30 @@ Weigh these, in this order:
    the same work be submitted twice. Report these in red_flags even when you still approve.
 
 3. Completeness against the milestone TEXT, not its topic. Partial work is normal and should be
-   scored as partial, not rejected. Missing error handling, unhandled edge cases, and absent tests
-   reduce the fraction; they do not by themselves make it zero.
+   scored as partial, not rejected. Missing error handling, unhandled edge cases, absent tests and
+   unimplemented parts of the milestone REDUCE THE FRACTION. They never make satisfies_milestone
+   false and they do not by themselves make the fraction zero.
 
 Then report:
 
-- satisfies_milestone: whether this diff genuinely implements what the milestone asks.
+- satisfies_milestone: does this diff contain GENUINE, CREDITABLE WORK toward the milestone? Read
+  it as "does this earn anything at all", NOT "is the milestone finished". Answering false vetoes
+  the release outright and pays the contributor nothing, so reserve it for work that deserves
+  nothing: unrelated to the milestone, cosmetic, docs-only, padded to look larger, deliberately
+  gamed, or claiming in its title what the diff does not do.
+  Half-finished work that does what it says is TRUE with a fraction near 0.5. If your reasoning is
+  "it does X but not yet Y", that is true with a partial fraction — never false.
 - tranche_fraction (0.0-1.0): how much of THE WHOLE MILESTONE is complete once this work is counted
   — the milestone's total state, not the size of this one diff. The attestor takes the LOWER of your
   number and its own, and the contract pays the contributor budget × that number on the stream's
   schedule, so this is a real cap on the payout, not advice. Complete and correct is 0.9-1.0; solid
   partial is 0.4-0.7; cosmetic or padded is 0.0-0.2.
-- confidence (0.0-1.0): how certain you are. If the diff is truncated, the milestone is vague, or
-  you cannot see enough context to judge correctness, say so with a LOW number. Low confidence
-  blocks the release and escalates to a human, which is the safe outcome and costs nobody anything.
+- confidence (0.0-1.0): how certain you are IN YOUR JUDGMENT — not how complete the work is. Work
+  you can clearly see is half done is a CONFIDENT judgment of a partial fraction, so report high
+  confidence with a low tranche_fraction. Lower it only when you genuinely cannot tell: the diff is
+  truncated, the milestone is vague, or you cannot see enough context to judge correctness. Low
+  confidence blocks the release and escalates to a human, which is the safe outcome and costs
+  nobody anything.
 
 Do not approve merely because the pull request was merged. Whoever merged it is the party who pays.
 

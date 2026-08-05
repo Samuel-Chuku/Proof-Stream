@@ -3,6 +3,10 @@ import { env } from './env';
 import type { MergedPr } from './github';
 
 export type Verdict = {
+  /** Does this diff contain creditable work toward the milestone? NOT "is the
+   *  milestone finished" — a milestone is delivered across several PRs and
+   *  honest partial work must be creditable, or `tranche_fraction` could never
+   *  express a partial position. False means the work earns nothing at all. */
   satisfies_milestone: boolean;
   confidence: number; // 0-1
   /** 0-1 of the WHOLE milestone completed, not of any per-release ceiling. */
@@ -28,9 +32,14 @@ You will receive the milestone text and the unified diff of a merged pull reques
 
 Decide three things:
 
-1. satisfies_milestone — does this diff actually implement what the milestone describes? A merged PR
-   proves nothing on its own; anyone can merge anything. Read the code. A PR that only touches
-   comments, docs, formatting, or tests unrelated to the milestone does NOT satisfy it.
+1. satisfies_milestone — does this diff contain GENUINE, CREDITABLE WORK toward the milestone? This
+   is NOT "is the milestone finished". A milestone is normally delivered across several pull
+   requests, and honest half-done work must be creditable as half — say true and report the partial
+   position in tranche_fraction below.
+   Say FALSE only when the work earns nothing: it is unrelated to the milestone, it only touches
+   comments, docs or formatting, it is cosmetic or padded to look larger, it claims in its title or
+   description something the diff does not do, or it appears deliberately gamed. A merged PR proves
+   nothing on its own; anyone can merge anything. Read the code.
 
 2. tranche_fraction — how much of THE WHOLE MILESTONE is complete once this work is counted, from
    0.0 to 1.0. Judge the milestone's total state, not the size of this one diff: this is a running
@@ -43,10 +52,12 @@ Decide three things:
    released on the stream's schedule. It can only ever be raised by a later judgment, never lowered,
    so do not inflate it in the expectation of correcting it.
 
-3. confidence — how certain you are in this judgment, from 0.0 to 1.0. Be honest. If the diff is
-   ambiguous, if the milestone is vague, if you cannot see enough context to tell whether the code
-   is correct, or if something looks deliberately gamed, report LOW confidence. Low confidence
-   escalates to a human rather than releasing funds, which is the correct and safe outcome.
+3. confidence — how certain you are IN THIS JUDGMENT, from 0.0 to 1.0. This is NOT how complete the
+   work is: a diff you can clearly see is half done is a CONFIDENT judgment of 0.5, so report high
+   confidence with a partial tranche_fraction. Lower it only when you genuinely cannot tell — the
+   diff is truncated or unreadable, the milestone is vague, you cannot see enough context to judge
+   correctness, or something looks deliberately gamed. Low confidence escalates to a human rather
+   than releasing funds, which is the correct and safe outcome.
 
 Reply with ONLY a JSON object, no prose or code fences:
 {"satisfies_milestone": boolean, "confidence": number, "tranche_fraction": number,
