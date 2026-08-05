@@ -1,4 +1,4 @@
-import { AGENT_MAX_TOKENS, REASONING_MAX_TOKENS } from '@proofstream/config';
+import { AGENT_MAX_TOKENS, REASONING } from '@proofstream/config';
 import { env } from './env';
 import type { MergedPr } from './github';
 
@@ -48,6 +48,13 @@ Decide three things:
    correctly implemented, is 0.9-1.0. Solid partial progress is 0.4-0.7. A token or cosmetic change
    is 0.0-0.2. Do not default to 1.0 — that would make this system a rubber stamp.
 
+   THE DIFF IS ONE INSTALMENT, NOT THE WHOLE STORY. Earlier pull requests against this milestone
+   have already landed in the base branch, so parts of it may be finished and invisible here —
+   visible only as unchanged context lines, or not at all. Judge the milestone's TOTAL state using
+   the diff plus whatever the surrounding context shows, and credit work that is evidently already
+   in place. Do NOT lower confidence merely because earlier instalments are not in this diff; that
+   is the normal shape of incremental delivery, not missing evidence.
+
    This number sets what the contributor is owed: the contract pays out budget × tranche_fraction,
    released on the stream's schedule. It can only ever be raised by a later judgment, never lowered,
    so do not inflate it in the expectation of correcting it.
@@ -88,8 +95,8 @@ ${truncated}`;
         { role: 'user', content: userPrompt },
       ],
       max_tokens: AGENT_MAX_TOKENS,
-      // Bounds the THINKING, not the whole reply — see REASONING_MAX_TOKENS.
-      reasoning: { max_tokens: REASONING_MAX_TOKENS },
+      // Thinking off. A cap was tried and providers ignored it — see REASONING.
+      reasoning: REASONING,
       temperature: 0,
     },
     env.llmApiKey,
@@ -130,6 +137,12 @@ function clamp01(n: unknown): number {
 /// Free model pools are shared and return 429 under load. One retry with a
 /// pause costs nothing and saves a long unattended run from dying.
 async function callLlm(body: unknown, key: string): Promise<any> {
+  // Sent as a PREFERENCE. Some endpoints refuse it outright —
+  // `openai/gpt-oss-20b:free` answers 400 "Reasoning is mandatory for this
+  // endpoint and cannot be disabled" — so a blanket demand breaks any model
+  // that reasons by design. Dropped and retried once if refused.
+  let payload: any = body;
+
   for (let attempt = 0; ; attempt++) {
     // A wrong LLM_BASE_URL fails at the socket, not with an HTTP status, so the
     // raw ECONNREFUSED/ENOTFOUND never mentions the endpoint. Name it — that is
@@ -139,7 +152,7 @@ async function callLlm(body: unknown, key: string): Promise<any> {
       res = await fetch(`${env.llmBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
     } catch (err) {
       throw new Error(
@@ -175,6 +188,11 @@ async function callLlm(body: unknown, key: string): Promise<any> {
     const text = await res.text();
     if (res.status === 429 && attempt < 3) {
       await new Promise((r) => setTimeout(r, 5_000 * 2 ** attempt));
+      continue;
+    }
+    if (res.status === 400 && payload?.reasoning && /reasoning is mandatory/i.test(text)) {
+      const { reasoning: _dropped, ...rest } = payload;
+      payload = rest;
       continue;
     }
     throw new Error(`LLM call failed (${env.llmBaseUrl}): ${res.status} ${text}`);

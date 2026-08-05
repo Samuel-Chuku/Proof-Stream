@@ -52,21 +52,25 @@ export const VERIFICATION_FEE = '$0.005' as const;
  *  returns nothing. */
 export const VERIFIER_MAX_TOKENS = 24000;
 
-/** Hard ceiling on the tokens a model may spend THINKING before it answers.
+/** Sent as OpenRouter's `reasoning` parameter on every call: thinking OFF.
  *
- *  `max_tokens` cannot express this: it bounds the whole completion, and a
- *  reasoning model expands to fill whatever it is given — 9511 against 8000,
- *  27476 against 24000, and on a real 3 kB diff `poolside/laguna-s-2.1` spent
- *  all 24000 reasoning and wrote nothing at all. Raising the ceiling only makes
- *  the failure slower and dearer.
+ *  Not a cap. A cap was tried and does not hold — OpenRouter accepted
+ *  `reasoning: { max_tokens: 4000 }`, the verifier logged the cap at startup,
+ *  and the backend it routed to spent 24000 tokens reasoning anyway and wrote
+ *  nothing. OpenRouter picks among providers per request and they do not all
+ *  honour it, so the same model and the same code succeeded locally and failed
+ *  on the server minutes apart.
  *
- *  OpenRouter's `reasoning.max_tokens` bounds the thinking alone, which leaves
- *  the rest of the budget for the answer. Generous enough to judge a diff
- *  properly, small enough that it cannot consume the reply.
+ *  `enabled: false` is a instruction to omit reasoning rather than a budget to
+ *  spend, so a provider that ignores it degrades to "reasons anyway" instead of
+ *  "reasons up to a number it is free to disregard". Pair it with a model that
+ *  does not reason by default — the parameter is the belt, the model is the
+ *  braces.
  *
- *  This is also the latency fix: burning 24000 reasoning tokens takes minutes,
- *  and the agent looked slow for exactly as long as it was producing nothing. */
-export const REASONING_MAX_TOKENS = 4000;
+ *  This is a latency fix as much as a correctness one: 24000 reasoning tokens
+ *  take minutes, and the agent looked slow for exactly as long as it was
+ *  producing nothing. */
+export const REASONING = { enabled: false } as const;
 
 /** Token ceiling for the attestor's reply. Was 1200, which was safe ONLY while
  *  the attestor ran a non-reasoning model: a reasoning model spends this budget

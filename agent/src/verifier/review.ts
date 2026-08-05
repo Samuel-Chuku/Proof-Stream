@@ -1,4 +1,4 @@
-import { VERIFIER_MAX_TOKENS, REASONING_MAX_TOKENS } from '@proofstream/config';
+import { VERIFIER_MAX_TOKENS, REASONING } from '@proofstream/config';
 import { env } from '../env';
 
 export type Review = {
@@ -48,7 +48,11 @@ Weigh these, in this order:
    the same work be submitted twice. Report these in red_flags even when you still approve.
 
 3. Completeness against the milestone TEXT, not its topic. Partial work is normal and should be
-   scored as partial, not rejected. Missing error handling, unhandled edge cases, absent tests and
+   scored as partial, not rejected. The diff is ONE INSTALMENT: earlier pull requests
+   against this milestone have already landed in the base branch and may be invisible here, or
+   visible only as unchanged context. Credit work that is evidently already in place, and do not
+   lower confidence merely because it is not in this diff — that is incremental delivery, not
+   missing evidence. Missing error handling, unhandled edge cases, absent tests and
    unimplemented parts of the milestone REDUCE THE FRACTION. They never make satisfies_milestone
    false and they do not by themselves make the fraction zero.
 
@@ -104,8 +108,8 @@ ${truncated}`;
         { role: 'user', content: userPrompt },
       ],
       max_tokens: VERIFIER_MAX_TOKENS,
-      // Bounds the THINKING, not the whole reply — see REASONING_MAX_TOKENS.
-      reasoning: { max_tokens: REASONING_MAX_TOKENS },
+      // Thinking off. A cap was tried and providers ignored it — see REASONING.
+      reasoning: REASONING,
       temperature: 0,
     },
     env.llmApiKey,
@@ -156,6 +160,12 @@ function clamp01(n: unknown): number {
 /// Free model pools are shared and return 429 under load. One retry with a
 /// pause costs nothing and saves a long unattended run from dying.
 async function callLlm(body: unknown, key: string): Promise<any> {
+  // Sent as a PREFERENCE. Some endpoints refuse it outright —
+  // `openai/gpt-oss-20b:free` answers 400 "Reasoning is mandatory for this
+  // endpoint and cannot be disabled" — so a blanket demand breaks any model
+  // that reasons by design. Dropped and retried once if refused.
+  let payload: any = body;
+
   for (let attempt = 0; ; attempt++) {
     // A wrong LLM_BASE_URL fails at the socket, not with an HTTP status, so the
     // raw ECONNREFUSED/ENOTFOUND never mentions the endpoint. Name it — that is
@@ -165,7 +175,7 @@ async function callLlm(body: unknown, key: string): Promise<any> {
       res = await fetch(`${env.llmBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
     } catch (err) {
       throw new Error(
@@ -201,6 +211,11 @@ async function callLlm(body: unknown, key: string): Promise<any> {
     const text = await res.text();
     if (res.status === 429 && attempt < 3) {
       await new Promise((r) => setTimeout(r, 5_000 * 2 ** attempt));
+      continue;
+    }
+    if (res.status === 400 && payload?.reasoning && /reasoning is mandatory/i.test(text)) {
+      const { reasoning: _dropped, ...rest } = payload;
+      payload = rest;
       continue;
     }
     throw new Error(`LLM call failed (${env.llmBaseUrl}): ${res.status} ${text}`);

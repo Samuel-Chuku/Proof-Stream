@@ -8,7 +8,7 @@
 // of the evidence is not a check on the buyer.
 import { appendFileSync } from 'node:fs';
 import { createGatewayMiddleware } from '@circle-fin/x402-batching/server';
-import { ARC_CAIP2, GATEWAY_FACILITATOR_URL, REASONING_MAX_TOKENS, VERIFICATION_FEE, VERIFIER_MAX_TOKENS, formatUsdc } from '@proofstream/config';
+import { ARC_CAIP2, GATEWAY_FACILITATOR_URL, REASONING, VERIFICATION_FEE, VERIFIER_MAX_TOKENS, formatUsdc } from '@proofstream/config';
 import express from 'express';
 import { isAddress } from 'viem';
 import { readStream } from '../chain';
@@ -49,7 +49,7 @@ app.get('/health', (_req, res) => {
     price: VERIFICATION_FEE,
     model: env.verifierModel,
     maxTokens: VERIFIER_MAX_TOKENS,
-    reasoningMaxTokens: REASONING_MAX_TOKENS,
+    reasoning: REASONING,
   });
 });
 
@@ -119,6 +119,6 @@ app.listen(env.verifierPort, () => {
   console.log(`  seller wallet: ${env.verifierAddress}`);
   console.log(`  price:         ${VERIFICATION_FEE} per call, ${ARC_CAIP2}`);
   console.log(`  model:         ${env.verifierModel}`);
-  console.log(`  reasoning cap: ${REASONING_MAX_TOKENS} tokens`);
+  console.log(`  reasoning:     ${JSON.stringify(REASONING)}`);
   console.log(`  facilitator:   ${GATEWAY_FACILITATOR_URL}`);
 });
