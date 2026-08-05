@@ -144,7 +144,31 @@ async function callLlm(body: unknown, key: string): Promise<any> {
         `LLM endpoint unreachable at ${env.llmBaseUrl} — ${err instanceof Error ? err.message : String(err)}`,
       );
     }
-    if (res.ok) return res.json();
+    // A 200 is not a promise of a body. Providers under load return an empty
+    // 200, and `res.json()` then throws "Unexpected end of JSON input" — which
+    // reads like a bad prompt and is actually a transient blip worth retrying.
+    // Worth handling rather than tolerating: x402 settles the verifier's fee
+    // BEFORE the handler runs, so every one of these is paid for and returns
+    // nothing.
+    if (res.ok) {
+      const raw = await res.text();
+      if (raw.trim()) {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          throw new Error(
+            `LLM returned ${res.status} with an unparseable body (${env.llmBaseUrl}): ${raw.slice(0, 200)}`,
+          );
+        }
+      }
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 2_000 * 2 ** attempt));
+        continue;
+      }
+      throw new Error(
+        `LLM returned an empty 200 from ${env.llmBaseUrl} after ${attempt + 1} attempts — the provider accepted the request and sent no body`,
+      );
+    }
 
     const text = await res.text();
     if (res.status === 429 && attempt < 3) {
