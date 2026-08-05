@@ -9,7 +9,9 @@
 // THIS SPENDS MONEY WITHOUT BEING ASKED, so it is bounded on four axes:
 //
 //   1. only PRs merged AFTER the milestone activated — earlier work was not
-//      done against this milestone and must not be judged by it;
+//      done against this milestone and must not be judged by it. THIS WAS
+//      DOCUMENTED BUT NOT IMPLEMENTED until 2026-08-05, and it cost a full
+//      budget; see the note at the check itself;
 //   2. only within a lookback window (RECONCILE_LOOKBACK_HOURS, default 24);
 //   3. at most RECONCILE_MAX_PRS per stream per run (default 5);
 //   4. only PRs with no verdict already recorded for that stream.
@@ -102,7 +104,33 @@ export async function reconcile(
 
   for (const entry of knownStreams()) {
     try {
-      const merged = await recentlyMerged(entry.repo, cutoff);
+      // Bound (1), and it was MISSING until 2026-08-05 — documented above but
+      // never implemented, because the only filter was the lookback window.
+      //
+      // What that cost: a stream funded at 19:51 reconciled a pull request
+      // merged at 12:19 the SAME DAY — seven and a half hours before its
+      // milestone existed — and certified it at 100%, releasing the entire
+      // budget for work that was never done against it. Nothing on chain was
+      // wrong; the agent simply judged history. Any agent restart within the
+      // lookback window could do this to a freshly funded stream.
+      //
+      // A milestone that has not activated has `activatedAt == 0`, which would
+      // make every past merge eligible — so an unfunded stream reconciles
+      // nothing at all.
+      if (entry.activatedAt === 0n) {
+        log({
+          event: 'reconcile_skipped',
+          stream: entry.stream,
+          repo: entry.repo,
+          reason: 'milestone has not started — nothing has been earned against it yet',
+        });
+        continue;
+      }
+
+      const activatedMs = Number(entry.activatedAt) * 1000;
+      const since = Math.max(cutoff, activatedMs);
+
+      const merged = await recentlyMerged(entry.repo, since);
       const judged = alreadyJudged(entry.stream);
       const missed = merged.filter((pr) => !judged.has(pr.number)).slice(0, maxPerStream);
 
@@ -113,7 +141,7 @@ export async function reconcile(
         stream: entry.stream,
         repo: entry.repo,
         missed: missed.map((p) => p.number),
-        reason: `merged in the last ${lookbackHours}h with no verdict — webhook likely missed`,
+        reason: `merged since ${new Date(since).toISOString()} with no verdict — webhook likely missed`,
       });
 
       for (const pr of missed) {

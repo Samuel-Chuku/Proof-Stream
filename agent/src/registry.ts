@@ -42,6 +42,9 @@ export type StreamEntry = {
   employer: `0x${string}`;
   /** Read from the contract, not the event. */
   repo: string;
+  /** Unix seconds this milestone's clock started; 0 if not yet funded in full.
+   *  Carried here so reconciliation can refuse work that predates it. */
+  activatedAt: bigint;
 };
 
 const publicClient = createPublicClient({ chain: arcTestnet, transport: http(env.arcRpcUrl) });
@@ -79,6 +82,7 @@ export async function refresh(log: Logger): Promise<void> {
       stream: env.workStream,
       employer: '0x0000000000000000000000000000000000000000',
       repo: '',
+      activatedAt: 0n,
     });
   }
 
@@ -160,6 +164,7 @@ export async function refresh(log: Logger): Promise<void> {
     }
 
     entry.repo = identity.repo;
+    entry.activatedAt = identity.activatedAt;
     const key = identity.repo.toLowerCase();
     const existing = next.get(key) ?? [];
 
@@ -238,7 +243,7 @@ async function scanForNewStreams(log: Logger): Promise<void> {
       const stream = entry.args.stream as `0x${string}`;
       const employer = entry.args.employer as `0x${string}`;
       if (!streams.has(stream.toLowerCase())) found += 1;
-      streams.set(stream.toLowerCase(), { stream, employer, repo: '' });
+      streams.set(stream.toLowerCase(), { stream, employer, repo: '', activatedAt: 0n });
     }
 
     from = to + 1n;

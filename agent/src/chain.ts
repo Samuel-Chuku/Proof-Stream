@@ -124,7 +124,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
 /// watch. Trusting the log's copy would route events to a stale repo.
 export async function readIdentity(
   streamAddress: `0x${string}`,
-): Promise<{ agent: `0x${string}`; repo: string; closed: boolean; endsAt: bigint }> {
+): Promise<{ agent: `0x${string}`; repo: string; closed: boolean; endsAt: bigint; activatedAt: bigint }> {
   const read = <T>(functionName: string) =>
     withRetry(
       () =>
@@ -137,6 +137,10 @@ export async function readIdentity(
 
   const agent = await read<`0x${string}`>('agent');
   const repo = await read<string>('repo');
+  // When this milestone's clock started. Reconciliation needs it: work merged
+  // BEFORE a milestone existed was not done against it and must never be judged
+  // by it. 0 means the budget is not fully deposited yet.
+  const activatedAt = await read<bigint>('activatedAt');
   // A settled milestone can never be paid — the pipeline skips it on isActive.
   // Knowing that here lets a dead stream stop blocking a live one.
   const closed = await read<boolean>('milestoneClosed');
@@ -144,7 +148,7 @@ export async function readIdentity(
   // `duration`. The registry uses it to retire a stream whose milestone has
   // run its course. 0 means the milestone has not started.
   const endsAt = await read<bigint>('milestoneEndsAt');
-  return { agent, repo, closed, endsAt };
+  return { agent, repo, closed, endsAt, activatedAt };
 }
 
 export async function readStream(streamAddress: `0x${string}`): Promise<StreamState> {
