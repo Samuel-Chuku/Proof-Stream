@@ -137,15 +137,32 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
 
   // Judgment gates, in order. None of them is "the PR merged, therefore pay" (T5).
   //
-  // This asks whether the work is CREDITABLE, not whether the milestone is
-  // finished. Those came apart when certification replaced tranches: the
-  // fraction became a running measure of milestone completion, so gating on
-  // "is it complete" threw away every partial position before it could be
-  // certified — a contract built for monotonic partial certification could
-  // never certify anything but a finished milestone.
-  if (!verdict.satisfies_milestone) {
+  // THE FRACTION IS THE GATE, not the boolean. `tranche_fraction` already says
+  // everything the boolean does — 0.0 is "this earns nothing" — and it is the
+  // only value the contract consumes. Gating on the boolean as well meant one
+  // flaky field could veto a payment the rest of the verdict supported: the
+  // same model on the same prompt returned satisfies=false with fraction=0.5
+  // and a reasoning paragraph describing partial work, while a local run of
+  // the identical input returned true. Shared free-model pools are not
+  // deterministic, and a boolean has no way to be partly right.
+  //
+  // Nothing is lost against T5: genuinely unrelated or gamed work scores 0.0
+  // on the fraction as well, from both agents independently — that is what the
+  // negative-control tests check.
+  if (verdict.tranche_fraction <= 0) {
     log({ event: 'declined', ...base, reason: 'work earns nothing against this milestone' });
     return 'declined';
+  }
+
+  // Worth recording rather than silently resolving: it means the prompt and the
+  // model disagree about what the boolean is for, and that is a prompt bug to
+  // fix, not noise.
+  if (!verdict.satisfies_milestone) {
+    log({
+      event: 'contradiction',
+      ...base,
+      reason: `attestor scored ${verdict.tranche_fraction} while answering satisfies_milestone=false — proceeding on the fraction`,
+    });
   }
   if (verdict.confidence < env.confidenceThreshold) {
     log({
@@ -178,8 +195,10 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     gatewayTransfer: transfer,
   };
 
-  if (!opinion.satisfies_milestone) {
-    log({ event: 'vetoed', ...base, ...verification, reason: 'verifier disagrees that the work satisfies the milestone' });
+  // Same rule for the second opinion: the verifier vetoes by pricing the work at
+  // zero, not by a boolean that can contradict its own reasoning.
+  if (opinion.tranche_fraction <= 0) {
+    log({ event: 'vetoed', ...base, ...verification, reason: 'verifier values this work at nothing' });
     return 'vetoed';
   }
   if (opinion.confidence < env.confidenceThreshold) {
