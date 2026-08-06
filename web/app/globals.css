@@ -717,6 +717,11 @@ code {
   align-items: center;
   gap: var(--ps-3);
   flex: 0 0 auto;
+  /* Pinned right by its own margin rather than by whatever sits to its left.
+     `.ps-nav-links { flex: 1 }` was doing that job, so the landing strip — which
+     has no links — collapsed the wordmark and the button together against the
+     left edge. This holds for both. */
+  margin-left: auto;
 }
 
 /* ---- Verdict card -----------------------------------------
