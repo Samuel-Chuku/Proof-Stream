@@ -1552,3 +1552,107 @@ a.ps-stream-row:hover {
   opacity: 0.35;
   cursor: default;
 }
+
+/* ── Landing: what the agents decided ────────────────────────────────────────
+   The landing page's only moving part. Every value in it is real, read from
+   the agents' own logs — a page whose claim is "an agent decided this" cannot
+   invent its own evidence.
+
+   Motion is steps() throughout. Money moves discretely in this system and the
+   motion language says so; nothing eases and nothing springs. */
+.ps-live {
+  border: 2px solid var(--ps-rule);
+  box-shadow: 4px 4px 0 0 var(--ps-rule);
+  background: var(--ps-surface);
+  padding: var(--ps-4);
+  margin: var(--ps-6) 0;
+}
+
+.ps-live-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  border-bottom: 1px solid var(--ps-border);
+  padding-bottom: var(--ps-2);
+  margin-bottom: var(--ps-3);
+}
+
+/* The only pulse on the page, and it is a state light rather than decoration:
+   the agents are running. Two steps, so it blinks like a terminal caret
+   instead of breathing like a marketing site. */
+.ps-live-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--ps-green);
+  border: 1px solid var(--ps-green-deep);
+  animation: ps-live-blink 2s steps(2, jump-none) infinite;
+}
+
+@keyframes ps-live-blink {
+  0% { opacity: 1; }
+  100% { opacity: 0.25; }
+}
+
+.ps-live-when { margin-left: auto; }
+
+/* Each rotation replays this because the body is keyed on the decision. */
+.ps-live-body { animation: ps-live-in 240ms steps(4, end); }
+
+@keyframes ps-live-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ps-live-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ps-2);
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0;
+}
+
+.ps-live-repo { color: var(--ps-ink); }
+.ps-live-sep { color: var(--ps-ink-faint); }
+.ps-live-verdict { color: var(--ps-ink-dim); letter-spacing: 1px; }
+
+/* Green ONLY where money moved. A refusal is ink — the palette has no red, and
+   a refusal is the system working rather than failing. */
+.ps-live-paid {
+  background: var(--ps-green);
+  color: var(--ps-on-green);
+  padding: 0 var(--ps-1);
+}
+
+.ps-live-amount {
+  font-variant-numeric: tabular-nums;
+  color: var(--ps-ink);
+}
+
+.ps-live-reasoning {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--ps-ink-dim);
+  margin: var(--ps-2) 0 0;
+}
+
+.ps-live-pips {
+  display: flex;
+  gap: var(--ps-1);
+  margin-top: var(--ps-3);
+}
+
+.ps-live-pip {
+  width: 12px;
+  height: 4px;
+  background: var(--ps-sunk);
+  border: 1px solid var(--ps-border);
+}
+
+.ps-live-pip-on { background: var(--ps-ink-dim); border-color: var(--ps-ink-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ps-live-dot { animation: none; }
+  .ps-live-body { animation: none; }
+}

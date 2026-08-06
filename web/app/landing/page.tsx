@@ -1,8 +1,10 @@
 import { headers } from 'next/headers';
+import { readAgentLogs } from '../../lib/events';
 import { listStreams } from '../../lib/registry';
 import { AgentMark } from '../agent-mark';
 import { BrandMark } from '../brand-mark';
 import { Footer } from '../footer';
+import { LiveDecisions, type Decision } from '../live-decisions';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +22,37 @@ export const dynamic = 'force-dynamic';
 export default async function Landing() {
   const streams = await listStreams();
   const released = streams.reduce((sum, s) => sum + Number(s.earned), 0);
+
+  // Real decisions, newest first. The landing page shows what the agents
+  // THOUGHT, not just that something happened — a total proves activity, a
+  // verdict proves judgment, and judgment is the product.
+  const { verdicts } = await readAgentLogs();
+  const decisions: Decision[] = verdicts
+    // Only real judgments. `skipped` is routing — a stream that was not funded,
+    // an event for another repository — and shows a visitor nothing about
+    // whether the agent can think. `fan_out` and `contradiction` are diagnostics.
+    .filter(
+      (v) =>
+        v.verdict &&
+        v.repo &&
+        ['unlocked', 'declined', 'escalated', 'vetoed', 'unlock_failed'].includes(v.event),
+    )
+    // Sorted explicitly rather than trusting file order: the log is append-only
+    // on the agent but arrives here through an HTTP endpoint, and taking the
+    // tail of an array whose order you assumed is how a landing page ends up
+    // advertising a decision from last week.
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+    .slice(0, 6)
+    .map((v) => ({
+      at: v.at,
+      event: v.event,
+      repo: v.repo,
+      pr: v.pr,
+      amountUsdc: v.trancheUsdc,
+      percent:
+        v.agreedFraction !== undefined ? Math.round(v.agreedFraction * 100) : undefined,
+      reasoning: v.verdict?.reasoning?.slice(0, 240),
+    }));
 
   // Derived from the request rather than configured: a preview deployment then
   // points at its own app host instead of production.
@@ -58,6 +91,8 @@ export default async function Landing() {
         that out on its own schedule. So one judgment keeps paying as the work accrues, and a
         contributor who finishes a milestone never has to invent more pull requests to collect it.
       </p>
+
+      <LiveDecisions decisions={decisions} />
 
       <div className="ps-cta-row">
         <a className="ps-button ps-button-primary" href={app}>

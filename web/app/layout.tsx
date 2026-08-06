@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import { Silkscreen } from 'next/font/google';
 import localFont from 'next/font/local';
@@ -37,7 +38,14 @@ export const metadata = {
   icons: { icon: '/proofstream-favicon.svg' },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/// The apex serves the landing page by REWRITE, so the browser URL stays `/`
+/// and `usePathname()` in the nav sees `/` — it never learns it is on the
+/// landing page. The host is the only thing that actually differs, and only the
+/// server can see it, so the surface is decided here and passed down.
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const host = ((await headers()).get('host') ?? '').toLowerCase().split(':')[0];
+  const isLanding = host.endsWith('proofstream.site') && !host.startsWith('app.');
+
   return (
     <html lang="en" className={`${display.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
@@ -46,7 +54,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <Providers>
-          <Nav />
+          <Nav landing={isLanding} />
           {children}
         </Providers>
       </body>

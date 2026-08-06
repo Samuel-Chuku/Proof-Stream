@@ -22,8 +22,33 @@ const LINKS = [
   { href: '/docs', label: 'HOW IT WORKS' },
 ];
 
-export function Nav() {
+export function Nav({ landing = false }: { landing?: boolean }) {
   const pathname = usePathname();
+
+  // The landing page is a different job from the app, so it gets a different
+  // strip: the wordmark and one way in. No section links, because there are no
+  // sections here to move between, and no CONNECT WALLET, because nothing on
+  // this page needs a wallet — offering one asks a visitor to commit before
+  // they have been told what they are committing to.
+  if (landing) {
+    return (
+      <nav className="ps-nav">
+        <div className="ps-nav-inner">
+          <span className="ps-nav-mark">
+            <BrandMark size={18} />
+            PROOFSTREAM
+          </span>
+
+          <div className="ps-nav-actions">
+            <a className="ps-button" href="/streams">
+              [ GO TO APP ]
+            </a>
+            <ThemeToggle />
+          </div>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav className="ps-nav">
