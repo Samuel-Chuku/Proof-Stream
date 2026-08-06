@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccount, useConfig, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { ERC20_ABI, USDC } from '../lib/chain';
@@ -57,6 +57,18 @@ const WORK_STREAM_ABI = [
   },
 ] as const;
 
+/// Whole units only. A countdown to a four-hour window does not need seconds,
+/// and a figure that changes every second reads as urgent when it is not.
+function formatWait(seconds: number): string {
+  if (seconds >= 3600) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.round((seconds % 3600) / 60);
+    return m > 0 ? `${h}H ${m}M` : `${h}H`;
+  }
+  if (seconds >= 60) return `${Math.ceil(seconds / 60)}M`;
+  return 'UNDER A MINUTE';
+}
+
 /// What the connected wallet may do with this stream.
 ///
 /// Role comes from the CONTRACT, not from the app: employer, contributor and
@@ -75,6 +87,18 @@ export function StreamActions({ stream }: { stream: Stream }) {
   const [newRepo, setNewRepo] = useState('');
   const [newMaxTranche, setNewMaxTranche] = useState('');
   const [newDailyCap, setNewDailyCap] = useState('');
+
+  // `closeMilestone` reverts with MilestoneStillRunning until the milestone has
+  // ended AND the certification grace window has passed. The button was offered
+  // regardless, so pressing it early cost a signature and gas for a guaranteed
+  // revert. Starts null and fills in after mount: a clock compared on the
+  // server disagrees with the first client frame.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Math.floor(Date.now() / 1000));
+    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   const me = address?.toLowerCase();
   const isEmployer = me === stream.employer.toLowerCase();
@@ -115,6 +139,11 @@ export function StreamActions({ stream }: { stream: Stream }) {
   // deal mid-job. Before any unlock it is harmless, and it is the only way to
   // retire a duplicate stream or follow a renamed repository.
   const canRepoint = stream.certifiedBps === 0 && !settled;
+
+  // An unstarted milestone can be closed at once — there is no work in flight
+  // to protect. Otherwise the contract waits until end + CLOSE_GRACE.
+  const closable = stream.activatedAt === 0 || (now !== null && now >= stream.closableAt);
+  const closableIn = now === null ? null : Math.max(0, stream.closableAt - now);
 
   async function run(label: string, send: () => Promise<`0x${string}`>) {
     setBusy(label);
@@ -227,7 +256,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
           <button
             type="button"
             className="ps-button"
-            disabled={busy !== null}
+            disabled={busy !== null || !closable}
+            title={
+              closable
+                ? undefined
+                : 'The contract refuses this until the milestone has ended and the agent has had time to certify work merged just before the deadline'
+            }
             onClick={() =>
               run('close', () =>
                 writeContractAsync({
@@ -377,6 +411,17 @@ export function StreamActions({ stream }: { stream: Stream }) {
             AGENT HAS ALREADY CERTIFIED; IT ONLY STOPS A CAP BLOCKING WHAT IT DID.
           </p>
         </details>
+      )}
+
+      {/* A disabled button with no explanation reads as broken. This is the one
+          wait in the product that protects someone else's money, so it is worth
+          a sentence rather than a shrug. */}
+      {isEmployer && !settled && !closable && closableIn !== null && (
+        <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+          CLOSING UNLOCKS IN {formatWait(closableIn)} — THE MILESTONE MUST END, THEN THE AGENT GETS
+          FOUR HOURS TO CERTIFY WORK MERGED JUST BEFORE THE DEADLINE. CLOSING SOONER WOULD REFUND
+          PAY THAT WAS ALREADY EARNED.
+        </p>
       )}
 
       {isEmployer && (

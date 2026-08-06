@@ -628,13 +628,21 @@ code {
    chrome-sized text and read as an artefact rather than a state — you had to
    already know which page you were on to spot it. The 4px radius is the one
    place the system allows a radius (chips and pills). */
+/* The active item is a small version of the system's own button.
+   It was a slab filled with --ps-rule and text in --ps-paper, which works on
+   the light palette and disappears on the dark one: --ps-rule is pure BLACK
+   there (a hard shadow must stay darker than its ground) and --ps-paper is
+   #1A1917, so it rendered near-black on black. Surface and ink flip together,
+   so this holds in both. */
 .ps-nav-link-active {
-  color: var(--ps-paper);
-  background: var(--ps-rule);
-  border-bottom-color: transparent;
-  border-radius: 4px;
+  color: var(--ps-ink);
+  background: var(--ps-surface);
+  border: var(--ps-bw-hair) solid var(--ps-rule);
+  border-bottom-color: var(--ps-rule);
+  border-radius: var(--ps-r-1);
+  box-shadow: 2px 2px 0 0 var(--ps-rule);
   padding: 2px var(--ps-2);
-  margin: -2px calc(var(--ps-2) * -1);
+  margin: -3px calc(var(--ps-2) * -1) -1px;
 }
 
 /* ---- Modal ----------------------------------------------- */
@@ -1761,3 +1769,20 @@ a.ps-stream-row:hover {
 @media (max-width: 720px) {
   .ps-wallet-balance { display: none; }
 }
+
+
+/* ── Theme-swapped assets ────────────────────────────────────────────────────
+   For third-party marks that ship as solid black or solid white and therefore
+   vanish in one palette. Mirrors the selector pattern in tokens.css so the
+   manual toggle beats the OS preference in both directions. */
+.ps-on-dark { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .ps-on-dark { display: block; }
+  :root:not([data-theme='light']) .ps-on-light { display: none; }
+}
+
+:root[data-theme='dark'] .ps-on-dark { display: block; }
+:root[data-theme='dark'] .ps-on-light { display: none; }
+:root[data-theme='light'] .ps-on-light { display: block; }
+:root[data-theme='light'] .ps-on-dark { display: none; }

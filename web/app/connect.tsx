@@ -59,13 +59,26 @@ export function Connect() {
             three things people actually read, and pushed the links onto a
             second line. It lives one click away, behind the chevron. */}
         <span className="ps-wallet">
+          {/* Two files, one shown at a time. The Arc marks are solid black and
+              solid white, so a single asset is invisible in one palette — the
+              white one vanished on the light theme. Swapped in CSS rather than
+              in React so it follows the theme instantly, with no flash and no
+              client state. */}
           <img
-            src="/arc-mark.svg"
+            src="/arc-mark-on-light.svg"
             alt="Arc Testnet"
             title="Arc Testnet · chain 5042002"
             width={16}
             height={16}
-            className="ps-wallet-chain-mark"
+            className="ps-wallet-chain-mark ps-on-light"
+          />
+          <img
+            src="/arc-mark-on-dark.svg"
+            alt=""
+            aria-hidden
+            width={16}
+            height={16}
+            className="ps-wallet-chain-mark ps-on-dark"
           />
 
           <span className="ps-wallet-divider" aria-hidden />
