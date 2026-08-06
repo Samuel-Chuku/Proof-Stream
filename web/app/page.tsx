@@ -38,12 +38,17 @@ export default async function Home() {
 
       <p className="ps-lede">
         USDC accrues by the second and stays <b>locked</b> until an autonomous agent reads the merged
-        work, judges it against the milestone, buys a second opinion from another agent, and signs an
-        attestation releasing a tranche. Stop shipping and the money pauses itself.
+        work, judges it against the milestone, buys a second opinion from another agent, and certifies
+        how much of the job is done. Stop shipping and the money pauses itself.
       </p>
       <p className="ps-body">
         No human approves a payment. The agent spends its own money to do it, and the contract — not
         the agent — decides how much it is allowed to release.
+      </p>
+      <p className="ps-body">
+        Certifying does not move money; it raises what the contributor is owed, and the stream pays
+        that out on its own schedule. So one judgment keeps paying as the work accrues, and a
+        contributor who finishes a milestone never has to invent more pull requests to collect it.
       </p>
 
       <div className="ps-cta-row">

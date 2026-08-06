@@ -44,7 +44,7 @@ export default async function Streams() {
       <p className="ps-body">
         USDC payroll that accrues by the second and stays locked until an autonomous agent reads the
         merged work, judges it against the milestone, buys a second opinion from another agent, and
-        signs an attestation releasing a tranche. One agent process serves every stream below.
+        signs an attestation certifying how much of the job is done. One agent process serves every stream below.
       </p>
 
       <GettingStarted hasStreams={streams.length > 0} />
