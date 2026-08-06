@@ -7,6 +7,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@circle-fin/modular-wallets-core": "^1.0.15",
     "@proofstream/config": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "next": "^15.1.0",

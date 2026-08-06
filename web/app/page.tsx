@@ -3,6 +3,7 @@ import { listStreams } from '../lib/registry';
 import { BrandMark } from './brand-mark';
 import { Footer } from './footer';
 import { GettingStarted } from './getting-started';
+import { PasskeyWallet } from './passkey-wallet';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +54,12 @@ export default async function AppHome() {
       </div>
 
       <GettingStarted hasStreams={streams.length > 0} />
+
+      <div className="ps-section-rule">
+        <span className="ps-label">CONTRIBUTORS</span>
+      </div>
+
+      <PasskeyWallet />
 
       <Footer />
     </main>

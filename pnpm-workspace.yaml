@@ -8,3 +8,13 @@ allowBuilds:
   keccak: true
   sharp: true
   utf-8-validate: true
+
+# The Circle modular-wallets SDK pins viem 2.45.3 as a DIRECT dependency, so it
+# ships its own copy. Two viems in one tree means two sets of structurally
+# incompatible types, and passing a Circle transport into the app's viem stops
+# compiling. Aligning on the app's version is the safe direction: the SDK gets a
+# newer viem within the same major, rather than the app getting an older one.
+#
+# pnpm 10+ reads overrides from HERE, not from package.json, in a workspace.
+overrides:
+  viem: 2.55.8

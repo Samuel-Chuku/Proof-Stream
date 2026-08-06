@@ -8,6 +8,7 @@ import { AddressChip } from '../../address-chip';
 import { AgentMark } from '../../agent-mark';
 import { Footer } from '../../footer';
 import { Amount } from '../../amount';
+import { PasskeyWithdraw } from '../../passkey-withdraw';
 import { StreamActions } from '../../stream-actions';
 import { LockedFigure } from '../../stream-bar';
 import { Reveal } from '../../reveal';
@@ -139,6 +140,7 @@ export default async function StreamPage({ params }: { params: Promise<{ address
 
           <SectionRule>YOUR ACTIONS</SectionRule>
           <StreamActions stream={stream} />
+            <PasskeyWithdraw stream={stream} />
 
           <SectionRule>MILESTONE</SectionRule>
           <p className="ps-body">{stream.milestone}</p>

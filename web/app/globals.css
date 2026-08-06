@@ -1872,3 +1872,28 @@ html, body { overflow-x: hidden; }
   .ps-reveal-armed { opacity: 1; transform: none; }
   .ps-revealed { transition: none; }
 }
+
+/* ── Passkey wallet (contributors) ───────────────────────────────────────────
+   Same frame language as the rest of the app: hard shadow, no radius beyond
+   chips. Nothing here is green — a passkey wallet is identity, not released
+   USDC. */
+.ps-passkey {
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  background: var(--ps-surface);
+  padding: var(--ps-4);
+  margin: var(--ps-5) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ps-2);
+}
+
+.ps-passkey .ps-body { margin: 0; max-width: 62ch; }
+.ps-passkey .ps-caption { margin: 0; max-width: 72ch; }
+.ps-passkey .ps-repoint-row { width: 100%; }
+
+@media (max-width: 560px) {
+  .ps-passkey { padding: var(--ps-3); }
+  .ps-passkey .ps-repoint-row { flex-direction: column; align-items: stretch; }
+}
