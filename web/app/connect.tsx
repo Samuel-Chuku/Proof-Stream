@@ -52,29 +52,78 @@ export function Connect() {
       // and disconnect all describe the SAME wallet, and side by side with
       // nothing binding them the disconnect button read as unrelated chrome —
       // it was not obvious what it would disconnect.
-      <span className="ps-wallet">
-        <span className="ps-wallet-chain" title="Arc Testnet · chain 5042002">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/arc-mark.svg" alt="" width={14} height={14} aria-hidden />
-          <span className="ps-wallet-chain-name">ARC TESTNET</span>
+      <>
+        {/* One bordered cluster: chain, address and balance are three facts
+            about the SAME wallet. Disconnect is NOT here — it is a rare,
+            destructive-feeling action that was taking more nav width than the
+            three things people actually read, and pushed the links onto a
+            second line. It lives one click away, behind the chevron. */}
+        <span className="ps-wallet">
+          <img
+            src="/arc-mark.svg"
+            alt="Arc Testnet"
+            title="Arc Testnet · chain 5042002"
+            width={16}
+            height={16}
+            className="ps-wallet-chain-mark"
+          />
+
+          <span className="ps-wallet-divider" aria-hidden />
+
+          {/* Click to copy. The same chip the rest of the app uses for every
+              address, so the interaction is learned once. */}
+          <AddressChip address={address} />
+
+          <UsdcBalance />
+
+          <button
+            type="button"
+            className="ps-wallet-more"
+            onClick={() => setOpen(true)}
+            aria-label="Wallet details"
+            aria-haspopup="dialog"
+          >
+            ▾
+          </button>
         </span>
 
-        <span className="ps-wallet-divider" aria-hidden />
+        {open && (
+          <div className="ps-modal-backdrop" onClick={() => setOpen(false)} role="presentation">
+            <div
+              className="ps-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Wallet"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="ps-modal-head">
+                <h2 className="ps-label">WALLET</h2>
+                <button type="button" className="ps-chip" onClick={() => setOpen(false)} aria-label="Close">
+                  ×
+                </button>
+              </div>
 
-        {/* Click to copy. Reuses the chip the rest of the app uses for every
-            address, so the interaction is learned once. */}
-        <AddressChip address={address} />
+              <div className="ps-modal-body">
+                {/* The full address, not the truncation — this is the one place
+                    someone checks they connected the account they meant to. */}
+                <p className="ps-wallet-full">{address}</p>
+                <p className="ps-caption">ARC TESTNET · CHAIN 5042002</p>
 
-        <UsdcBalance />
-
-        <button
-          type="button"
-          className="ps-button ps-wallet-disconnect"
-          onClick={() => disconnect()}
-        >
-          [ DISCONNECT ]
-        </button>
-      </span>
+                <button
+                  type="button"
+                  className="ps-button ps-modal-option"
+                  onClick={() => {
+                    disconnect();
+                    setOpen(false);
+                  }}
+                >
+                  [ DISCONNECT ]
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 

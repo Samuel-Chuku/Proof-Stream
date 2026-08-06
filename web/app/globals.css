@@ -1680,36 +1680,30 @@ a.ps-stream-row:hover {
 }
 
 /* ── The wallet cluster in the nav ───────────────────────────────────────────
-   Chain, address, balance and disconnect are four facts about ONE wallet, so
-   they share one frame. Loose in a row, the disconnect button read as unrelated
-   chrome and it was not obvious what it would disconnect. */
+   Chain, address and balance are three facts about ONE wallet, so they share
+   one frame. Disconnect is deliberately NOT in here: a rare action was taking
+   more width than the three things people read every page, and wrapped the nav
+   links onto a second line. It sits behind the chevron.
+
+   The whole cluster is sized to stay on one line with the nav links — the mark
+   carries the chain, so the words "ARC TESTNET" are redundant chrome. */
 .ps-wallet {
   display: inline-flex;
   align-items: center;
   gap: var(--ps-2);
-  padding: var(--ps-1) var(--ps-1) var(--ps-1) var(--ps-2);
+  padding: 2px var(--ps-1) 2px var(--ps-2);
   border: var(--ps-bw-hair) solid var(--ps-border);
   border-radius: var(--ps-r-1);
   background: var(--ps-surface);
-}
-
-.ps-wallet-chain {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ps-1);
-  font-size: var(--ps-size-label);
-  letter-spacing: var(--ps-track-label);
-  color: var(--ps-ink-dim);
   white-space: nowrap;
 }
 
-.ps-wallet-chain img,
-.ps-wallet-balance img {
+.ps-wallet-chain-mark {
   display: block;
-  /* The system renders at the pixel grid; these are round marks and must not
-     be resampled softly next to a pixel typeface. */
-  image-rendering: auto;
   flex: 0 0 auto;
+  /* A round mark next to a pixel typeface: let it resample smoothly rather
+     than inherit the page's pixelated rendering. */
+  image-rendering: auto;
 }
 
 /* A hairline tie between the chain and the wallet it belongs to, rather than
@@ -1729,20 +1723,41 @@ a.ps-stream-row:hover {
   /* NOT green. Green means USDC the agent released; a wallet balance is just a
      balance, and borrowing the colour would dilute the one thing it means. */
   color: var(--ps-ink);
-  white-space: nowrap;
+}
+
+.ps-wallet-balance img {
+  display: block;
+  flex: 0 0 auto;
+  image-rendering: auto;
 }
 
 .ps-wallet-figure { font-variant-numeric: tabular-nums; }
 
-/* Sits inside the frame, so it reads as this wallet's control rather than a
-   button that happens to be nearby. */
-.ps-wallet-disconnect {
-  box-shadow: none;
+.ps-wallet-more {
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--ps-ink-dim);
+  background: none;
+  border: var(--ps-bw-hair) solid transparent;
   border-radius: var(--ps-r-1);
+  padding: var(--ps-1);
+  cursor: pointer;
 }
 
-/* Under 900px the chain name is the first thing to go: the mark still says
-   which network, and the address and balance are what people came for. */
-@media (max-width: 900px) {
-  .ps-wallet-chain-name { display: none; }
+.ps-wallet-more:hover { color: var(--ps-ink); border-color: var(--ps-border); }
+
+/* The full address in the modal: monospace, wrapping, selectable. This is where
+   someone checks they connected the account they meant to. */
+.ps-wallet-full {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  word-break: break-all;
+  margin: 0 0 var(--ps-2);
+}
+
+/* Under 720px the balance goes before the address does: the address is
+   identity, the balance is a number you can open the wallet for. */
+@media (max-width: 720px) {
+  .ps-wallet-balance { display: none; }
 }
