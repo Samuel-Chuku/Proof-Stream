@@ -624,9 +624,17 @@ code {
   color: var(--ps-ink);
 }
 
+/* A filled pill, not an underline. At 12px the underline sat a pixel below
+   chrome-sized text and read as an artefact rather than a state — you had to
+   already know which page you were on to spot it. The 4px radius is the one
+   place the system allows a radius (chips and pills). */
 .ps-nav-link-active {
-  color: var(--ps-ink);
-  border-bottom-color: var(--ps-rule);
+  color: var(--ps-paper);
+  background: var(--ps-rule);
+  border-bottom-color: transparent;
+  border-radius: 4px;
+  padding: 2px var(--ps-2);
+  margin: -2px calc(var(--ps-2) * -1);
 }
 
 /* ---- Modal ----------------------------------------------- */
@@ -746,6 +754,15 @@ code {
 .ps-verdict-paid    { border-left-color: var(--ps-green-deep); }
 .ps-verdict-refused { border-left-color: var(--ps-ink); }
 .ps-verdict-held    { border-left-color: var(--ps-ink-faint); }
+
+/* The fourth fill state: BLOCKED — a release the contract refused. Hatched
+   rather than tinted, because the palette has no red and this is not an error;
+   it is the on-chain policy doing exactly its job. Distinct from HELD, which is
+   the agent choosing not to act. */
+.ps-verdict-blocked {
+  border-left-color: var(--ps-ink);
+  background-image: var(--ps-hatch);
+}
 
 /* ---- Summary: the scan line ------------------------------ */
 
@@ -1660,4 +1677,72 @@ a.ps-stream-row:hover {
 @media (prefers-reduced-motion: reduce) {
   .ps-live-dot { animation: none; }
   .ps-live-body { animation: none; }
+}
+
+/* ── The wallet cluster in the nav ───────────────────────────────────────────
+   Chain, address, balance and disconnect are four facts about ONE wallet, so
+   they share one frame. Loose in a row, the disconnect button read as unrelated
+   chrome and it was not obvious what it would disconnect. */
+.ps-wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-2);
+  padding: var(--ps-1) var(--ps-1) var(--ps-1) var(--ps-2);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+  background: var(--ps-surface);
+}
+
+.ps-wallet-chain {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-1);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  color: var(--ps-ink-dim);
+  white-space: nowrap;
+}
+
+.ps-wallet-chain img,
+.ps-wallet-balance img {
+  display: block;
+  /* The system renders at the pixel grid; these are round marks and must not
+     be resampled softly next to a pixel typeface. */
+  image-rendering: auto;
+  flex: 0 0 auto;
+}
+
+/* A hairline tie between the chain and the wallet it belongs to, rather than
+   another gap. */
+.ps-wallet-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--ps-border);
+}
+
+.ps-wallet-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-1);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  /* NOT green. Green means USDC the agent released; a wallet balance is just a
+     balance, and borrowing the colour would dilute the one thing it means. */
+  color: var(--ps-ink);
+  white-space: nowrap;
+}
+
+.ps-wallet-figure { font-variant-numeric: tabular-nums; }
+
+/* Sits inside the frame, so it reads as this wallet's control rather than a
+   button that happens to be nearby. */
+.ps-wallet-disconnect {
+  box-shadow: none;
+  border-radius: var(--ps-r-1);
+}
+
+/* Under 900px the chain name is the first thing to go: the mark still says
+   which network, and the address and balance are what people came for. */
+@media (max-width: 900px) {
+  .ps-wallet-chain-name { display: none; }
 }

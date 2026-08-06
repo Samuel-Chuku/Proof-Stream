@@ -292,13 +292,27 @@ function firstSentence(text: string): string {
 /// copy where the eye wants data.
 function VerdictCard({ event }: { event: AgentEvent }) {
   const v = event.verdict!;
-  const paid = Boolean(event.txHash);
+
+  // `unlocked` is the ONLY outcome where money moved. A txHash is not enough:
+  // a transaction that reverted on chain still has one, and a transaction the
+  // node refused to estimate has none while the attempt is still logged with
+  // its amount. Reading a hash as "paid" is what made a policy revert render as
+  // "HELD · 30.000000 USDC", which says the opposite of what happened.
+  const paid = event.event === 'unlocked';
+  const blocked = event.event === 'unlock_failed';
   const refused = !v.satisfies_milestone;
 
-  // Green edge ONLY where money actually moved; ink for a refusal; faint for
-  // an escalation. See globals.css for why there is no red.
-  const tone = paid ? 'paid' : refused ? 'refused' : 'held';
-  const outcome = paid ? 'RELEASED' : refused ? 'REFUSED' : 'HELD';
+  // Green edge ONLY where money actually moved; ink for a refusal; faint for an
+  // escalation; hatched for a release the CONTRACT stopped. See globals.css for
+  // why there is no red.
+  const tone = paid ? 'paid' : blocked ? 'blocked' : refused ? 'refused' : 'held';
+  const outcome = paid
+    ? 'RELEASED'
+    : blocked
+      ? 'BLOCKED BY THE ON-CHAIN POLICY'
+      : refused
+        ? 'REFUSED'
+        : 'HELD';
 
   return (
     <details className={`ps-verdict ps-verdict-${tone}`}>
@@ -314,8 +328,13 @@ function VerdictCard({ event }: { event: AgentEvent }) {
         <span className="ps-verdict-preview">{firstSentence(v.reasoning)}</span>
 
         <span className="ps-verdict-right">
-          {event.trancheUsdc ? (
+          {/* An amount here means money moved. Anything else says so plainly —
+              a blocked release names the sum it was refused, because that is
+              the point of the row, but never as a figure that reads as paid. */}
+          {paid && event.trancheUsdc ? (
             <Amount raw={Number(event.trancheUsdc) * 1e6} size="s" />
+          ) : blocked && event.trancheUsdc ? (
+            <span className="ps-caption">{event.trancheUsdc} USDC REFUSED</span>
           ) : (
             <span className="ps-caption">NO PAYOUT</span>
           )}

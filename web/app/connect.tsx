@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
+import { AddressChip } from './address-chip';
+import { UsdcBalance } from './usdc-balance';
 import { arcTestnet } from '../lib/chain';
 import { truncate } from './address-chip';
 
@@ -46,9 +48,30 @@ export function Connect() {
 
   if (isConnected && address) {
     return (
-      <span className="ps-connect-row">
-        <span className="ps-label">{truncate(address)}</span>
-        <button type="button" className="ps-button" onClick={() => disconnect()}>
+      // One bordered cluster, not four loose controls. Chain, address, balance
+      // and disconnect all describe the SAME wallet, and side by side with
+      // nothing binding them the disconnect button read as unrelated chrome —
+      // it was not obvious what it would disconnect.
+      <span className="ps-wallet">
+        <span className="ps-wallet-chain" title="Arc Testnet · chain 5042002">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/arc-mark.svg" alt="" width={14} height={14} aria-hidden />
+          <span className="ps-wallet-chain-name">ARC TESTNET</span>
+        </span>
+
+        <span className="ps-wallet-divider" aria-hidden />
+
+        {/* Click to copy. Reuses the chip the rest of the app uses for every
+            address, so the interaction is learned once. */}
+        <AddressChip address={address} />
+
+        <UsdcBalance />
+
+        <button
+          type="button"
+          className="ps-button ps-wallet-disconnect"
+          onClick={() => disconnect()}
+        >
           [ DISCONNECT ]
         </button>
       </span>
