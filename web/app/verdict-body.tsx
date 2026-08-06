@@ -62,11 +62,28 @@ function Confidence({ value }: { value: number | undefined }) {
   );
 }
 
-export function VerdictBody({ event }: { event: AgentEvent }) {
+export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blocked?: boolean }) {
   const v = event.verdict!;
 
   return (
     <>
+      {/* The policy-block moment, in the system's error treatment — an inverted
+          panel, because the palette has no red. Worth stating outright: the
+          agents AGREED here. What stopped it was the mandate the employer set
+          on the contract, which is the one claim in this product that cannot be
+          taken on trust and this is the row that proves it. */}
+      {blocked && (
+        <div className="ps-invert ps-revert">
+          <p className="ps-label">THE CONTRACT REFUSED THIS RELEASE</p>
+          <p className="ps-body">
+            Both agents approved it. The transaction never reached the chain because it would have
+            exceeded the on-chain limits this stream was deployed with — the agent physically cannot
+            spend beyond its mandate, and no amount of agreement between the two of them changes
+            that.
+          </p>
+          {event.errorReason && <p className="ps-caption">NODE REPORTED: {event.errorReason}</p>}
+        </div>
+      )}
       <dl className="ps-verdict-fields">
         <dt>Satisfies milestone</dt>
         <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>

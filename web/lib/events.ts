@@ -41,6 +41,11 @@ export type AgentEvent = {
   gatewayTransfer?: string;
   agreedFraction?: number;
   trancheUsdc?: string;
+  /** Circle's terminal state for the send. FAILED with no txHash means the node
+   *  refused to estimate — which is what an on-chain policy revert looks like
+   *  from here, because the transaction is never broadcast. */
+  state?: string;
+  errorReason?: string;
   txHash?: string;
   explorer?: string;
 };

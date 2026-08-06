@@ -336,7 +336,7 @@ function VerdictCard({ event }: { event: AgentEvent }) {
           {paid && event.trancheUsdc ? (
             <Amount raw={Number(event.trancheUsdc) * 1e6} size="s" />
           ) : blocked && event.trancheUsdc ? (
-            <span className="ps-caption">{event.trancheUsdc} USDC REFUSED</span>
+            <span className="ps-caption ps-amount-blocked">{event.trancheUsdc} USDC REFUSED</span>
           ) : (
             <span className="ps-caption">NO PAYOUT</span>
           )}
@@ -346,7 +346,7 @@ function VerdictCard({ event }: { event: AgentEvent }) {
         </span>
       </summary>
 
-      <VerdictBody event={event} />
+      <VerdictBody event={event} blocked={blocked} />
     </details>
   );
 }
