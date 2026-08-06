@@ -1786,3 +1786,89 @@ a.ps-stream-row:hover {
 :root[data-theme='dark'] .ps-on-light { display: none; }
 :root[data-theme='light'] .ps-on-light { display: block; }
 :root[data-theme='light'] .ps-on-dark { display: none; }
+
+/* ── Phones ──────────────────────────────────────────────────────────────────
+   The breakpoints above 380px already existed and were never reached: without
+   a viewport meta tag a phone reports ~980px and zooms the page out, so the
+   site rendered its desktop layout in miniature. That is fixed in layout.tsx;
+   these rules handle what genuinely does not fit once a phone reports its real
+   width. */
+@media (max-width: 560px) {
+  /* The nav is a wordmark, three links and a wallet. At this width they cannot
+     share a row, so the links wrap under and the wallet stays beside the mark
+     where a thumb expects it. */
+  .ps-nav-inner {
+    flex-wrap: wrap;
+    gap: var(--ps-2) var(--ps-3);
+    padding: var(--ps-2) var(--ps-3);
+  }
+
+  .ps-nav-links {
+    order: 3;
+    flex-basis: 100%;
+    gap: var(--ps-3);
+  }
+
+  .ps-nav-actions { gap: var(--ps-1); }
+
+  /* The wallet cluster is the widest thing on the page. The address is
+     identity and the balance is the number that decides whether the next
+     action works, so the chevron and its divider go first. */
+  .ps-wallet { gap: var(--ps-1); padding-left: var(--ps-1); }
+  .ps-wallet-divider { display: none; }
+
+  /* Buttons are the main tap targets, and 12px/20px padding on three of them
+     overflows a 380px row. Full-width stacking is both easier to hit and
+     impossible to overflow. */
+  .ps-cta-row { flex-direction: column; align-items: stretch; }
+  .ps-cta-row .ps-button { text-align: center; }
+
+  .ps-actions { flex-wrap: wrap; }
+  .ps-actions .ps-button { flex: 1 1 auto; }
+
+  .ps-live { padding: var(--ps-3); }
+  .ps-live-line { font-size: 12px; }
+
+  /* Hashes and addresses are the one content that cannot wrap on a word
+     boundary, and they are what pushes a phone into horizontal scrolling. */
+  .ps-wallet-full,
+  .ps-tx-hash,
+  .ps-mono-break { word-break: break-all; }
+}
+
+/* A page in this system should never scroll sideways: wide content — tables,
+   the cell bar, code — scrolls inside its own container instead. A single
+   overflowing child otherwise drags the whole document with it, and on a phone
+   that reads as a broken site rather than a wide element. */
+html, body { overflow-x: hidden; }
+
+/* Grid and flex children default to min-width:auto, which refuses to shrink
+   below their content and is the usual cause of that sideways drag. */
+.ps-stream-row > *,
+.ps-verdict summary > *,
+.ps-two-col > * { min-width: 0; }
+
+/* ── Scroll reveal ───────────────────────────────────────────────────────────
+   Armed by JS, never by CSS alone: an element that starts at opacity 0 in the
+   stylesheet stays invisible forever if the script does not run. `ps-reveal-
+   armed` is added at runtime, so the no-JS state is simply "visible".
+
+   steps(), like every other transition here. Money moves discretely in this
+   system and the motion language says so. */
+.ps-reveal-armed {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.ps-revealed {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 240ms steps(4, end),
+    transform 240ms steps(4, end);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ps-reveal-armed { opacity: 1; transform: none; }
+  .ps-revealed { transition: none; }
+}

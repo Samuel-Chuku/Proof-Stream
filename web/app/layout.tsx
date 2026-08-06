@@ -5,6 +5,7 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { Nav } from './nav';
 import { Providers } from './providers';
+import { RevealOnScroll } from './reveal-on-scroll';
 import { themeScript } from './theme-toggle';
 
 // Two faces, no third.
@@ -29,6 +30,19 @@ const mono = localFont({
   display: 'swap',
   weight: '400',
 });
+
+/// Without this, mobile browsers assume a ~980px desktop layout and zoom the
+/// whole page out to fit — which is why the site looked untouched on a phone
+/// despite the breakpoints below 720px already existing. They were never
+/// reached, because the viewport never reported a phone's real width.
+///
+/// `maximumScale` is deliberately NOT set: capping zoom stops people enlarging
+/// text they cannot read, and an address hash at 11px is exactly the kind of
+/// thing someone needs to zoom into.
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
 
 export const metadata = {
   title: 'ProofStream',
@@ -56,6 +70,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <Providers>
           <Nav landing={isLanding} />
           {children}
+          <RevealOnScroll />
         </Providers>
       </body>
     </html>

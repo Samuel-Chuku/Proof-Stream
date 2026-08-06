@@ -92,9 +92,11 @@ export default async function Landing() {
         contributor who finishes a milestone never has to invent more pull requests to collect it.
       </p>
 
-      <LiveDecisions decisions={decisions} />
+      <div data-reveal>
+        <LiveDecisions decisions={decisions} />
+      </div>
 
-      <div className="ps-cta-row">
+      <div className="ps-cta-row" data-reveal>
         <a className="ps-button ps-button-primary" href={app}>
           [ OPEN THE APP ]
         </a>
@@ -106,11 +108,11 @@ export default async function Landing() {
         </a>
       </div>
 
-      <div className="ps-section-rule">
+      <div className="ps-section-rule" data-reveal>
         <span className="ps-label">THE TWO AGENTS</span>
       </div>
 
-      <div className="ps-two-col">
+      <div className="ps-two-col" data-reveal>
         <section>
           <h2 className="ps-agent-head">
             <AgentMark role="attestor" /> THE ATTESTOR
