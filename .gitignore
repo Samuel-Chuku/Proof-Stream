@@ -11,3 +11,4 @@ broadcast/
 *.tsbuildinfo
 .next-verify/
 placeholder.md
+agent/.backup/

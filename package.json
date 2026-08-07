@@ -30,7 +30,8 @@
     "sync:artifacts": "tsx scripts/sync-artifacts.ts",
     "seed": "tsx --env-file=.env scripts/demo-seed.ts",
     "evidence": "tsx --env-file=.env scripts/evidence.ts",
-    "test:repo": "tsx --test config/test/repo.test.ts"
+    "test:repo": "tsx --test config/test/repo.test.ts",
+    "logs:pull": "tsx --env-file=.env scripts/pull-logs.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
