@@ -91,6 +91,9 @@ export function StreamActions({ stream }: { stream: Stream }) {
   // both may only rise, and the daily cap may never sit below the per-
   // certification one. A track bounded by the current value and the budget makes
   // the legal range the only reachable range, so RAISE cannot revert.
+  // Which folded panel is open, if any. One at a time: these are rare employer
+  // actions, and two open at once buries the buttons that opened them.
+  const [panel, setPanel] = useState<'caps' | 'repo' | null>(null);
   const [capsTranche, setCapsTranche] = useState(() => Number(stream.maxTranche));
   const [capsDaily, setCapsDaily] = useState(() => Number(stream.dailyUnlockCap));
 
@@ -296,6 +299,32 @@ export function StreamActions({ stream }: { stream: Stream }) {
             [ CLOSE MILESTONE ]
           </button>
         )}
+
+        {/* Rare employer actions. They sit in the action row as buttons like
+            everything else rather than as a panel that is simply always there —
+            a control that is permanently open reads as something you are
+            expected to be doing. */}
+        {isEmployer && !settled && capsRaisable && (
+          <button
+            type="button"
+            className="ps-button"
+            aria-expanded={panel === 'caps'}
+            onClick={() => setPanel((p) => (p === 'caps' ? null : 'caps'))}
+          >
+            [ AGENT LIMITS {panel === 'caps' ? '▴' : '▾'} ]
+          </button>
+        )}
+
+        {isEmployer && canRepoint && (
+          <button
+            type="button"
+            className="ps-button"
+            aria-expanded={panel === 'repo'}
+            onClick={() => setPanel((p) => (p === 'repo' ? null : 'repo'))}
+          >
+            [ CHANGE REPOSITORY {panel === 'repo' ? '▴' : '▾'} ]
+          </button>
+        )}
       </div>
 
       {isContributor && (
@@ -335,9 +364,14 @@ export function StreamActions({ stream }: { stream: Stream }) {
           employer legitimately needs this: repositories get renamed, and two
           streams claiming one repo are BOTH refused by the agent until one is
           pointed elsewhere. Folded away, because it is a rare action. */}
-      {isEmployer && canRepoint && (
-        <details className="ps-repoint">
-          <summary className="ps-label">CHANGE THE REPOSITORY ▾</summary>
+      {isEmployer && canRepoint && panel === 'repo' && (
+        <section className="ps-mandate">
+          <div className="ps-range-head">
+            <span className="ps-label">CHANGE THE REPOSITORY</span>
+            <button type="button" className="ps-button" onClick={() => setPanel(null)}>
+              [ CLOSE ]
+            </button>
+          </div>
           <label className="ps-caption" htmlFor="repoint">
             CURRENTLY WATCHING {stream.repo || '(none)'} — WRITE IT AS OWNER/NAME#BRANCH. OMIT THE
             BRANCH AND THIS STREAM FALLS BACK TO MAIN, WHICH MAY NOT BE THE BRANCH YOU PROTECT.
@@ -374,7 +408,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
             NAME LIKE RETIRED/DUPLICATE TO RETIRE IT. UNAVAILABLE ONCE THE AGENT HAS RELEASED
             ANYTHING.
           </p>
-        </details>
+        </section>
       )}
 
       {/* The employer may LOOSEN the mandate and never tighten it. A cap the
@@ -386,9 +420,14 @@ export function StreamActions({ stream }: { stream: Stream }) {
           Needed in practice: a stream whose caps are below its budget cannot
           release everything the agent certifies, and the only alternative was
           exporting a key into a keystore. */}
-      {isEmployer && !settled && capsRaisable && (
+      {isEmployer && !settled && capsRaisable && panel === 'caps' && (
         <section className="ps-mandate">
-          <p className="ps-label">THE AGENT&rsquo;S SPENDING LIMITS</p>
+          <div className="ps-range-head">
+            <span className="ps-label">THE AGENT&rsquo;S SPENDING LIMITS</span>
+            <button type="button" className="ps-button" onClick={() => setPanel(null)}>
+              [ CLOSE ]
+            </button>
+          </div>
           <p className="ps-caption">
             RAISE ONLY. THESE BOUND THE AGENT, NOT THE CONTRIBUTOR — RAISING CANNOT PAY OUT MORE
             THAN THE AGENT ALREADY CERTIFIED.

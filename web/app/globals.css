@@ -1029,33 +1029,10 @@ code {
   color: var(--ps-ink);
 }
 
-/* ---- Repoint a stream ------------------------------------ */
-
-.ps-repoint {
-  margin-top: var(--ps-4);
-  padding-top: var(--ps-3);
-  border-top: var(--ps-bw-hair) dashed var(--ps-border);
-  max-width: 60ch;
-}
-
-.ps-repoint > summary {
-  cursor: pointer;
-  list-style: none;
-  color: var(--ps-ink-dim);
-}
-
-.ps-repoint > summary::-webkit-details-marker {
-  display: none;
-}
-
-.ps-repoint[open] > summary {
-  margin-bottom: var(--ps-3);
-}
-
-.ps-repoint > label {
-  display: block;
-  margin-bottom: var(--ps-2);
-}
+/* ---- Repoint a stream ------------------------------------
+   The <details> wrapper went when both employer panels moved behind buttons in
+   the action row; only the input+button row survives, and it is shared with the
+   passkey and create-branch forms. */
 
 .ps-repoint-row {
   display: grid;
@@ -2088,6 +2065,12 @@ input[type='range'].ps-range:disabled {
   border: var(--ps-bw-struct) solid var(--ps-rule);
   padding: var(--ps-3);
   margin-top: var(--ps-4);
+  max-width: 60ch;
+}
+
+.ps-mandate > label {
+  display: block;
+  margin: var(--ps-3) 0 var(--ps-2);
 }
 
 /* ---- Milestone, given its due ------------------------------
