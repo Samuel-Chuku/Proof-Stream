@@ -86,8 +86,13 @@ export function StreamActions({ stream }: { stream: Stream }) {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
   const [newRepo, setNewRepo] = useState('');
-  const [newMaxTranche, setNewMaxTranche] = useState('');
-  const [newDailyCap, setNewDailyCap] = useState('');
+  // Caps as micro-USDC numbers rather than free text. Two text boxes made the
+  // employer work out for themselves which numbers the contract would accept —
+  // both may only rise, and the daily cap may never sit below the per-
+  // certification one. A track bounded by the current value and the budget makes
+  // the legal range the only reachable range, so RAISE cannot revert.
+  const [capsTranche, setCapsTranche] = useState(() => Number(stream.maxTranche));
+  const [capsDaily, setCapsDaily] = useState(() => Number(stream.dailyUnlockCap));
 
   // `closeMilestone` reverts with MilestoneStillRunning until the milestone has
   // ended AND the certification grace window has passed. The button was offered
@@ -114,20 +119,21 @@ export function StreamActions({ stream }: { stream: Stream }) {
     : 0n;
   const outstanding = BigInt(stream.budget) - BigInt(stream.funded);
 
-  // Caps may only RISE, so the current values are the floor for both inputs.
-  // Parsed to 6dp USDC the same way the contract stores them.
-  const toUnits = (v: string) => {
-    const n = Number(v);
-    return Number.isFinite(n) && n > 0 ? BigInt(Math.round(n * 1e6)) : null;
-  };
-  const nextMaxTranche = toUnits(newMaxTranche);
-  const nextDailyCap = toUnits(newDailyCap);
+  const capBudget = Number(stream.budget);
+  // A stream already at the budget on both counts has nothing left to raise.
+  const capsRaisable = Number(stream.maxTranche) < capBudget || Number(stream.dailyUnlockCap) < capBudget;
   const capsValid =
-    nextMaxTranche !== null &&
-    nextDailyCap !== null &&
-    nextMaxTranche >= BigInt(stream.maxTranche) &&
-    nextDailyCap >= BigInt(stream.dailyUnlockCap) &&
-    nextDailyCap >= nextMaxTranche;
+    capsDaily >= capsTranche &&
+    capsTranche >= Number(stream.maxTranche) &&
+    capsDaily >= Number(stream.dailyUnlockCap) &&
+    (capsTranche > Number(stream.maxTranche) || capsDaily > Number(stream.dailyUnlockCap));
+
+  /// The daily cap can never sit below the per-certification one, so raising the
+  /// latter pushes the former up with it rather than leaving an invalid pair.
+  function setTranche(v: number) {
+    setCapsTranche(v);
+    if (v > capsDaily) setCapsDaily(v);
+  }
 
   // A settled milestone rejects fund, pause and close. Offering a button that
   // is guaranteed to revert wastes a signature and teaches the user nothing —
@@ -380,53 +386,66 @@ export function StreamActions({ stream }: { stream: Stream }) {
           Needed in practice: a stream whose caps are below its budget cannot
           release everything the agent certifies, and the only alternative was
           exporting a key into a keystore. */}
-      {isEmployer && !settled && (
-        <details className="ps-repoint">
-          <summary className="ps-label">RAISE THE AGENT&rsquo;S LIMITS ▾</summary>
+      {isEmployer && !settled && capsRaisable && (
+        <section className="ps-mandate">
+          <p className="ps-label">THE AGENT&rsquo;S SPENDING LIMITS</p>
           <p className="ps-caption">
-            NOW: <Amount raw={Number(stream.maxTranche)} size="s" suffix={false} /> PER
-            CERTIFICATION · <Amount raw={Number(stream.dailyUnlockCap)} size="s" suffix={false} />{' '}
-            PER DAY · BUDGET <Amount raw={Number(stream.budget)} size="s" />
+            RAISE ONLY. THESE BOUND THE AGENT, NOT THE CONTRIBUTOR — RAISING CANNOT PAY OUT MORE
+            THAN THE AGENT ALREADY CERTIFIED.
           </p>
-          <div className="ps-repoint-row">
+
+          <div className="ps-range-row" style={{ marginTop: 'var(--ps-3)' }}>
+            <div className="ps-range-head">
+              <span className="ps-label">PER CERTIFICATION</span>
+              <Amount raw={capsTranche} size="s" />
+            </div>
             <input
-              className="ps-input"
-              inputMode="decimal"
-              value={newMaxTranche}
-              placeholder={`PER CERTIFICATION ≥ ${(Number(stream.maxTranche) / 1e6).toString()}`}
-              onChange={(e) => setNewMaxTranche(e.target.value)}
+              type="range"
+              className="ps-range"
+              min={Number(stream.maxTranche)}
+              max={capBudget}
+              step={1_000_000}
+              value={capsTranche}
+              aria-label="Per-certification cap"
+              onChange={(e) => setTranche(Number(e.target.value))}
             />
-            <input
-              className="ps-input"
-              inputMode="decimal"
-              value={newDailyCap}
-              placeholder={`PER DAY ≥ ${(Number(stream.dailyUnlockCap) / 1e6).toString()}`}
-              onChange={(e) => setNewDailyCap(e.target.value)}
-            />
-            <button
-              type="button"
-              className="ps-button"
-              disabled={busy !== null || !capsValid}
-              onClick={() =>
-                run('caps', () =>
-                  writeContractAsync({
-                    address: stream.address as `0x${string}`,
-                    abi: WORK_STREAM_ABI,
-                    functionName: 'raisePolicy',
-                    args: [nextMaxTranche as bigint, nextDailyCap as bigint],
-                  }),
-                )
-              }
-            >
-              [ {busy === 'caps' ? 'RAISING…' : 'RAISE'} ]
-            </button>
           </div>
-          <p className="ps-caption">
-            BOTH MAY ONLY GO UP, AND THE DAILY CAP MAY NOT SIT BELOW THE PER-CERTIFICATION ONE — THE
-            CONTRACT REVERTS OTHERWISE. THE PAYEE NEVER CHANGES. RAISING CANNOT PAY OUT MORE THAN THE
-            AGENT HAS ALREADY CERTIFIED; IT ONLY STOPS A CAP BLOCKING WHAT IT DID.
-          </p>
-        </details>
+
+          <div className="ps-range-row">
+            <div className="ps-range-head">
+              <span className="ps-label">PER DAY</span>
+              <Amount raw={capsDaily} size="s" />
+            </div>
+            <input
+              type="range"
+              className="ps-range"
+              min={Number(stream.dailyUnlockCap)}
+              max={capBudget}
+              step={1_000_000}
+              value={capsDaily}
+              aria-label="Daily cap"
+              onChange={(e) => setCapsDaily(Math.max(Number(e.target.value), capsTranche))}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="ps-button"
+            disabled={busy !== null || !capsValid}
+            onClick={() =>
+              run('caps', () =>
+                writeContractAsync({
+                  address: stream.address as `0x${string}`,
+                  abi: WORK_STREAM_ABI,
+                  functionName: 'raisePolicy',
+                  args: [BigInt(capsTranche), BigInt(capsDaily)],
+                }),
+              )
+            }
+          >
+            [ {busy === 'caps' ? 'RAISING…' : 'RAISE'} ]
+          </button>
+        </section>
       )}
 
       {/* A disabled button with no explanation reads as broken. This is the one

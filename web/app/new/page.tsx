@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAccount, useConfig, useDeployContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { AGENT_ADDRESS, EXPLORER } from '../../lib/chain';
-import { approveBudget, deployStream, fundStream, registerStream, suggestedCaps, validate, type StreamTerms } from '../../lib/create-stream';
+import { advisories, approveBudget, deployStream, fundStream, registerStream, suggestedCaps, validate, type StreamTerms } from '../../lib/create-stream';
 import { AddressChip } from '../address-chip';
 import { Connect } from '../connect';
 
@@ -83,10 +83,15 @@ export default function NewStream() {
   const [newBranch, setNewBranch] = useState('');
   const [branchBusy, setBranchBusy] = useState(false);
   const [branchError, setBranchError] = useState<string | null>(null);
+  // Set once a branch has been created FROM this page. The create control then
+  // goes away entirely: it has done its job, and leaving it there invites a
+  // second branch nobody asked for.
+  const [madeBranch, setMadeBranch] = useState<string | null>(null);
 
   useEffect(() => {
     setBranches(null);
     setBranchError(null);
+    setMadeBranch(null);
     if (!terms.repo) return;
 
     let cancelled = false;
@@ -125,6 +130,7 @@ export default function NewStream() {
       setBranches((b) => [...(b ?? []), name].sort((a, c) => a.localeCompare(c)));
       set('branch', name);
       setNewBranch('');
+      setMadeBranch(name);
     } catch (err) {
       setBranchError(err instanceof Error ? err.message : 'could not create the branch');
     } finally {
@@ -137,6 +143,7 @@ export default function NewStream() {
   const { writeContractAsync } = useWriteContract();
 
   const problems = validate({ ...terms, durationSeconds });
+  const notes = advisories({ ...terms, durationSeconds });
   const ready = isConnected && problems.length === 0 && terms.repo !== '' && terms.branch !== '';
 
   async function run() {
@@ -305,22 +312,24 @@ export default function NewStream() {
                 CONTRIBUTOR CANNOT PAY THEMSELVES BY MERGING THEIR OWN PULL REQUEST SOMEWHERE ELSE.
               </p>
 
-              <div className="ps-repoint-row" style={{ marginTop: 'var(--ps-2)' }}>
-                <input
-                  className="ps-input"
-                  value={newBranch}
-                  placeholder="[ or make one, e.g. proofstream/accepted ]"
-                  onChange={(e) => setNewBranch(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="ps-button"
-                  disabled={branchBusy || newBranch.trim() === ''}
-                  onClick={makeBranch}
-                >
-                  [ {branchBusy ? 'CREATING…' : 'CREATE BRANCH'} ]
-                </button>
-              </div>
+              {madeBranch === null && branches !== null && branches.length > 0 && (
+                <div className="ps-repoint-row" style={{ marginTop: 'var(--ps-2)' }}>
+                  <input
+                    className="ps-input"
+                    value={newBranch}
+                    placeholder="[ or make one, e.g. proofstream/accepted ]"
+                    onChange={(e) => setNewBranch(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="ps-button"
+                    disabled={branchBusy || newBranch.trim() === ''}
+                    onClick={makeBranch}
+                  >
+                    [ {branchBusy ? 'CREATING…' : 'CREATE BRANCH'} ]
+                  </button>
+                </div>
+              )}
               {branchError && <p className="ps-caption">{branchError}</p>}
             </div>
           )}
@@ -458,11 +467,22 @@ export default function NewStream() {
       </div>
 
       {problems.length > 0 && (
-        <ul className="ps-problems">
-          {problems.map((p) => (
-            <li key={p} className="ps-body">
-              {p}
-            </li>
+        <div className="ps-blockers">
+          <span className="ps-label">
+            {problems.length} THING{problems.length === 1 ? '' : 'S'} STOPPING THIS DEPLOY
+          </span>
+          <ul>
+            {problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {notes.length > 0 && (
+        <ul className="ps-notes">
+          {notes.map((n) => (
+            <li key={n}>{n}</li>
           ))}
         </ul>
       )}

@@ -95,15 +95,29 @@ export function validate(terms: StreamTerms): string[] {
   if (maxTranche <= 0n) problems.push('The per-unlock cap must be greater than zero.');
   if (maxTranche > budget) problems.push('The per-unlock cap cannot exceed the budget.');
   if (dailyCap < maxTranche) problems.push('The daily cap cannot be below the per-unlock cap.');
-  // Not a contract rule, but a stream whose daily ceiling is under its budget
-  // cannot finish in a day, and nothing in the UI would otherwise say so.
-  if (dailyCap > 0n && dailyCap < budget) {
-    problems.push(
-      `A daily cap of ${terms.dailyUnlockCap} USDC below the ${terms.budget} USDC budget means this milestone needs more than one day to pay out in full.`,
+  return problems;
+}
+
+/// Worth saying, but not worth refusing. Kept apart from `validate` because a
+/// list that mixes "deploy is impossible" with "this is unusual but fine" makes
+/// neither legible, and the reader cannot tell which one is stopping them.
+///
+/// The daily-cap note used to sit in `validate` and therefore BLOCKED the
+/// deploy. That was wrong twice over: a daily ceiling under the budget is a
+/// legitimate configuration, and it is precisely how the policy-revert demo is
+/// set up — the form was refusing to build the thing the project exists to show.
+export function advisories(terms: StreamTerms): string[] {
+  const notes: string[] = [];
+  const budget = usdc(terms.budget || '0');
+  const dailyCap = usdc(terms.dailyUnlockCap || '0');
+
+  if (dailyCap > 0n && budget > 0n && dailyCap < budget) {
+    notes.push(
+      `The daily cap of ${terms.dailyUnlockCap} USDC is below the ${terms.budget} USDC budget, so this milestone needs more than one day to pay out in full. That is allowed — it is what makes the agent hit its ceiling.`,
     );
   }
 
-  return problems;
+  return notes;
 }
 
 /// 1 of 4 — deploy the stream from the employer's wallet.

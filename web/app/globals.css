@@ -1949,3 +1949,194 @@ html, body { overflow-x: hidden; }
 .ps-revert .ps-caption,
 .ps-revert .ps-label { color: var(--ps-invert-ink); }
 .ps-revert .ps-caption { opacity: 0.75; }
+
+/* ---- Select affordance ------------------------------------
+   `select.ps-input` sets appearance:none to keep the native chrome off the
+   pixel-grid look, which also removed the only thing marking it as a menu — it
+   read as a text field that ignored typing. The caret is an inline data URI
+   because the CSP forbids external assets, and it is drawn on the 4px grid with
+   square corners so it matches the pixel marks rather than a rounded icon set. */
+select.ps-input {
+  padding-right: var(--ps-6);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' shape-rendering='crispEdges'><rect x='0' y='0' width='12' height='2' fill='%23333'/><rect x='2' y='2' width='8' height='2' fill='%23333'/><rect x='4' y='4' width='4' height='2' fill='%23333'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right var(--ps-3) center;
+  cursor: pointer;
+}
+
+:root[data-theme='dark'] select.ps-input,
+:root[data-theme='dark'] select.ps-input:focus {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' shape-rendering='crispEdges'><rect x='0' y='0' width='12' height='2' fill='%23EFEDE3'/><rect x='2' y='2' width='8' height='2' fill='%23EFEDE3'/><rect x='4' y='4' width='4' height='2' fill='%23EFEDE3'/></svg>");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) select.ps-input {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' shape-rendering='crispEdges'><rect x='0' y='0' width='12' height='2' fill='%23EFEDE3'/><rect x='2' y='2' width='8' height='2' fill='%23EFEDE3'/><rect x='4' y='4' width='4' height='2' fill='%23EFEDE3'/></svg>");
+  }
+}
+
+/* ---- Blockers vs advisories -------------------------------
+   These were one undifferentiated bullet list, so "the budget must be greater
+   than zero" (deploy is impossible) sat in the same grey as "this milestone
+   needs more than one day to pay out" (perfectly fine, and in fact how the
+   policy-revert demo is configured). A reader could not tell which one was
+   stopping them. Blockers now take the inverted panel already used for a
+   reverted transaction — the established "this did not go through" treatment —
+   and advisories stay quiet. */
+.ps-blockers {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  padding: var(--ps-3);
+  margin: 0 0 var(--ps-4);
+}
+
+.ps-blockers .ps-label {
+  color: var(--ps-invert-ink);
+  display: block;
+  margin-bottom: var(--ps-2);
+}
+
+.ps-blockers ul {
+  margin: 0;
+  padding-left: var(--ps-4);
+}
+
+.ps-blockers li {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+}
+
+.ps-notes {
+  margin: 0 0 var(--ps-4);
+  padding-left: var(--ps-4);
+  color: var(--ps-ink-dim);
+}
+
+.ps-notes li {
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
+}
+
+/* ---- Range control ----------------------------------------
+   Used for raising the agent's caps. Two free-text boxes made the employer work
+   out for themselves which numbers the contract would accept; a track bounded
+   by the current cap and the budget makes the legal range the only range. */
+.ps-range-row {
+  display: grid;
+  gap: var(--ps-1);
+  margin-bottom: var(--ps-3);
+}
+
+.ps-range-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ps-3);
+}
+
+input[type='range'].ps-range {
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range'].ps-range::-webkit-slider-runnable-track {
+  height: 8px;
+  background: var(--ps-sunk);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+input[type='range'].ps-range::-moz-range-track {
+  height: 8px;
+  background: var(--ps-sunk);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+/* Square, not round — a circular thumb is the one shape nothing else in this
+   interface uses. */
+input[type='range'].ps-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 20px;
+  margin-top: -8px;
+  background: var(--ps-green);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+}
+
+input[type='range'].ps-range::-moz-range-thumb {
+  width: 16px;
+  height: 20px;
+  background: var(--ps-green);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+}
+
+input[type='range'].ps-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ---- The agent's mandate panel ----------------------------
+   Promoted out of a folded <details>. What the agent is allowed to spend is not
+   a footnote — it is the whole security argument, and it was hidden behind a
+   summary nobody opened. */
+.ps-mandate {
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  padding: var(--ps-3);
+  margin-top: var(--ps-4);
+}
+
+/* ---- Milestone, given its due ------------------------------
+   The milestone is the contract's own text and the only thing the agent judges
+   against. It was set in body copy, indistinguishable from the sentences
+   describing it. */
+.ps-milestone {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  border-left: var(--ps-bw-struct) solid var(--ps-rule);
+  padding: var(--ps-2) 0 var(--ps-2) var(--ps-3);
+  margin: 0 0 var(--ps-3);
+}
+
+.ps-rails {
+  background: var(--ps-sunk);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  padding: var(--ps-3);
+  margin-bottom: var(--ps-3);
+}
+
+.ps-rails dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--ps-1) var(--ps-3);
+  margin: 0;
+}
+
+.ps-rails dt {
+  font-size: var(--ps-size-label);
+  line-height: var(--ps-lh-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ps-ink-dim);
+  white-space: nowrap;
+}
+
+.ps-rails dd {
+  margin: 0;
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
+  word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .ps-rails dl {
+    grid-template-columns: 1fr;
+  }
+  .ps-rails dd {
+    margin-bottom: var(--ps-2);
+  }
+}

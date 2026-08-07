@@ -144,12 +144,33 @@ export default async function StreamPage({ params }: { params: Promise<{ address
             <PasskeyWithdraw stream={stream} />
 
           <SectionRule>MILESTONE</SectionRule>
-          <p className="ps-body">{stream.milestone}</p>
-          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
-            WATCHING {parseRepoSpec(stream.repo).repo} · MERGES INTO{' '}
-            {parseRepoSpec(stream.repo).branch} ONLY · CEILING {formatCeiling(stream.maxTranche)} USDC
-            PER UNLOCK · {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} PER DAY
-          </p>
+
+          {/* The milestone is the contract's own text and the only thing the
+              agent judges against. Set in body copy it was indistinguishable
+              from the sentences describing it. */}
+          <p className="ps-milestone">{stream.milestone}</p>
+
+          {/* The rails, stated once and in full. A contributor arriving at this
+              page needs to know where to put their work before anything else —
+              a pull request merged into the wrong branch earns nothing, and
+              nothing anywhere else on the page would have told them. */}
+          <div className="ps-rails">
+            <dl>
+              <dt>Repository</dt>
+              <dd>{parseRepoSpec(stream.repo).repo}</dd>
+              <dt>Merge into</dt>
+              <dd>
+                <b>{parseRepoSpec(stream.repo).branch}</b> — work merged anywhere else earns nothing
+              </dd>
+              <dt>Budget</dt>
+              <dd>{(Number(stream.budget) / 1e6).toFixed(2)} USDC</dd>
+              <dt>Agent ceiling</dt>
+              <dd>
+                {formatCeiling(stream.maxTranche)} USDC per certification ·{' '}
+                {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} USDC per day
+              </dd>
+            </dl>
+          </div>
 
           <SectionRule>AGENT DECISIONS</SectionRule>
 
