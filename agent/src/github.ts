@@ -38,6 +38,11 @@ export type MergedPr = {
   /** `owner/name` the event came from, checked against the stream's on-chain
    *  repo so one agent can serve many streams without crossing wires. */
   repo?: string;
+  /** The branch this was merged INTO. Checked against the branch named in the
+   *  stream's on-chain repo spec — a merge into anything else is not work the
+   *  employer accepted. Undefined means we could not read it, which fails
+   *  closed rather than open. */
+  baseBranch?: string;
 };
 
 /// Extracts what we need from a `pull_request` event, or null if it is not a
@@ -52,6 +57,7 @@ export function parseMergedPr(payload: any): MergedPr | null {
     commitSha: pr.merge_commit_sha ?? pr.head?.sha ?? '',
     author: pr.user?.login ?? 'unknown',
     repo: payload?.repository?.full_name,
+    baseBranch: pr.base?.ref,
   };
 }
 

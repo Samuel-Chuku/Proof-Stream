@@ -48,6 +48,55 @@ async function gh<T>(path: string, token: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function ghPost<T>(path: string, token: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'proofstream-web',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`GitHub ${path} failed: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<T>;
+}
+
+/// Every branch in a repository, so the employer can name the one a contributor
+/// must merge into. Capped at one page: a repo with more than 100 branches is
+/// not one where the right integration branch is hiding on page two.
+export async function listBranches(token: string, repo: string): Promise<string[]> {
+  const branches = await gh<{ name: string }[]>(`/repos/${repo}/branches?per_page=100`, token);
+  return branches.map((b) => b.name).sort((a, b) => a.localeCompare(b));
+}
+
+/// Create a branch off another one, so an employer can make a protected
+/// integration branch without leaving the form.
+///
+/// NEEDS `contents: write` ON THE GITHUB APP. Everything else ProofStream does
+/// is read-only, so if the App was installed with read permissions this throws
+/// a 403 and the caller offers the manual path instead. Deliberately not fatal:
+/// naming an existing branch is the common case, and creating one is a
+/// convenience.
+export async function createBranch(
+  token: string,
+  repo: string,
+  branch: string,
+  fromBranch: string,
+): Promise<void> {
+  const ref = await gh<{ object: { sha: string } }>(
+    `/repos/${repo}/git/ref/heads/${encodeURIComponent(fromBranch)}`,
+    token,
+  );
+  await ghPost(`/repos/${repo}/git/refs`, token, {
+    ref: `refs/heads/${branch}`,
+    sha: ref.object.sha,
+  });
+}
+
 /// Trade the callback's `code` for a user access token.
 export async function exchangeCode(
   code: string,

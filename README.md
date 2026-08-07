@@ -35,13 +35,13 @@ the agents' own logs plus live chain state with `pnpm evidence`.
 
 ## How a payout happens
 
-1. **The employer opens a milestone** with its own budget, duration, and the repository to
-   watch — all on-chain.
+1. **The employer opens a milestone** with its own budget, duration, and the repository and
+   branch to watch — all on-chain.
 2. **The employer deposits the budget in full.** Nothing accrues until they do.
 3. **Pay accrues every second**, `budget × elapsed / duration`, earned but locked.
-4. **A pull request lands.** The attestor fetches the diff and the milestone text itself
-   and asks an LLM whether the work satisfies it — returning not just yes/no but *how much*
-   it is worth.
+4. **A pull request is merged into the nominated branch.** The attestor fetches the diff
+   and the milestone text itself and asks an LLM whether the work satisfies it — returning
+   not just yes/no but *how much* it is worth. A merge into any other branch is ignored.
 5. **The attestor buys a second opinion** for $0.005 over x402, paid from its own Gateway
    balance. The verifier runs a different vendor's model, fetches its own copy of the
    evidence, and never sees the attestor's answer.
@@ -120,6 +120,56 @@ remainder to the employer. It defaults to the whole budget for that reason.
 
 Pause stops the clock but deliberately does **not** block certification — otherwise an
 employer could watch work land, pause, and strand pay already earned.
+
+## Only merges into the branch the employer named
+
+A stream's on-chain `repo` is `owner/name#branch` — `acme/api#proofstream/accepted`. The
+agent judges a pull request only if it was merged into **that** branch. A spec with no `#`
+means `main`.
+
+This is not cosmetic. GitHub protects the default branch; it protects nothing else. Without
+a branch check, a contributor could open a pull request from one throwaway branch into
+another, **merge it themselves**, and be paid for work no employer reviewed and that never
+reached the codebase. Naming the branch puts the employer back in the loop, because the
+branch they name is one they control merges into.
+
+It also answers the obvious objection to judging merges at all — *what if the merge breaks
+the employer's work?* Point the stream at an integration branch, protect `main`, and the
+contributor's merge never touches production until the employer promotes it.
+
+The branch lives in the contract rather than the agent's environment for the same reason the
+repository does: **an agent that chooses which branch it watches is choosing its own
+mandate.** Changing it is `setRepo`, which is employer-only.
+
+## Can a throwaway merge top up a payout?
+
+Short answer: **no once a milestone is fully certified, and never beyond what the work
+actually justifies.**
+
+At 100% there are two independent guards. The agent skips any verdict that would not raise
+the standing certification, and the contract reverts `NotAnIncrease` if one is sent anyway.
+Nothing can push certification past 100%, so no further merge can add anything.
+
+Below 100% the honest answer is more interesting. The agents judge the **final state of the
+files**, not just the diff — deliberately, because a milestone is delivered across several
+pull requests and an incremental diff cannot answer a cumulative question. So a trivial
+merge that touches a file where finished work already lives **will** be judged on that
+finished work and can raise certification toward what the work is genuinely worth.
+
+We tested this rather than assuming it:
+
+| Merge | Verdict |
+| --- | --- |
+| Truly empty — no files changed | `satisfies=false`, fraction **0**, confidence 1.0 |
+| One-comment change to a file whose milestone work is complete | fraction **1.0** |
+
+An empty merge earns nothing, because there is nothing to judge. A trivial merge on finished
+work advances certification — but **only up to what the final state justifies**, and never
+past 100%. It cannot manufacture value; at most it collects value already created, which is
+also why a certification clipped by `maxTranche` is a delay rather than a loss.
+
+And it is gated by the branch rule above: on a protected branch, that merge needs the
+employer's approval, so the employer decides when it happens.
 
 ## Agent-to-agent payments settle in batches
 

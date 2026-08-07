@@ -3,7 +3,7 @@
 // Duplicating these would let the demo and the product drift apart, and these
 // gates are the product.
 import { appendFileSync } from 'node:fs';
-import { formatUsdc } from '@proofstream/config';
+import { formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
 import { env } from './env';
 import { fetchDiff, type MergedPr } from './github';
@@ -106,18 +106,29 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     return 'skipped';
   }
 
-  // The contract says which repo this job is about. An event from anywhere else
-  // is not this stream's business, whatever the agent's own env happens to say.
-  if (pr.repo && pr.repo.toLowerCase() !== stream.repo.toLowerCase()) {
+  // The contract says which repo AND which branch this job is about. An event
+  // from anywhere else is not this stream's business, whatever the agent's own
+  // env happens to say.
+  //
+  // The branch half is not bureaucracy. Without it, a contributor could open a
+  // pull request into a throwaway branch, merge it themselves — nobody protects
+  // a non-default branch — and be paid for work the employer never reviewed and
+  // that never reached the codebase. Fails closed: a base we cannot read is
+  // treated as the wrong one.
+  const want = parseRepoSpec(stream.repo);
+  if (pr.repo && !matchesRepoSpec(stream.repo, pr.repo, pr.baseBranch)) {
     log({
       event: 'skipped',
       pr: pr.number,
-      reason: `event is for ${pr.repo} but this stream watches ${stream.repo}`,
+      reason:
+        pr.repo.toLowerCase() !== want.repo.toLowerCase()
+          ? `event is for ${pr.repo} but this stream watches ${want.repo}`
+          : `merged into ${pr.baseBranch ?? 'an unreadable branch'} but this stream only pays for work merged into ${want.branch}`,
     });
     return 'skipped';
   }
 
-  const diff = await fetchDiff(stream.repo, pr.number);
+  const diff = await fetchDiff(want.repo, pr.number);
   const { verdict, costUsd, model } = await judge(pr, stream.milestone, diff);
 
   const base = {

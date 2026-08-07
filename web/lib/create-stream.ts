@@ -8,6 +8,7 @@
 // openMilestone, fund, pause and closeMilestone are all unreachable, and worse,
 // closeMilestone would refund the unspent budget INTO the factory, permanently.
 // Deploying from the user's wallet is what makes the stream genuinely theirs.
+import { formatRepoSpec } from '@proofstream/config';
 import { encodeFunctionData, parseUnits } from 'viem';
 import { STREAM_REGISTRY_ABI, WORK_STREAM_ABI, WORK_STREAM_BYTECODE } from './artifacts';
 import { ERC20_ABI, REGISTRY_ADDRESS, USDC } from './chain';
@@ -25,6 +26,10 @@ export type StreamTerms = {
   durationSeconds: number;
   /** owner/name — registered on-chain, and what routes webhooks to this stream. */
   repo: string;
+  /** The branch work must be merged INTO to count. Stored on-chain as part of
+   *  the repo string (`owner/name#branch`), so the employer controls it exactly
+   *  as they control the repository, and the agent cannot choose its own. */
+  branch: string;
   /** Per-unlock ceiling, human USDC. */
   maxTranche: string;
   /** Per-UTC-day ceiling, human USDC. */
@@ -68,7 +73,11 @@ export function validate(terms: StreamTerms): string[] {
   const zero = '0x0000000000000000000000000000000000000000';
 
   if (!terms.milestone.trim()) problems.push('The milestone cannot be empty — it is what the agent judges against.');
-  if (!/^[^/\s]+\/[^/\s]+$/.test(terms.repo)) problems.push('The repository must be owner/name.');
+  if (!/^[^/\s#]+\/[^/\s#]+$/.test(terms.repo)) problems.push('The repository must be owner/name.');
+  // A branch may contain slashes but nothing that would change what the on-chain
+  // spec parses back to — a `#` here would split the string somewhere else.
+  if (!terms.branch.trim()) problems.push('A branch is required — the agent only pays for work merged into it.');
+  else if (!/^[\w.-]+(\/[\w.-]+)*$/.test(terms.branch.trim())) problems.push('That is not a valid branch name.');
   for (const [label, value] of [
     ['contributor', terms.contributor],
     ['agent', terms.agent],
@@ -109,7 +118,7 @@ export function deployStream(terms: StreamTerms) {
       terms.milestone,
       usdc(terms.budget),
       BigInt(terms.durationSeconds),
-      terms.repo,
+      formatRepoSpec(terms.repo, terms.branch),
       {
         maxTranche: usdc(terms.maxTranche),
         dailyUnlockCap: usdc(terms.dailyUnlockCap),

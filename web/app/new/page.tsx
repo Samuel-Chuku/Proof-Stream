@@ -9,7 +9,7 @@ import { approveBudget, deployStream, fundStream, registerStream, suggestedCaps,
 import { AddressChip } from '../address-chip';
 import { Connect } from '../connect';
 
-type Repo = { id: number; fullName: string; private: boolean };
+type Repo = { id: number; fullName: string; private: boolean; defaultBranch: string };
 type Step = 'deploy' | 'register' | 'approve' | 'fund';
 
 const ORDER: { key: Step; label: string; detail: string }[] = [
@@ -59,6 +59,7 @@ export default function NewStream() {
     budget: '30',
     durationSeconds: 1800,
     repo: '',
+    branch: '',
     maxTranche: '7.50',
     dailyUnlockCap: '30.00',
     payee: '' as `0x${string}`,
@@ -76,12 +77,67 @@ export default function NewStream() {
       .catch(() => setRepos([]));
   }, []);
 
+  // Branches of whichever repo is selected. Reloaded on every change, and reset
+  // first so a stale list from the previous repo can never be submitted.
+  const [branches, setBranches] = useState<string[] | null>(null);
+  const [newBranch, setNewBranch] = useState('');
+  const [branchBusy, setBranchBusy] = useState(false);
+  const [branchError, setBranchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setBranches(null);
+    setBranchError(null);
+    if (!terms.repo) return;
+
+    let cancelled = false;
+    fetch(`/api/github/branches?repo=${encodeURIComponent(terms.repo)}`)
+      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((body: { branches: string[] }) => {
+        if (cancelled) return;
+        setBranches(body.branches);
+        // Default to the repo's own default branch when it exists — the common
+        // case — but never silently keep a branch the new repo does not have.
+        const preferred = repos?.find((r) => r.fullName === terms.repo)?.defaultBranch;
+        set('branch', body.branches.includes(preferred ?? '') ? (preferred as string) : '');
+      })
+      .catch(() => !cancelled && setBranches([]));
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terms.repo]);
+
+  async function makeBranch() {
+    const name = newBranch.trim();
+    if (!name || branchBusy) return;
+    setBranchBusy(true);
+    setBranchError(null);
+    try {
+      const from = repos?.find((r) => r.fullName === terms.repo)?.defaultBranch ?? 'main';
+      const res = await fetch('/api/github/branches', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ repo: terms.repo, branch: name, from }),
+      });
+      const body = (await res.json()) as { branch?: string; error?: string };
+      if (!res.ok) throw new Error(body.error ?? 'could not create the branch');
+      setBranches((b) => [...(b ?? []), name].sort((a, c) => a.localeCompare(c)));
+      set('branch', name);
+      setNewBranch('');
+    } catch (err) {
+      setBranchError(err instanceof Error ? err.message : 'could not create the branch');
+    } finally {
+      setBranchBusy(false);
+    }
+  }
+
   const config = useConfig();
   const { deployContractAsync } = useDeployContract();
   const { writeContractAsync } = useWriteContract();
 
   const problems = validate({ ...terms, durationSeconds });
-  const ready = isConnected && problems.length === 0 && terms.repo !== '';
+  const ready = isConnected && problems.length === 0 && terms.repo !== '' && terms.branch !== '';
 
   async function run() {
     if (running) return;
@@ -213,6 +269,53 @@ export default function NewStream() {
               </option>
             ))}
           </select>
+          {terms.repo !== '' && (
+            <div style={{ marginTop: 'var(--ps-3)' }}>
+              <label className="ps-label" htmlFor="branch">
+                THE BRANCH WORK MUST LAND ON
+              </label>
+              {branches === null ? (
+                <p className="ps-caption">LOADING BRANCHES…</p>
+              ) : (
+                <select
+                  id="branch"
+                  className="ps-input"
+                  value={terms.branch}
+                  onChange={(e) => set('branch', e.target.value)}
+                >
+                  <option value="">[ SELECT A BRANCH ]</option>
+                  {branches.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+                THE AGENT ONLY PAYS FOR WORK MERGED INTO THIS BRANCH. PROTECT IT ON GITHUB AND A
+                CONTRIBUTOR CANNOT PAY THEMSELVES BY MERGING THEIR OWN PULL REQUEST SOMEWHERE ELSE.
+              </p>
+
+              <div className="ps-repoint-row" style={{ marginTop: 'var(--ps-2)' }}>
+                <input
+                  className="ps-input"
+                  value={newBranch}
+                  placeholder="[ or make one, e.g. proofstream/accepted ]"
+                  onChange={(e) => setNewBranch(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="ps-button"
+                  disabled={branchBusy || newBranch.trim() === ''}
+                  onClick={makeBranch}
+                >
+                  [ {branchBusy ? 'CREATING…' : 'CREATE BRANCH'} ]
+                </button>
+              </div>
+              {branchError && <p className="ps-caption">{branchError}</p>}
+            </div>
+          )}
+
           <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
             REGISTERED ON-CHAIN — THE AGENT WATCHES WHAT THE CONTRACT SAYS, NOT ITS OWN CONFIG
           </p>
@@ -416,7 +519,7 @@ export default function NewStream() {
 
       {done.length === 4 && (
         <p className="ps-caption" style={{ marginTop: 'var(--ps-3)' }}>
-          FUNDED AND ACCRUING — THE AGENT WILL JUDGE THE NEXT MERGED PULL REQUEST ON {terms.repo}
+          FUNDED AND ACCRUING — THE AGENT WILL JUDGE THE NEXT PULL REQUEST MERGED INTO {terms.branch} ON {terms.repo}
         </p>
       )}
     </main>

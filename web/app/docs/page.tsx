@@ -100,6 +100,30 @@ export default function Docs() {
           accrues, so the clock is a second rate limit no key can bypass.
         </dd>
 
+        <dt className="ps-label">ONLY WORK THE EMPLOYER ACCEPTED IS PAID FOR</dt>
+        <dd className="ps-body">
+          A stream names a repository <b>and a branch</b> — stored on-chain as
+          <code>owner/name#branch</code>, so the employer controls it exactly as they control the
+          repository. A pull request merged into any other branch is ignored. This matters because
+          GitHub protects the default branch and nothing else: without the check, a contributor
+          could open a pull request into a throwaway branch, merge it themselves, and be paid for
+          work nobody reviewed. It is also the answer to &ldquo;what if the merge breaks
+          production&rdquo; — point the stream at an integration branch and protect{' '}
+          <code>main</code>.
+        </dd>
+
+        <dt className="ps-label">A THROWAWAY MERGE CANNOT INFLATE A PAYOUT</dt>
+        <dd className="ps-body">
+          Past 100% nothing can be added: the agent skips any verdict that would not raise the
+          standing certification, and the contract reverts <code>NotAnIncrease</code> if one is sent
+          anyway. Below 100%, the agents judge the <b>final state of the files</b> rather than the
+          diff alone — a milestone arrives across several pull requests, and an incremental diff
+          cannot answer a cumulative question. So a trivial merge touching finished work can raise
+          certification toward what that work is genuinely worth, but never past it. Tested, not
+          assumed: an <b>empty</b> merge scores 0 and earns nothing, because there is nothing to
+          judge. Value can be collected, never manufactured.
+        </dd>
+
         <dt className="ps-label">UNSURE MEANS UNPAID</dt>
         <dd className="ps-body">
           Below its confidence threshold the agent <b>releases nothing and waits for better

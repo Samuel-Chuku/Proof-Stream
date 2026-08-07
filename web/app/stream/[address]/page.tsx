@@ -1,4 +1,4 @@
-import { EXPLORER_URL, formatUsdc } from '@proofstream/config';
+import { EXPLORER_URL, formatUsdc, parseRepoSpec } from '@proofstream/config';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { readStreamTransactions } from '../../../lib/onchain';
@@ -146,8 +146,9 @@ export default async function StreamPage({ params }: { params: Promise<{ address
           <SectionRule>MILESTONE</SectionRule>
           <p className="ps-body">{stream.milestone}</p>
           <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
-            WATCHING {stream.repo} · CEILING {formatCeiling(stream.maxTranche)} USDC PER
-            UNLOCK · {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} PER DAY
+            WATCHING {parseRepoSpec(stream.repo).repo} · MERGES INTO{' '}
+            {parseRepoSpec(stream.repo).branch} ONLY · CEILING {formatCeiling(stream.maxTranche)} USDC
+            PER UNLOCK · {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} PER DAY
           </p>
 
           <SectionRule>AGENT DECISIONS</SectionRule>
@@ -155,8 +156,9 @@ export default async function StreamPage({ params }: { params: Promise<{ address
           {decisions.length === 0 ? (
             <section className="ps-gate">
               <p className="ps-body" style={{ margin: 0 }}>
-                No verdicts yet — the agent posts here when a pull request is merged on{' '}
-                {stream.repo}. The stream continues accruing meanwhile.
+                No verdicts yet — the agent posts here when a pull request is merged into{' '}
+                {parseRepoSpec(stream.repo).branch} on {parseRepoSpec(stream.repo).repo}. The stream
+                continues accruing meanwhile.
               </p>
             </section>
           ) : (

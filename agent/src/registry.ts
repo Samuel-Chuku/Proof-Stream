@@ -13,6 +13,7 @@
 //   2. An agent signs only for streams that appointed it. The log filter does
 //      this by topic, and we re-check on chain, because signing for a stream
 //      that named someone else is the one mistake with no recovery.
+import { parseRepoSpec } from '@proofstream/config';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 import { arcTestnet } from 'viem/chains';
 import { readIdentity } from './chain';
@@ -165,7 +166,12 @@ export async function refresh(log: Logger): Promise<void> {
 
     entry.repo = identity.repo;
     entry.activatedAt = identity.activatedAt;
-    const key = identity.repo.toLowerCase();
+    // Keyed on the REPOSITORY ONLY, never the full spec. A webhook arrives with
+    // `repository.full_name` and no branch, so an index keyed on
+    // `owner/name#branch` would never be found and the stream would silently go
+    // unserved. The branch is enforced in the pipeline, where the event's own
+    // base ref is available to compare against.
+    const key = parseRepoSpec(identity.repo).repo.toLowerCase();
     const existing = next.get(key) ?? [];
 
     // A runaway repo would otherwise cost one judgment — and one verifier fee —

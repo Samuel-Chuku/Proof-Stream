@@ -333,7 +333,8 @@ export function StreamActions({ stream }: { stream: Stream }) {
         <details className="ps-repoint">
           <summary className="ps-label">CHANGE THE REPOSITORY ▾</summary>
           <label className="ps-caption" htmlFor="repoint">
-            CURRENTLY WATCHING {stream.repo || '(none)'}
+            CURRENTLY WATCHING {stream.repo || '(none)'} — WRITE IT AS OWNER/NAME#BRANCH. OMIT THE
+            BRANCH AND THIS STREAM FALLS BACK TO MAIN, WHICH MAY NOT BE THE BRANCH YOU PROTECT.
           </label>
           <div className="ps-repoint-row">
             <input
@@ -346,7 +347,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
             <button
               type="button"
               className="ps-button"
-              disabled={busy !== null || !/^[^/\s]+\/[^/\s]+$/.test(newRepo)}
+              disabled={busy !== null || !/^[^/\s#]+\/[^/\s#]+(#[\w.\-/]+)?$/.test(newRepo)}
               onClick={() =>
                 run('repo', () =>
                   writeContractAsync({

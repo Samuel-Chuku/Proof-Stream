@@ -20,6 +20,7 @@
 // history would make it judge — and potentially pay for — years of old work on
 // its first startup.
 import { readFileSync } from 'node:fs';
+import { parseRepoSpec } from '@proofstream/config';
 import { env } from './env';
 import type { MergedPr } from './github';
 import { knownStreams } from './registry';
@@ -58,11 +59,16 @@ type GhPull = {
   merged_at: string | null;
   merge_commit_sha: string | null;
   user: { login: string } | null;
+  base: { ref: string } | null;
 };
 
-async function recentlyMerged(repo: string, sinceMs: number): Promise<MergedPr[]> {
+async function recentlyMerged(repo: string, branch: string, sinceMs: number): Promise<MergedPr[]> {
+  // `base` narrows the listing to the branch the employer nominated. The
+  // pipeline checks it again — this is only so a repo full of feature-branch
+  // merges does not fill every sweep with pull requests that will be skipped.
   const res = await fetch(
-    `https://api.github.com/repos/${repo}/pulls?state=closed&sort=updated&direction=desc&per_page=50`,
+    `https://api.github.com/repos/${repo}/pulls?state=closed&base=${encodeURIComponent(branch)}` +
+      `&sort=updated&direction=desc&per_page=50`,
     {
       headers: {
         Authorization: `Bearer ${env.githubToken}`,
@@ -83,6 +89,7 @@ async function recentlyMerged(repo: string, sinceMs: number): Promise<MergedPr[]
       commitSha: p.merge_commit_sha ?? '',
       author: p.user?.login ?? 'unknown',
       repo,
+      baseBranch: p.base?.ref,
     }));
 }
 
@@ -130,7 +137,8 @@ export async function reconcile(
       const activatedMs = Number(entry.activatedAt) * 1000;
       const since = Math.max(cutoff, activatedMs);
 
-      const merged = await recentlyMerged(entry.repo, since);
+      const spec = parseRepoSpec(entry.repo);
+      const merged = await recentlyMerged(spec.repo, spec.branch, since);
       const judged = alreadyJudged(entry.stream);
       const missed = merged.filter((pr) => !judged.has(pr.number)).slice(0, maxPerStream);
 
