@@ -118,7 +118,8 @@ export const env = {
   port: Number(process.env.PORT || 8787),
   ingressUrl: process.env.AGENT_INGRESS_URL || '(not set — tunnel URL goes here)',
 
-  // Below this the agent escalates to a human instead of unlocking (T5d).
+  // Below this the agent releases nothing and stops (T5d). Nothing reviews it —
+  // there is no queue and no appeal; the work waits for a later pull request.
   confidenceThreshold: Number(process.env.AGENT_CONFIDENCE_THRESHOLD || 0.7),
 
   // --- verifier agent (Phase 3) -------------------------------------------

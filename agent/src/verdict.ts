@@ -63,8 +63,8 @@ Decide three things:
    work is: a diff you can clearly see is half done is a CONFIDENT judgment of 0.5, so report high
    confidence with a partial tranche_fraction. Lower it only when you genuinely cannot tell — the
    diff is truncated or unreadable, the milestone is vague, you cannot see enough context to judge
-   correctness, or something looks deliberately gamed. Low confidence escalates to a human rather
-   than releasing funds, which is the correct and safe outcome.
+   correctness, or something looks deliberately gamed. Low confidence RELEASES NOTHING and stops,
+   which is the correct and safe outcome — nobody is paid on a judgment you were unsure of.
 
 Reply with ONLY a JSON object, no prose or code fences:
 {"satisfies_milestone": boolean, "confidence": number, "tranche_fraction": number,

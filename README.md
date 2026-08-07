@@ -145,11 +145,28 @@ wallet it signs attestations and sends transactions from, with no plaintext key 
   Changing it mid-job is blocked — a new milestone requires closing the current one, which
   requires its duration to have elapsed — but a hostile employer still controls what the
   next job is judged against.
-- **The policy cannot be changed after deployment.** That is intentional for the agent, but
-  it also means an employer who mis-sets their terms must deploy a new stream.
+- **The policy can be loosened but never tightened.** `raisePolicy` lets the employer raise
+  the per-attestation and per-day ceilings after deployment; nothing can lower them and the
+  payee can never change. That asymmetry is deliberate — a cap an employer could tighten
+  mid-milestone is a way to strand work the agent has already certified — but it does mean a
+  ceiling set too high cannot be walked back without deploying a new stream.
+- **Certification is one-way, and nobody can correct it.** `certifiedBps` only ever rises.
+  This protects the contributor: an employer cannot un-approve work. The cost is that an
+  over-certification — a bad judgment inside the caps, or a key compromised within its daily
+  allowance — is permanent, and the employer has no recourse of any kind. We chose the side
+  that protects the party doing the work, and this is what that choice costs.
+- **`setRepo` is not gated on-chain.** The employer can point a stream at a different
+  repository at any time, including mid-milestone. The dashboard hides the control once the
+  agent has certified anything, but that guard is in the interface, not the contract, so a
+  direct call is unaffected. It cannot un-certify past work; it redirects what is judged
+  next. A one-line contract change fixes it and we did not redeploy for it before submission.
 - **The judgment is only as good as the model.** An LLM reading a diff can be wrong, and
-  can be fooled by a sufficiently deceptive PR. Low confidence escalates to a human rather
-  than releasing funds, which bounds the failure but does not remove it.
+  can be fooled by a sufficiently deceptive PR. Below the confidence threshold the agent
+  releases nothing, which bounds the failure without removing it.
+- **A held judgment has nowhere to go.** When the agent is not confident enough it stops and
+  writes a log line. There is no review queue, no on-chain appeal and no way for a human to
+  approve it afterwards — the work simply waits for a later pull request to be judged again.
+  Calling this "escalation" would overstate it.
 
 ## Install and run
 

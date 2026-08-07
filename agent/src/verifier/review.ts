@@ -74,8 +74,7 @@ Then report:
   you can clearly see is half done is a CONFIDENT judgment of a partial fraction, so report high
   confidence with a low tranche_fraction. Lower it only when you genuinely cannot tell: the diff is
   truncated, the milestone is vague, or you cannot see enough context to judge correctness. Low
-  confidence blocks the release and escalates to a human, which is the safe outcome and costs
-  nobody anything.
+  confidence blocks the release outright, which is the safe outcome and costs nobody anything.
 
 Do not approve merely because the pull request was merged. Whoever merged it is the party who pays.
 

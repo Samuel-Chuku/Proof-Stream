@@ -180,8 +180,13 @@ export default function Docs() {
           provider-signed inference, and neither exists on commodity APIs.
         </li>
         <li className="ps-body">
-          <b>Judgment is only as good as the model.</b> Low confidence escalates to a human rather
-          than releasing funds, which bounds the failure without removing it.
+          <b>Judgment is only as good as the model.</b> Below the confidence threshold the agent
+          releases nothing, which bounds the failure without removing it.
+        </li>
+        <li className="ps-body">
+          <b>A held judgment has nowhere to go.</b> When the agent is not confident enough it stops
+          and records why. There is no review queue and no on-chain appeal — the work waits for a
+          later pull request to be judged again.
         </li>
       </ul>
 
