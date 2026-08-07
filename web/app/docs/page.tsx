@@ -100,6 +100,15 @@ export default function Docs() {
           accrues, so the clock is a second rate limit no key can bypass.
         </dd>
 
+        <dt className="ps-label">UNSURE MEANS UNPAID</dt>
+        <dd className="ps-body">
+          Below its confidence threshold the agent <b>releases nothing and waits for better
+          evidence</b>. It does not guess, it does not split the difference, and it does not ask
+          anyone to rubber-stamp it. The work is not lost — certification is cumulative, so a later
+          pull request is judged against everything already in place. The safe failure is the one
+          where nobody is paid on a judgment the agent was not sure of.
+        </dd>
+
         <dt className="ps-label">PAUSING DOES NOT STRAND EARNED PAY</dt>
         <dd className="ps-body">
           Pause stops the clock so nothing new accrues, but deliberately does not block

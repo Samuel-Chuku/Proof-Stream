@@ -93,6 +93,18 @@ pausing or closing being used to strand work the agent already approved.
 The terms are the employer's, not the protocol's. Every one is a constructor argument, and
 `Deploy.s.sol` reads them from the environment — see `.env.example`.
 
+## Unsure means unpaid
+
+Below its confidence threshold the agent **releases nothing and waits for better evidence**.
+It does not guess, it does not split the difference, and it does not ask a human to
+rubber-stamp it. Nothing is lost by waiting: certification is cumulative, so a later pull
+request is judged against everything already in place and the contributor collects then.
+
+This is the design, not a gap. A system that pays out when it is unsure is a system whose
+judgment means nothing — and every softer alternative, an approval queue included, ends with
+a person clicking through a decision they cannot check. The safe failure is the one where
+nobody is paid on a judgment the agent was not confident in.
+
 ## How the on-chain policy bounds the agent
 
 The attestor is a single trusted key, so `WorkStream.sol` enforces its mandate itself: no
