@@ -685,6 +685,20 @@ code {
 .ps-modal-option {
   width: 100%;
   text-align: left;
+  /* The icon and the name are one line, not a block with a floated image. */
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+}
+
+/* Wallet marks are round, full-colour brand assets and must not inherit the
+   page's pixelated rendering — a resampled Rabby logo is harder to recognise
+   than no logo at all, which defeats the point of showing it. */
+.ps-modal-option img {
+  display: block;
+  flex: 0 0 auto;
+  image-rendering: auto;
+  border-radius: var(--ps-r-1);
 }
 
 .ps-modal-note {

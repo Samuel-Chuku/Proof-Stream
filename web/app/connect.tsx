@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { AddressChip } from './address-chip';
 import { UsdcBalance } from './usdc-balance';
@@ -20,6 +20,7 @@ export function Connect() {
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState('');
 
   // The server cannot know which wallets exist, and the connector list differs
   // between server and client — WalletConnect is browser-only. Rendering
@@ -27,6 +28,35 @@ export function Connect() {
   // "no wallet detected" before extensions are found.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // wagmi discovers wallets through EIP-6963, where each one announces itself
+  // with a name and an icon. The explicit `injected()` connector in wagmi.ts is
+  // a FALLBACK for wallets too old to announce — but it also appears alongside
+  // them, as a second, generic entry for whichever wallet happened to win
+  // `window.ethereum`. Someone with a dozen wallets installed saw duplicates and
+  // could not find the one they actually use.
+  //
+  // So: drop the generic entry whenever a wallet has announced itself properly,
+  // and fold away any remaining same-name duplicates, preferring the one that
+  // brought an icon.
+  const wallets = useMemo(() => {
+    const announced = connectors.filter((c) => c.id !== 'injected');
+    const list = announced.length > 0 ? announced : connectors;
+
+    const byName = new Map<string, (typeof connectors)[number]>();
+    for (const c of list) {
+      const key = c.name.trim().toLowerCase();
+      const existing = byName.get(key);
+      if (!existing || (!existing.icon && c.icon)) byName.set(key, c);
+    }
+
+    return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [connectors]);
+
+  const shown = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    return q ? wallets.filter((c) => c.name.toLowerCase().includes(q)) : wallets;
+  }, [wallets, filter]);
 
   // Close on Escape, like every modal a user has ever met.
   useEffect(() => {
@@ -167,13 +197,26 @@ export function Connect() {
             </div>
 
             <div className="ps-modal-body">
-              {connectors.length === 0 && (
+              {wallets.length === 0 && (
                 <p className="ps-body">
                   No wallet detected. Install a browser wallet, then reload this page.
                 </p>
               )}
 
-              {connectors.map((connector) => (
+              {/* A filter, not a scroll. Someone with a dozen wallets installed
+                  was hunting for Rabby in a list of everything they own,
+                  including chains this app does not use. */}
+              {wallets.length > 5 && (
+                <input
+                  className="ps-input"
+                  value={filter}
+                  placeholder="[ TYPE TO FIND YOUR WALLET ]"
+                  onChange={(e) => setFilter(e.target.value)}
+                  aria-label="Filter wallets"
+                />
+              )}
+
+              {shown.map((connector) => (
                 <button
                   key={connector.uid}
                   type="button"
@@ -184,9 +227,20 @@ export function Connect() {
                     setOpen(false);
                   }}
                 >
+                  {/* The icon is why this is findable. EIP-6963 wallets announce
+                      their own, and people recognise Rabby's mark far faster
+                      than they read a name in a list. */}
+                  {connector.icon && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={connector.icon} alt="" width={16} height={16} aria-hidden />
+                  )}
                   [ {connector.name.toUpperCase()} ]
                 </button>
               ))}
+
+              {shown.length === 0 && wallets.length > 0 && (
+                <p className="ps-caption">NO WALLET MATCHES “{filter.toUpperCase()}”</p>
+              )}
 
               {error && <p className="ps-caption">{error.message}</p>}
 
