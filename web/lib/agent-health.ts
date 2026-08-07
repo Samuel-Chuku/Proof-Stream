@@ -100,8 +100,19 @@ export function diagnose(s: {
     return {
       served: false,
       expected: true,
-      title: `Ended — close it to reclaim ${s.reclaimableUsdc} USDC`,
-      detail: `This milestone stopped accruing on ${new Date(endsAt * 1000).toLocaleString()}, and the agent certifies work for ${GRACE_HOURS} more hours after that so nothing merged near the deadline is stranded. That window has passed, so no further merge will release from this stream. Closing the milestone is the permanent end: it sends the ${s.reclaimableUsdc} USDC nobody earned back to the employer and frees the stream to open a new milestone.`,
+      // "Close it to reclaim 0 USDC" is a nonsense instruction, and it is the
+      // state a SUCCESSFUL stream ends in: everything was earned, so there is
+      // nothing left to take back. Closing is still worth doing — it frees the
+      // stream for a new milestone — but that is a different sentence.
+      title:
+        Number(s.reclaimableUsdc) > 0
+          ? `Ended — close it to reclaim ${s.reclaimableUsdc} USDC`
+          : 'Ended — fully earned, nothing to reclaim',
+      detail:
+        `This milestone stopped accruing on ${new Date(endsAt * 1000).toLocaleString()}, and the agent certifies work for ${GRACE_HOURS} more hours after that so nothing merged near the deadline is stranded. That window has passed, so no further merge will release from this stream. ` +
+        (Number(s.reclaimableUsdc) > 0
+          ? `Closing the milestone is the permanent end: it sends the ${s.reclaimableUsdc} USDC nobody earned back to the employer and frees the stream to open a new milestone.`
+          : 'The contributor earned the whole budget, so closing returns nothing — it simply settles this milestone and frees the stream to open another.'),
     };
   }
 

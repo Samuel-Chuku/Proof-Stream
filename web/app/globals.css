@@ -1269,7 +1269,17 @@ a.ps-stream-row:hover {
   text-transform: uppercase;
   color: var(--ps-ink-dim);
   margin: var(--ps-4) 0 var(--ps-2);
+  /* The mark sits ON the baseline row rather than above it — these headings
+     label two halves of one ledger, so the glyph is part of the label, not a
+     decoration floating beside it. */
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
 }
+
+/* Both marks inherit currentColor, so they track the heading's dim ink in both
+   palettes without a second asset. */
+.ps-subhead .ps-agent-mark { flex: 0 0 auto; }
 
 .ps-tx-intro {
   margin-bottom: var(--ps-2);

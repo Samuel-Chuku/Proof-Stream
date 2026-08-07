@@ -8,6 +8,7 @@ import { AddressChip } from '../../address-chip';
 import { AgentMark } from '../../agent-mark';
 import { Footer } from '../../footer';
 import { Amount } from '../../amount';
+import { HumanMark } from '../../human-mark';
 import { PasskeyWithdraw } from '../../passkey-withdraw';
 import { StreamActions } from '../../stream-actions';
 import { LockedFigure } from '../../stream-bar';
@@ -172,7 +173,9 @@ export default async function StreamPage({ params }: { params: Promise<{ address
             TAKEN ON TRUST
           </p>
 
-          <h3 className="ps-subhead">BY THE AGENT</h3>
+          <h3 className="ps-subhead">
+            <AgentMark role="attestor" /> BY THE AGENT
+          </h3>
           {settled.length === 0 ? (
             <p className="ps-caption">NONE YET</p>
           ) : (
@@ -204,7 +207,9 @@ export default async function StreamPage({ params }: { params: Promise<{ address
             ● VERIFICATION FEES SETTLE IN GATEWAY BATCHES AND HAVE NO INDIVIDUAL TRANSACTION
           </p>
 
-          <h3 className="ps-subhead">BY A HUMAN</h3>
+          <h3 className="ps-subhead">
+            <HumanMark /> BY A HUMAN
+          </h3>
           {humanTxs.length === 0 ? (
             <p className="ps-caption">NONE YET</p>
           ) : (

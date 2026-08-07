@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { AddressChip } from './address-chip';
 import { UsdcBalance } from './usdc-balance';
+import { passkeysConfigured } from '../lib/passkey';
 import { arcTestnet } from '../lib/chain';
 import { truncate } from './address-chip';
 
@@ -243,6 +244,17 @@ export function Connect() {
               )}
 
               {error && <p className="ps-caption">{error.message}</p>}
+
+              {/* The one route for someone who has no wallet at all. This modal
+                  is exactly where they look, and it previously offered only a
+                  list of things they do not have. Contributors only — a passkey
+                  account cannot deploy, so it cannot create a stream. */}
+              {passkeysConfigured && (
+                <p className="ps-caption ps-modal-note">
+                  NO WALLET AT ALL? <a href="/#passkey">CREATE A PASSKEY WALLET →</a> — FOR
+                  CONTRIBUTORS BEING PAID, NOT FOR CREATING STREAMS
+                </p>
+              )}
 
               <p className="ps-caption ps-modal-note">
                 ARC TESTNET · CHAIN 5042002 · YOUR WALLET WILL OFFER TO ADD IT

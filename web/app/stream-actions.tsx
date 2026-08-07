@@ -7,6 +7,7 @@ import { ERC20_ABI, USDC } from '../lib/chain';
 import type { Stream } from '../lib/stream';
 import { Amount } from './amount';
 import { Connect } from './connect';
+import { passkeysConfigured } from '../lib/passkey';
 
 /// Not every failure is a failed transaction, and calling them all one thing
 /// sends people hunting for chain problems that do not exist.
@@ -170,6 +171,15 @@ export function StreamActions({ stream }: { stream: Stream }) {
           CONNECT TO FUND, PAUSE OR WITHDRAW FROM THIS STREAM
         </p>
         <Connect />
+        {/* A contributor sent a link to this page has probably never held a
+            wallet. Saying so here costs one line and is the difference between
+            onboarding and a dead end. */}
+        {passkeysConfigured && (
+          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+            BEING PAID BY THIS STREAM AND HAVE NO WALLET?{' '}
+            <a href="/#passkey">CREATE A PASSKEY WALLET →</a>
+          </p>
+        )}
       </div>
     );
   }
@@ -185,7 +195,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
   return (
     <div>
       <div className="ps-actions">
-        {isContributor && (
+        {/* Hidden once there is nothing left to take AND something has already
+            been taken — a dead button after a successful withdrawal is clutter,
+            and the line underneath already says how much was paid. Still shown
+            disabled before anything is earned, where it tells a contributor the
+            action exists and is waiting on the agent. */}
+        {isContributor && !(withdrawable === 0n && BigInt(stream.withdrawn) > 0n) && (
           <button
             type="button"
             className="ps-button ps-button-primary"

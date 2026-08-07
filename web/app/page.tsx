@@ -55,7 +55,11 @@ export default async function AppHome() {
 
       <GettingStarted hasStreams={streams.length > 0} />
 
-      <div className="ps-section-rule">
+      {/* The anchor lives HERE, not inside PasskeyWallet: that component renders
+          nothing until it has mounted and read localStorage, so an id inside it
+          does not exist at the moment the browser tries to scroll to /#passkey.
+          A section rule is server-rendered and always present. */}
+      <div className="ps-section-rule" id="passkey">
         <span className="ps-label">CONTRIBUTORS</span>
       </div>
 
