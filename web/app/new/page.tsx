@@ -276,6 +276,15 @@ export default function NewStream() {
               </label>
               {branches === null ? (
                 <p className="ps-caption">LOADING BRANCHES…</p>
+              ) : branches.length === 0 ? (
+                // Every repository has at least one branch, so an empty list
+                // means the read failed — not that there is nothing to choose.
+                // Saying "select a branch" over an empty dropdown would strand
+                // someone on a form that can never become valid.
+                <p className="ps-caption">
+                  COULD NOT READ THE BRANCHES OF THIS REPOSITORY. RECONNECT GITHUB, OR PICK ANOTHER
+                  REPOSITORY.
+                </p>
               ) : (
                 <select
                   id="branch"
