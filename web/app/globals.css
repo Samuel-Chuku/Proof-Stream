@@ -2206,3 +2206,11 @@ input[type='range'].ps-range:disabled {
   background: var(--ps-invert-bg);
   color: var(--ps-invert-ink);
 }
+
+/* Credited to the contributor and not yet collected. The same language the bar
+   uses for money that is spoken for but has not moved: dithered, green-edged. */
+.ps-status-unclaimed {
+  background: var(--ps-dither-25);
+  border-color: var(--ps-green-deep);
+  color: var(--ps-ink);
+}

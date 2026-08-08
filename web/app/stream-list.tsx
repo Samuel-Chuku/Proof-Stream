@@ -27,19 +27,36 @@ const CHIPS: { key: Filter; label: string }[] = [
 ];
 
 /// `ended` covered two outcomes that could not be more different: a milestone
-/// that ran its full course and paid the contributor everything, and one that
-/// expired having released nothing. Both read "ENDED", which made a successful
-/// stream look like a failed one — the opposite of what the figures beside it
-/// said. The underlying state is unchanged; only how it reads is.
-function statusKey(s: { state: string; earned: string }): string {
-  if (s.state === 'ended') return Number(s.earned) > 0 ? 'paid' : 'expired';
-  if (s.state === 'settled') return Number(s.earned) > 0 ? 'paid' : 'settled';
+/// that ran its full course and paid the contributor, and one that expired
+/// having released nothing. Both read "ENDED", which made a successful stream
+/// look like a failed one.
+///
+/// PAID OUT means money actually left the contract — `withdrawn`, not merely
+/// credited. A closed milestone whose credit nobody has collected yet is
+/// UNCLAIMED: the money is the contributor's and still sitting there. Calling
+/// that "paid" would be a lie about the one fact this column exists to report.
+type Row = { state: string; earned: string; withdrawn: string };
+
+function outcome(s: Row): 'paid' | 'unclaimed' | null {
+  if (Number(s.withdrawn) > 0) return 'paid';
+  if (Number(s.earned) > 0) return 'unclaimed';
+  return null;
+}
+
+function statusKey(s: Row): string {
+  if (s.state === 'ended' || s.state === 'settled') {
+    return outcome(s) ?? (s.state === 'ended' ? 'expired' : 'settled');
+  }
   return s.state.replace(' ', '-');
 }
 
-function statusLabel(s: { state: string; earned: string }): string {
-  if (s.state === 'ended') return Number(s.earned) > 0 ? 'PAID OUT' : 'EXPIRED';
-  if (s.state === 'settled') return Number(s.earned) > 0 ? 'PAID OUT' : 'CLOSED';
+function statusLabel(s: Row): string {
+  if (s.state === 'ended' || s.state === 'settled') {
+    const o = outcome(s);
+    if (o === 'paid') return 'PAID OUT';
+    if (o === 'unclaimed') return 'UNCLAIMED';
+    return s.state === 'ended' ? 'EXPIRED' : 'CLOSED';
+  }
   return s.state.toUpperCase();
 }
 

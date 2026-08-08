@@ -32,6 +32,7 @@ const WORK_STREAM_ABI = [
   { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'milestoneEndsAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'milestoneClosed', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  { type: 'function', name: 'withdrawn', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
 ] as const;
 
 export type StreamSummary = {
@@ -43,8 +44,13 @@ export type StreamSummary = {
   milestone: string;
   budget: string;
   funded: string;
-  /** What the contributor can take now: min(accrued, target). */
+  /** What has reached, or is owed to, the contributor. While a milestone runs
+   *  this is `min(accrued, target)`. Once it closes `earned()` reads 0 because
+   *  the credit moved to `settledCredit`, so the certified figure stands in —
+   *  otherwise a fully paid stream reports zero. */
   earned: string;
+  /** Actually paid out, all milestones. */
+  withdrawn: string;
   /** What the agent certified is owed. The gap to `earned` is certified work
    *  the stream has not delivered yet. */
   target: string;
@@ -152,7 +158,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
       const read = <T>(functionName: string) =>
         rpc.readContract({ address: stream, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
 
-      const [repo, milestone, budget, funded, earned, target, index, fullyFunded, paused, endsAt, closed] =
+      const [repo, milestone, budget, funded, earned, target, index, fullyFunded, paused, endsAt, closed, withdrawn] =
         await Promise.all([
           read<string>('repo'),
           read<string>('milestone'),
@@ -165,6 +171,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
           read<boolean>('paused'),
           read<bigint>('milestoneEndsAt'),
           read<boolean>('milestoneClosed'),
+          read<bigint>('withdrawn'),
         ]);
 
       const now = BigInt(Math.floor(Date.now() / 1000));
@@ -185,8 +192,20 @@ export async function listStreams(): Promise<StreamSummary[]> {
         milestone,
         budget: budget.toString(),
         funded: funded.toString(),
-        earned: earned.toString(),
+        // WHAT REACHED THE CONTRIBUTOR, whatever state the milestone is in.
+        //
+        // `earned()` returns 0 the moment a milestone closes — the credited
+        // amount moves into `settledCredit` and the accrual view stops
+        // describing it. Reading it raw made a closed stream that had paid a
+        // contributor in full report "0.000000 of 100", which says the opposite
+        // of what happened, and made the PAID OUT status fall back to CLOSED.
+        //
+        // For a closed milestone the credited figure is what the agent
+        // certified, which `target()` still holds; `withdrawn` is the floor
+        // under it, in case a later milestone ever moves `target`.
+        earned: (closed ? (target > withdrawn ? target : withdrawn) : earned).toString(),
         target: target.toString(),
+        withdrawn: withdrawn.toString(),
         milestoneIndex: Number(index),
         state,
         endsAt: Number(endsAt),
