@@ -44,8 +44,17 @@ function SectionRule({ children }: { children: string }) {
   );
 }
 
-export default async function StreamPage({ params }: { params: Promise<{ address: string }> }) {
+export default async function StreamPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ address: string }>;
+  // `?fresh=` is set by the reload that follows a confirmed transaction, and
+  // only tells the event scan to skip its cache.
+  searchParams: Promise<{ fresh?: string }>;
+}) {
   const { address } = await params;
+  const fresh = (await searchParams).fresh !== undefined;
   const stream = await readStream(address);
   const logs = await readAgentLogs();
 
@@ -73,6 +82,7 @@ export default async function StreamPage({ params }: { params: Promise<{ address
   const humanTxs = await readStreamTransactions(
     address,
     BigInt(mySummary?.registeredAtBlock ?? process.env.REGISTRY_DEPLOY_BLOCK ?? '54593230'),
+    fresh,
   );
 
   return (

@@ -2133,3 +2133,20 @@ input[type='range'].ps-range:disabled {
   color: var(--ps-ink-faint);
   letter-spacing: 0.06em;
 }
+
+/* A milestone that paid the contributor. Green is reserved for released USDC
+   everywhere else in this interface, and that is exactly what this is — so it
+   is the one status that earns it. Previously these read "ENDED" in dashed
+   grey, identical to a milestone that expired having paid nothing. */
+.ps-status-paid {
+  border-color: var(--ps-green-deep);
+  background: var(--ps-green);
+  color: var(--ps-on-green);
+}
+
+/* Ran its course and released nothing. */
+.ps-status-expired {
+  border-color: var(--ps-rule);
+  border-style: dashed;
+  color: var(--ps-ink-faint);
+}

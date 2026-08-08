@@ -26,6 +26,23 @@ const CHIPS: { key: Filter; label: string }[] = [
   { key: 'mine', label: 'MINE' },
 ];
 
+/// `ended` covered two outcomes that could not be more different: a milestone
+/// that ran its full course and paid the contributor everything, and one that
+/// expired having released nothing. Both read "ENDED", which made a successful
+/// stream look like a failed one — the opposite of what the figures beside it
+/// said. The underlying state is unchanged; only how it reads is.
+function statusKey(s: { state: string; earned: string }): string {
+  if (s.state === 'ended') return Number(s.earned) > 0 ? 'paid' : 'expired';
+  if (s.state === 'settled') return Number(s.earned) > 0 ? 'paid' : 'settled';
+  return s.state.replace(' ', '-');
+}
+
+function statusLabel(s: { state: string; earned: string }): string {
+  if (s.state === 'ended') return Number(s.earned) > 0 ? 'PAID OUT' : 'EXPIRED';
+  if (s.state === 'settled') return Number(s.earned) > 0 ? 'PAID OUT' : 'CLOSED';
+  return s.state.toUpperCase();
+}
+
 export function StreamList({
   streams,
   serving,
@@ -118,9 +135,7 @@ export function StreamList({
                 {s.repo || '(no repo set)'}
               </span>
               <span className="ps-caption">MILESTONE {s.milestoneIndex}</span>
-              <span className={`ps-status ps-status-${s.state.replace(' ', '-')}`}>
-                {s.state.toUpperCase()}
-              </span>
+              <span className={`ps-status ps-status-${statusKey(s)}`}>{statusLabel(s)}</span>
               <span className="ps-stream-figures">
                 <Amount raw={Number(s.earned)} size="m" suffix={false} /> of{' '}
                 <Amount raw={Number(s.budget)} size="m" />

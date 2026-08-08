@@ -150,6 +150,13 @@ export function StreamActions({ stream }: { stream: Stream }) {
   // retire a duplicate stream or follow a renamed repository.
   const canRepoint = stream.certifiedBps === 0 && !settled;
 
+  // The duration has run out. Pausing a clock that has already stopped changes
+  // nothing — `accrued()` is capped at the milestone's end either way — so the
+  // button was offering an action with no effect, and it stayed on offer after
+  // the contributor had been paid in full.
+  const ended =
+    stream.activatedAt > 0 && now !== null && now >= stream.activatedAt + Number(stream.duration);
+
   // An unstarted milestone can be closed at once — there is no work in flight
   // to protect. Otherwise the contract waits until end + CLOSE_GRACE.
   const closable = stream.activatedAt === 0 || (now !== null && now >= stream.closableAt);
@@ -163,9 +170,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
       const hash = await send();
       await waitForTransactionReceipt(config, { hash });
       setSent(hash);
-      // The page is server-rendered from chain state, so a reload is what
-      // makes the new balance appear rather than a hand-maintained cache.
-      window.location.reload();
+      // The page is server-rendered from chain state, so a reload is what makes
+      // the new balance appear rather than a hand-maintained cache. `fresh`
+      // additionally forces the event scan to skip ITS cache — without it a
+      // withdrawal confirmed seconds ago was answered from a stale snapshot and
+      // never showed up in the transaction list.
+      window.location.href = `${window.location.pathname}?fresh=${hash.slice(2, 10)}`;
     } catch (err) {
       setError(classify(err));
     } finally {
@@ -257,7 +267,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
           </button>
         )}
 
-        {isEmployer && !settled && (
+        {isEmployer && !settled && !ended && (
           <button
             type="button"
             className="ps-button"

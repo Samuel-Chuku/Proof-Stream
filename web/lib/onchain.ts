@@ -105,13 +105,20 @@ const TTL_MS = 20_000;
 /// `registeredAtBlock` bounds the scan to the stream's own lifetime. Without it
 /// this would sweep from the registry's deploy block on every page load — 14
 /// windows today, one more every seven hours, forever.
+/// `fresh` bypasses the cache. The page reloads itself the moment a transaction
+/// confirms, and this cache lives in the SERVER process — so a withdrawal that
+/// had already been mined was answered from a snapshot taken seconds earlier and
+/// simply did not appear. The contributor saw their balance change and the
+/// transaction list not. Only the post-transaction reload asks for `fresh`;
+/// ordinary navigation still gets the cache.
 export async function readStreamTransactions(
   address: string,
   registeredAtBlock: bigint,
+  fresh = false,
 ): Promise<OnChainTx[]> {
   const key = address.toLowerCase();
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.rows;
+  if (!fresh && hit && Date.now() - hit.at < TTL_MS) return hit.rows;
 
   const client = createPublicClient({
     chain: arcTestnet,
