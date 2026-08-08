@@ -121,7 +121,7 @@ try {
   // serving old code, the buyer pays in full, and the call fails anyway.
   add(
     'verifier is running current code',
-    body?.maxTokens === VERIFIER_MAX_TOKENS && body?.reasoning?.enabled === REASONING.enabled,
+    body?.maxTokens === VERIFIER_MAX_TOKENS && body?.reasoning === REASONING,
     body?.maxTokens === VERIFIER_MAX_TOKENS
       ? `maxTokens ${body.maxTokens}, reasoning ${JSON.stringify(body.reasoning)}`
       : `serving maxTokens ${body?.maxTokens} / reasoning ${JSON.stringify(body?.reasoning)}, config says ${VERIFIER_MAX_TOKENS} / ${JSON.stringify(REASONING)} — STALE PROCESS, restart the verifier`,

@@ -70,7 +70,23 @@ export const VERIFIER_MAX_TOKENS = 24000;
  *  This is a latency fix as much as a correctness one: 24000 reasoning tokens
  *  take minutes, and the agent looked slow for exactly as long as it was
  *  producing nothing. */
-export const REASONING = { enabled: false } as const;
+/*  RETIRED 2026-08-08, kept as `undefined` so the key is omitted from the
+ *  payload entirely rather than sent and refused.
+ *
+ *  `openai/gpt-oss-20b:free` answers **400 "Reasoning is mandatory for this
+ *  endpoint and cannot be disabled"** to every single request carrying it. The
+ *  agent's fallback drops the field and retries, so it worked — at the cost of
+ *  two round trips per judgment and a second chance to fail. On PR #9 that
+ *  retry came back 200 with an EMPTY completion, which surfaced as
+ *  "Verdict was not valid JSON:" with nothing after the colon and blocked a
+ *  payout.
+ *
+ *  Verified directly against the provider: identical request WITHOUT the field
+ *  returns 200 with a valid body, three times out of three. Sending a parameter
+ *  a provider is known to reject is not a belt — it is a guaranteed error path
+ *  on the critical route to money. Reasoning stays on, because for this model it
+ *  cannot be turned off; `AGENT_MAX_TOKENS` is what keeps it bounded. */
+export const REASONING = undefined;
 
 /** Token ceiling for the attestor's reply. Was 1200, which was safe ONLY while
  *  the attestor ran a non-reasoning model: a reasoning model spends this budget

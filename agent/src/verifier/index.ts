@@ -119,6 +119,6 @@ app.listen(env.verifierPort, () => {
   console.log(`  seller wallet: ${env.verifierAddress}`);
   console.log(`  price:         ${VERIFICATION_FEE} per call, ${ARC_CAIP2}`);
   console.log(`  model:         ${env.verifierModel}`);
-  console.log(`  reasoning:     ${JSON.stringify(REASONING)}`);
+  console.log(`  reasoning:     ${REASONING === undefined ? 'provider default (not sent)' : JSON.stringify(REASONING)}`);
   console.log(`  facilitator:   ${GATEWAY_FACILITATOR_URL}`);
 });

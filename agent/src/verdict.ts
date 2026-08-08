@@ -96,7 +96,9 @@ ${truncated}`;
         { role: 'user', content: userPrompt },
       ],
       max_tokens: AGENT_MAX_TOKENS,
-      // Thinking off. A cap was tried and providers ignored it — see REASONING.
+      // Omitted entirely: this provider REFUSES a request that tries to disable
+      // reasoning, so sending the field guaranteed a 400 and a retry on every
+      // call. AGENT_MAX_TOKENS is what bounds it now — see REASONING.
       reasoning: REASONING,
       temperature: 0,
     },
@@ -167,13 +169,25 @@ async function callLlm(body: unknown, key: string): Promise<any> {
     if (res.ok) {
       const raw = await res.text();
       if (raw.trim()) {
+        let parsedBody: any;
         try {
-          return JSON.parse(raw);
+          parsedBody = JSON.parse(raw);
         } catch {
           throw new Error(
             `LLM returned ${res.status} with an unparseable body (${env.llmBaseUrl}): ${raw.slice(0, 200)}`,
           );
         }
+        // A WELL-FORMED 200 CARRYING NO ANSWER. The model spends its budget
+        // reasoning and emits nothing, so `content` is ''. That is not a bad
+        // prompt and not a bad model — it is a blip, and treating it as fatal
+        // blocked a payout on PR #9 with the message "Verdict was not valid
+        // JSON:" and nothing after the colon. Retry it like any other blip.
+        const answered = (parsedBody?.choices?.[0]?.message?.content ?? '').trim();
+        if (!answered && attempt < 3) {
+          await new Promise((r) => setTimeout(r, 2_000 * 2 ** attempt));
+          continue;
+        }
+        return parsedBody;
       }
       if (attempt < 3) {
         await new Promise((r) => setTimeout(r, 2_000 * 2 ** attempt));
