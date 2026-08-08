@@ -227,6 +227,10 @@ table {
 
 .ps-fill-unaccrued { background: var(--ps-sunk); }
 .ps-fill-locked    { background: var(--ps-dither-50); }
+/* Both agents valued this work, but the per-certification cap has not let the
+   agent certify it yet. Lighter than `locked` because it is one step further
+   from the contributor's hands: not owed, only agreed. */
+.ps-fill-valued    { background: var(--ps-dither-25); }
 .ps-fill-unlocked  { background: var(--ps-green); color: var(--ps-on-green); }
 .ps-fill-blocked   {
   background: var(--ps-hatch);

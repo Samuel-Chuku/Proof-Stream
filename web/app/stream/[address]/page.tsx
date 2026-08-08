@@ -73,6 +73,14 @@ export default async function StreamPage({
   const verdicts = logs.verdicts.filter(mine);
   const spend = totalSpend(verdicts, logs.reviews.filter(mine));
   const decisions = verdicts.filter((v) => v.verdict);
+
+  // The highest share both agents have ever agreed is complete. Certification is
+  // monotonic, so the maximum is the right reading — and the gap between this
+  // and what the contract records is exactly what the caps metered away.
+  const agreedFraction = decisions.reduce(
+    (max, v) => Math.max(max, typeof v.agreedFraction === 'number' ? v.agreedFraction : 0),
+    0,
+  );
   const settled = verdicts.filter((v) => v.txHash);
 
   // What PEOPLE did, read from the stream's own event log. Anchored to the
@@ -147,7 +155,7 @@ export default async function StreamPage({
             );
           })()}
 
-          <LockedFigure stream={stream} />
+          <LockedFigure stream={stream} agreedFraction={agreedFraction} />
 
           <SectionRule>YOUR ACTIONS</SectionRule>
           <StreamActions stream={stream} />

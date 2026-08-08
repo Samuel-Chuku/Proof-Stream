@@ -26,7 +26,7 @@ function accruedAt(stream: Stream, nowSeconds: number): number {
   return Math.floor((Number(stream.budget) * elapsed) / stream.duration);
 }
 
-type CellState = 'unlocked' | 'locked' | 'unaccrued';
+type CellState = 'unlocked' | 'locked' | 'valued' | 'unaccrued';
 
 /// Coarse and readable rather than precise: "1h 04m left" tells you what to do,
 /// a ticking seconds counter only tells you to watch it. Seconds appear in the
@@ -52,7 +52,12 @@ function remaining(seconds: number): string {
 /// is everything the agent certified. The gap between them is certified work
 /// the stream has not paid out yet, which the previous model could not express
 /// at all: certification and payment were the same event.
-function cells(budget: number, earned: number, target: number) {
+/// `valued` is what BOTH agents agreed the work is worth. It sits above
+/// `target` whenever the per-certification cap metered a judgment down: the
+/// agents said 97% of a 100 USDC budget and a 30 USDC ceiling let the agent
+/// certify 30. Without a fill of its own that 67 was indistinguishable from
+/// work nobody had judged, which is the opposite of what happened.
+function cells(budget: number, earned: number, target: number, valued: number) {
   const whole = Math.max(Math.ceil(budget / USDC), 1);
   const count = Math.min(whole, MAX_CELLS);
   // Above 60 USDC one cell stands for several, and the caption says so rather
@@ -61,6 +66,7 @@ function cells(budget: number, earned: number, target: number) {
 
   const earnedCells = Math.round(earned / USDC / perCell);
   const targetCells = Math.round(target / USDC / perCell);
+  const valuedCells = Math.round(valued / USDC / perCell);
 
   return {
     perCell,
@@ -68,12 +74,21 @@ function cells(budget: number, earned: number, target: number) {
     states: Array.from({ length: count }, (_, i): CellState => {
       if (i < earnedCells) return 'unlocked';
       if (i < targetCells) return 'locked';
+      if (i < valuedCells) return 'valued';
       return 'unaccrued';
     }),
   };
 }
 
-export function LockedFigure({ stream }: { stream: Stream }) {
+export function LockedFigure({
+  stream,
+  agreedFraction,
+}: {
+  stream: Stream;
+  /** The highest share BOTH agents have agreed is complete, 0–1. Above the
+   *  certified share whenever a cap metered a judgment down. */
+  agreedFraction?: number;
+}) {
   // Starts null and fills in after mount: a live clock rendered on the server
   // mismatches the first client frame and React warns on hydration.
   const [now, setNow] = useState<number | null>(null);
@@ -141,7 +156,10 @@ export function LockedFigure({ stream }: { stream: Stream }) {
         ? target
         : Math.min(accruedAt(stream, now), target);
 
-  const bar = cells(budget, earned, target);
+  // Never below what is already certified: the agents cannot have agreed less
+  // than the contract has recorded.
+  const valued = Math.max(target, Math.round((agreedFraction ?? 0) * budget));
+  const bar = cells(budget, earned, target, valued);
 
   const rate = stream.duration > 0 ? (budget / USDC / stream.duration) * 3600 : 0;
 
@@ -164,7 +182,9 @@ export function LockedFigure({ stream }: { stream: Stream }) {
       ? 'EARNED AND RELEASED'
       : state === 'locked'
         ? 'CERTIFIED BY THE AGENT, STILL ARRIVING'
-        : 'NOT CERTIFIED';
+        : state === 'valued'
+          ? 'BOTH AGENTS AGREED THIS IS DONE — HELD BY THE PER-CERTIFICATION CAP'
+          : 'NOT CERTIFIED';
 
   return (
     <section className="ps-hero">
@@ -192,6 +212,12 @@ export function LockedFigure({ stream }: { stream: Stream }) {
           <span className="ps-caption">CERTIFIED BY THE AGENT</span>
           <Amount raw={target} size="m" />
         </div>
+        {valued > target && (
+          <div>
+            <span className="ps-caption">AGREED BY BOTH AGENTS</span>
+            <Amount raw={valued} size="m" />
+          </div>
+        )}
         <div>
           <span className="ps-caption">MILESTONE BUDGET</span>
           <Amount raw={budget} size="m" />
@@ -220,6 +246,19 @@ export function LockedFigure({ stream }: { stream: Stream }) {
           />
         ))}
       </div>
+
+      {/* A gap between agreed and certified is ALWAYS a cap, never a judgment —
+          the agents already said yes. Saying so is the difference between "the
+          agent declined" and "the employer's ceiling metered it", which look
+          identical on the bar and mean opposite things. */}
+      {valued > target && (
+        <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+          BOTH AGENTS AGREED <Amount raw={valued} size="s" suffix={false} /> IS DONE — THE{' '}
+          <Amount raw={Number(stream.maxTranche)} size="s" suffix={false} /> PER-CERTIFICATION CAP
+          METERED IT TO <Amount raw={target} size="s" />. THE REST LANDS ON THE NEXT MERGE, OR RAISE
+          THE CAP AND MERGE AGAIN.
+        </p>
+      )}
 
       {withdrawnCells > 0 && (
         <>
