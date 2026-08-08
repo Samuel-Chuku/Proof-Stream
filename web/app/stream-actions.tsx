@@ -383,8 +383,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
             </button>
           </div>
           <label className="ps-caption" htmlFor="repoint">
-            CURRENTLY WATCHING {stream.repo || '(none)'} — WRITE IT AS OWNER/NAME#BRANCH. OMIT THE
-            BRANCH AND THIS STREAM FALLS BACK TO MAIN, WHICH MAY NOT BE THE BRANCH YOU PROTECT.
+            NOW WATCHING {stream.repo || '(none)'} · FORMAT OWNER/NAME#BRANCH — NO BRANCH MEANS MAIN
           </label>
           <div className="ps-repoint-row">
             <input
@@ -413,10 +412,8 @@ export function StreamActions({ stream }: { stream: Stream }) {
             </button>
           </div>
           <p className="ps-caption">
-            THE AGENT READS THIS FROM THE CONTRACT, SO IT TAKES EFFECT WITHIN A MINUTE WITH NO
-            RE-REGISTRATION. TWO STREAMS ON ONE REPOSITORY ARE BOTH REFUSED, SO POINT ONE AT A DEAD
-            NAME LIKE RETIRED/DUPLICATE TO RETIRE IT. UNAVAILABLE ONCE THE AGENT HAS RELEASED
-            ANYTHING.
+            TAKES EFFECT WITHIN A MINUTE — THE AGENT READS IT FROM THE CONTRACT. GONE ONCE THE AGENT
+            HAS RELEASED ANYTHING.
           </p>
         </section>
       )}
@@ -439,8 +436,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
             </button>
           </div>
           <p className="ps-caption">
-            RAISE ONLY. THESE BOUND THE AGENT, NOT THE CONTRIBUTOR — RAISING CANNOT PAY OUT MORE
-            THAN THE AGENT ALREADY CERTIFIED.
+            RAISE ONLY. BOUNDS THE AGENT, NOT THE CONTRIBUTOR.
           </p>
 
           <div className="ps-range-row" style={{ marginTop: 'var(--ps-3)' }}>

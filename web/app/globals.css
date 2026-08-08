@@ -2065,7 +2065,6 @@ input[type='range'].ps-range:disabled {
   border: var(--ps-bw-struct) solid var(--ps-rule);
   padding: var(--ps-3);
   margin-top: var(--ps-4);
-  max-width: 60ch;
 }
 
 .ps-mandate > label {
@@ -2126,12 +2125,33 @@ input[type='range'].ps-range:disabled {
 
 /* The party who sent a human transaction. Inline inside the action cell rather
    than a column of its own: the row is a fixed grid and a sixth column would
-   reflow every row on the page. Employer and contributor actions were
-   previously indistinguishable under one "BY A HUMAN" heading. */
+   reflow every row on the page.
+
+   Filled rather than tinted text. As faint grey it was technically present and
+   practically invisible, which defeats the point of marking it at all. The two
+   fills are the ones the interface already uses for exactly this distinction:
+   invert for the party who owns the stream, green — reserved everywhere else
+   for released USDC — for the party the money goes to. Line-height is pinned
+   below the row's own so a chip cannot make a row taller. */
 .ps-tx-by {
+  display: inline-block;
   font-size: var(--ps-size-nav);
-  color: var(--ps-ink-faint);
+  line-height: 16px;
   letter-spacing: 0.06em;
+  padding: 0 var(--ps-1);
+  border: var(--ps-bw-hair) solid var(--ps-rule);
+  vertical-align: 1px;
+}
+
+.ps-tx-by-owner {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+}
+
+.ps-tx-by-contrib {
+  background: var(--ps-green);
+  color: var(--ps-on-green);
+  border-color: var(--ps-green-deep);
 }
 
 /* A milestone that paid the contributor. Green is reserved for released USDC

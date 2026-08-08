@@ -261,7 +261,11 @@ export default async function StreamPage({
                   <div className="ps-tx-row ps-tx-row-human" key={t.txHash}>
                     <span className="ps-tx-time">{stamp(new Date(t.at * 1000).toISOString())}</span>
                     <span className="ps-tx-action">
-                      <span className="ps-tx-by">{t.by === 'CONTRIBUTOR' ? 'CONTRIB' : 'OWNER'}</span>{' '}
+                      <span
+                        className={`ps-tx-by ${t.by === 'CONTRIBUTOR' ? 'ps-tx-by-contrib' : 'ps-tx-by-owner'}`}
+                      >
+                        {t.by === 'CONTRIBUTOR' ? 'CONTRIB' : 'OWNER'}
+                      </span>{' '}
                       {t.action}
                     </span>
                     {t.amountRaw ? (
