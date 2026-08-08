@@ -1,4 +1,5 @@
 import { VERIFIER_MAX_TOKENS, REASONING } from '@proofstream/config';
+import { extractJson } from '../json';
 import { env } from '../env';
 
 export type Review = {
@@ -118,11 +119,8 @@ ${truncated}`;
   const content: string = choice?.message?.content ?? '';
   const finishReason: string = choice?.finish_reason ?? 'unknown';
 
-  const json = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  let parsed: Review;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
+  let parsed: Review | null = extractJson<Review>(content);
+  if (parsed === null) {
     // finish_reason is the difference between "the model wrote nonsense" and
     // "we cut it off mid-sentence" — without it this looks like a bad prompt.
     throw new Error(

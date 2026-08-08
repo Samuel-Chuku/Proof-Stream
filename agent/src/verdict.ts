@@ -1,4 +1,5 @@
 import { AGENT_MAX_TOKENS, REASONING } from '@proofstream/config';
+import { extractJson } from './json';
 import { env } from './env';
 import type { MergedPr } from './github';
 
@@ -104,12 +105,10 @@ ${truncated}`;
 
   const content: string = body.choices?.[0]?.message?.content ?? '';
 
-  // Models occasionally wrap JSON in fences despite instructions.
-  const json = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  let verdict: Verdict;
-  try {
-    verdict = JSON.parse(json);
-  } catch {
+  // Models wrap JSON in fences, and sometimes write a sentence of analysis
+  // before it. Both are answers; only a reply with no object at all is not.
+  const verdict = extractJson<Verdict>(content);
+  if (verdict === null) {
     throw new Error(`Verdict was not valid JSON: ${content.slice(0, 300)}`);
   }
 
