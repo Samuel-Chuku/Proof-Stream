@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { parseRepoSpec } from '@proofstream/config';
 import { env } from './env';
 
 /// Each stream gets its OWN webhook secret, derived rather than stored.
@@ -88,7 +89,19 @@ const gh = (path: string, accept = 'application/vnd.github+json') =>
 /// two-part milestone: from the diff alone the verifier scored a finished
 /// milestone 0.55 and said outright it could not see the earlier work; the
 /// final state makes that verifiable instead of guessable.
-export async function fetchDiff(repo: string, prNumber: number): Promise<string> {
+export async function fetchDiff(spec: string, prNumber: number): Promise<string> {
+  // ACCEPTS EITHER `owner/name` OR THE FULL ON-CHAIN SPEC `owner/name#branch`,
+  // and normalises here rather than trusting four call sites to remember.
+  //
+  // Interpolating a spec straight into the path fails SILENTLY and badly: `#`
+  // opens a URL fragment, so `/repos/acme/api#release/pulls/6` is sent as
+  // `/repos/acme/api` — a 200 carrying repository metadata instead of a diff.
+  // The verifier fetches its own copy and hit exactly this: it answered that it
+  // had been given "repository metadata, not the unified diff itself", failed
+  // to produce JSON, and 500'd. The attestor then correctly refused to release
+  // without a second opinion. Normalising at the boundary is the only place
+  // that fixes every caller at once.
+  const repo = parseRepoSpec(spec).repo;
   const res = await gh(`/repos/${repo}/pulls/${prNumber}`, 'application/vnd.github.v3.diff');
   if (!res.ok) throw new Error(`GitHub diff fetch failed: ${res.status} ${await res.text()}`);
   const diff = await res.text();

@@ -4,7 +4,7 @@
 // recover to AGENT_ADDRESS, every unlock will revert with WrongSigner.
 import { createPublicClient, erc20Abi, http, recoverTypedDataAddress } from 'viem';
 import { arcTestnet } from 'viem/chains';
-import { USDC_ADDRESS, formatNative, formatUsdc, parseNative } from '@proofstream/config';
+import { USDC_ADDRESS, formatNative, formatUsdc, parseNative, parseRepoSpec } from '@proofstream/config';
 
 type Check = { name: string; ok: boolean; detail: string };
 const checks: Check[] = [];
@@ -247,15 +247,41 @@ add(
 );
 
 // Every served repo must be readable with our token — one unreachable repo is
-// one stream that silently never gets judged.
+// one stream that silently never gets judged. The BRANCH is checked too: a
+// stream naming a branch that does not exist can never be paid, and nothing
+// else would say so.
+//
+// `entry.repo` is the full on-chain spec, so it must be parsed rather than
+// interpolated. A `#` in a URL opens a fragment, so the unparsed form requested
+// `/repos/owner/name` and PASSED — a green tick for a check that never looked at
+// the branch at all. A preflight that reports green on the wrong thing is worse
+// than no preflight.
 for (const entry of served) {
+  const { repo, branch } = parseRepoSpec(entry.repo);
+  const headers = {
+    Authorization: `Bearer ${env.githubToken}`,
+    'User-Agent': 'proofstream-preflight',
+  };
+
   try {
-    const res = await fetch(`https://api.github.com/repos/${entry.repo}`, {
-      headers: { Authorization: `Bearer ${env.githubToken}`, 'User-Agent': 'proofstream-preflight' },
-    });
-    add(`on-chain repo readable [${entry.repo}]`, res.ok, `HTTP ${res.status} (repo from contract)`);
+    const res = await fetch(`https://api.github.com/repos/${repo}`, { headers });
+    add(`on-chain repo readable [${repo}]`, res.ok, `HTTP ${res.status} (repo from contract)`);
   } catch (err) {
-    add(`on-chain repo readable [${entry.repo}]`, false, (err as Error).message);
+    add(`on-chain repo readable [${repo}]`, false, (err as Error).message);
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${repo}/branches/${encodeURIComponent(branch)}`,
+      { headers },
+    );
+    add(
+      `target branch exists [${repo}#${branch}]`,
+      res.ok,
+      res.ok ? 'merges here are judged' : `HTTP ${res.status} — no merge can ever reach this stream`,
+    );
+  } catch (err) {
+    add(`target branch exists [${repo}#${branch}]`, false, (err as Error).message);
   }
 }
 
