@@ -93,6 +93,28 @@ export async function fetchDiff(repo: string, prNumber: number): Promise<string>
   if (!res.ok) throw new Error(`GitHub diff fetch failed: ${res.status} ${await res.text()}`);
   const diff = await res.text();
 
+  // WHICH COMMIT THE FILES ARE READ AT. `/contents/{path}` with no ref serves
+  // the DEFAULT branch, and once streams could name a branch that stopped being
+  // the branch the work landed on. A pull request merged into `testrun/1` was
+  // judged against the files on `main`, so the agent saw a diff adding a
+  // function and a final state without it, concluded the two disagreed, and
+  // declined perfectly good work with full confidence. Pinning to the merge
+  // commit reads the state this pull request actually produced, on whatever
+  // branch it produced it.
+  let ref = '';
+  try {
+    const meta = await gh(`/repos/${repo}/pulls/${prNumber}`);
+    if (meta.ok) {
+      const pr = (await meta.json()) as { merge_commit_sha?: string; head?: { sha?: string } };
+      // An open pull request has no merge commit; its head is the closest thing
+      // to the state it proposes.
+      ref = pr.merge_commit_sha ?? pr.head?.sha ?? '';
+    }
+  } catch {
+    // Fall through to the default branch, which is right for a merge into it.
+  }
+  const at = ref ? `?ref=${ref}` : '';
+
   // Best-effort. The diff alone is still a judgeable answer, so a failure here
   // degrades the evidence rather than blocking a payout.
   let context = '';
@@ -103,7 +125,7 @@ export async function fetchDiff(repo: string, prNumber: number): Promise<string>
       for (const f of files) {
         if (f.status === 'removed') continue;
         const raw = await gh(
-          `/repos/${repo}/contents/${encodeURI(f.filename)}`,
+          `/repos/${repo}/contents/${encodeURI(f.filename)}${at}`,
           'application/vnd.github.raw',
         );
         if (!raw.ok) continue;
