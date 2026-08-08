@@ -44,6 +44,11 @@ export type OnChainTx = {
   amountRaw?: string;
   /** Short clause shown beside the action. */
   detail?: string;
+  /** Who was allowed to send it. Not read from the transaction — the contract's
+   *  own permissions decide it: `withdraw` is the contributor's, and every other
+   *  action here is employer-only. Without this the two parties' transactions
+   *  were an undifferentiated list under one "BY A HUMAN" heading. */
+  by: 'EMPLOYER' | 'CONTRIBUTOR';
 };
 
 /// One row per TRANSACTION, not per event. `fund` can emit Funded and
@@ -66,27 +71,29 @@ const usdc = (v: bigint) => v.toString();
 function describe(name: string, args: Record<string, unknown>): Omit<OnChainTx, 'txHash' | 'blockNumber' | 'at'> {
   switch (name) {
     case 'Funded':
-      return { action: 'FUND', amountRaw: usdc(args.amount as bigint) };
+      return { action: 'FUND', amountRaw: usdc(args.amount as bigint), by: 'EMPLOYER' };
     case 'MilestoneOpened':
-      return { action: 'OPEN MILESTONE', amountRaw: usdc(args.budget as bigint), detail: 'BUDGET' };
+      return { action: 'OPEN MILESTONE', amountRaw: usdc(args.budget as bigint), detail: 'BUDGET', by: 'EMPLOYER' };
     case 'MilestoneClosed':
       return {
         action: 'CLOSE MILESTONE',
         amountRaw: usdc(args.returned as bigint),
         detail: 'RETURNED TO EMPLOYER',
+        by: 'EMPLOYER',
       };
     case 'Withdrawn':
-      return { action: 'WITHDRAW', amountRaw: usdc(args.amount as bigint) };
+      // The one action on this list the employer cannot take.
+      return { action: 'WITHDRAW', amountRaw: usdc(args.amount as bigint), by: 'CONTRIBUTOR' };
     case 'StreamPaused':
-      return { action: 'PAUSE', detail: 'THE CLOCK STOPS' };
+      return { action: 'PAUSE', detail: 'THE CLOCK STOPS', by: 'EMPLOYER' };
     case 'StreamResumed':
-      return { action: 'RESUME', detail: 'THE CLOCK RESTARTS' };
+      return { action: 'RESUME', detail: 'THE CLOCK RESTARTS', by: 'EMPLOYER' };
     case 'RepoSet':
-      return { action: 'REPOINT', detail: String(args.repo ?? '') };
+      return { action: 'REPOINT', detail: String(args.repo ?? ''), by: 'EMPLOYER' };
     case 'MilestoneActivated':
-      return { action: 'MILESTONE STARTS', detail: 'BUDGET FULLY DEPOSITED' };
+      return { action: 'MILESTONE STARTS', detail: 'BUDGET FULLY DEPOSITED', by: 'EMPLOYER' };
     default:
-      return { action: name.toUpperCase() };
+      return { action: name.toUpperCase(), by: 'EMPLOYER' };
   }
 }
 

@@ -162,6 +162,15 @@ export default async function StreamPage({ params }: { params: Promise<{ address
               <dd>
                 <b>{parseRepoSpec(stream.repo).branch}</b> — work merged anywhere else earns nothing
               </dd>
+              <dt>Paid to</dt>
+              <dd>
+                <AddressChip
+                  address={stream.contributor as `0x${string}`}
+                  href={`${EXPLORER_URL}/address/${stream.contributor}`}
+                />
+                {stream.payee.toLowerCase() !== stream.contributor.toLowerCase() &&
+                  ' — withdrawals reach the allowlisted payee, not this address'}
+              </dd>
               <dt>Budget</dt>
               <dd>{(Number(stream.budget) / 1e6).toFixed(2)} USDC</dd>
               <dt>Agent ceiling</dt>
@@ -241,7 +250,10 @@ export default async function StreamPage({ params }: { params: Promise<{ address
                 {humanTxs.map((t) => (
                   <div className="ps-tx-row ps-tx-row-human" key={t.txHash}>
                     <span className="ps-tx-time">{stamp(new Date(t.at * 1000).toISOString())}</span>
-                    <span className="ps-tx-action">{t.action}</span>
+                    <span className="ps-tx-action">
+                      <span className="ps-tx-by">{t.by === 'CONTRIBUTOR' ? 'CONTRIB' : 'OWNER'}</span>{' '}
+                      {t.action}
+                    </span>
                     {t.amountRaw ? (
                       <Amount raw={Number(t.amountRaw)} size="m" />
                     ) : (

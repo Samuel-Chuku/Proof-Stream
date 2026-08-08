@@ -2123,3 +2123,13 @@ input[type='range'].ps-range:disabled {
     margin-bottom: var(--ps-2);
   }
 }
+
+/* The party who sent a human transaction. Inline inside the action cell rather
+   than a column of its own: the row is a fixed grid and a sixth column would
+   reflow every row on the page. Employer and contributor actions were
+   previously indistinguishable under one "BY A HUMAN" heading. */
+.ps-tx-by {
+  font-size: var(--ps-size-nav);
+  color: var(--ps-ink-faint);
+  letter-spacing: 0.06em;
+}
