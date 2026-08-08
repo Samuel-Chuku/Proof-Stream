@@ -2170,3 +2170,39 @@ input[type='range'].ps-range:disabled {
   border-style: dashed;
   color: var(--ps-ink-faint);
 }
+
+/* The bar, plus the one affordance that explains why it may stop short of what
+   the agents agreed. Sits outside .ps-bar so it never becomes a cell. */
+.ps-bar-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--ps-2);
+}
+
+.ps-bar-row .ps-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Square, ink-on-paper, same weight as the bar's own border — a help affordance
+   that reads as part of the meter rather than an icon bolted beside it. */
+.ps-why-cap {
+  flex: 0 0 auto;
+  width: var(--ps-4);
+  align-self: center;
+  font: inherit;
+  font-size: var(--ps-size-label);
+  line-height: 1;
+  padding: var(--ps-1) 0;
+  background: var(--ps-sunk);
+  color: var(--ps-ink-dim);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+  cursor: pointer;
+}
+
+.ps-why-cap:hover,
+.ps-why-cap[aria-expanded='true'] {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+}

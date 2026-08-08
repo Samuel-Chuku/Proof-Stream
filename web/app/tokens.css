@@ -228,9 +228,11 @@ table {
 .ps-fill-unaccrued { background: var(--ps-sunk); }
 .ps-fill-locked    { background: var(--ps-dither-50); }
 /* Both agents valued this work, but the per-certification cap has not let the
-   agent certify it yet. Lighter than `locked` because it is one step further
-   from the contributor's hands: not owed, only agreed. */
-.ps-fill-valued    { background: var(--ps-dither-25); }
+   agent certify it yet. An OUTLINE rather than a fill: the money is spoken for
+   but not yet owed, and it must not read as released. A lighter dither was
+   tried first and was indistinguishable from an empty cell, which said the
+   opposite of what had happened. */
+.ps-fill-valued    { background: var(--ps-sunk); box-shadow: inset 0 0 0 2px var(--ps-green-deep); }
 .ps-fill-unlocked  { background: var(--ps-green); color: var(--ps-on-green); }
 .ps-fill-blocked   {
   background: var(--ps-hatch);

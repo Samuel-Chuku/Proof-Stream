@@ -93,6 +93,9 @@ export function LockedFigure({
   // mismatches the first client frame and React warns on hydration.
   const [now, setNow] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
+  // The cap explanation is one sentence too many to leave on screen. It matters
+  // exactly once — the first time someone wonders why the bar stopped short.
+  const [whyCap, setWhyCap] = useState(false);
 
   useEffect(() => {
     const tick = () => setNow(Math.floor(Date.now() / 1000));
@@ -228,30 +231,45 @@ export function LockedFigure({
         </div>
       </div>
 
-      <div
-        className="ps-bar"
-        role="img"
-        aria-label={`${(earned / USDC).toFixed(6)} of ${(budget / USDC).toFixed(6)} USDC earned`}
-        onMouseLeave={() => setHovered(null)}
-      >
-        {bar.states.map((state, i) => (
-          <span
-            key={i}
-            className={`ps-cell ps-fill-${state}`}
-            onMouseEnter={() => setHovered(i)}
-            // Native tooltip as well as the readout below: it survives touch,
-            // screen readers and anyone who does not look down.
-            title={`${(bar.perCell * (i + 1)).toFixed(2)} USDC — ${describe(state)}`}
-            suppressHydrationWarning
-          />
-        ))}
+      <div className="ps-bar-row">
+        <div
+          className="ps-bar"
+          role="img"
+          aria-label={`${(earned / USDC).toFixed(6)} of ${(budget / USDC).toFixed(6)} USDC earned`}
+          onMouseLeave={() => setHovered(null)}
+        >
+          {bar.states.map((state, i) => (
+            <span
+              key={i}
+              className={`ps-cell ps-fill-${state}`}
+              onMouseEnter={() => setHovered(i)}
+              // Native tooltip as well as the readout below: it survives touch,
+              // screen readers and anyone who does not look down.
+              title={`${(bar.perCell * (i + 1)).toFixed(2)} USDC — ${describe(state)}`}
+              suppressHydrationWarning
+            />
+          ))}
+        </div>
+
+        {valued > target && (
+          <button
+            type="button"
+            className="ps-why-cap"
+            aria-expanded={whyCap}
+            aria-label="Why does the bar stop short of what the agents agreed?"
+            onClick={() => setWhyCap((v) => !v)}
+          >
+            ?
+          </button>
+        )}
       </div>
 
       {/* A gap between agreed and certified is ALWAYS a cap, never a judgment —
           the agents already said yes. Saying so is the difference between "the
           agent declined" and "the employer's ceiling metered it", which look
-          identical on the bar and mean opposite things. */}
-      {valued > target && (
+          identical on the bar and mean opposite things. Behind the `?` because
+          it is the answer to a question, not a status. */}
+      {valued > target && whyCap && (
         <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
           BOTH AGENTS AGREED <Amount raw={valued} size="s" suffix={false} /> IS DONE — THE{' '}
           <Amount raw={Number(stream.maxTranche)} size="s" suffix={false} /> PER-CERTIFICATION CAP
