@@ -228,11 +228,11 @@ table {
 .ps-fill-unaccrued { background: var(--ps-sunk); }
 .ps-fill-locked    { background: var(--ps-dither-50); }
 /* Both agents valued this work, but the per-certification cap has not let the
-   agent certify it yet. An OUTLINE rather than a fill: the money is spoken for
-   but not yet owed, and it must not read as released. A lighter dither was
-   tried first and was indistinguishable from an empty cell, which said the
-   opposite of what had happened. */
-.ps-fill-valued    { background: var(--ps-sunk); box-shadow: inset 0 0 0 2px var(--ps-green-deep); }
+   agent certify it yet. The dither says "spoken for, not yet released" — the
+   same language the funding meter uses — and the green edge says which side of
+   the argument it is on. Dither alone read as an empty cell; the edge alone
+   read as an empty box. It needs both. */
+.ps-fill-valued    { background: var(--ps-dither-25); box-shadow: inset 0 0 0 2px var(--ps-green-deep); }
 .ps-fill-unlocked  { background: var(--ps-green); color: var(--ps-on-green); }
 .ps-fill-blocked   {
   background: var(--ps-hatch);
