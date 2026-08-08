@@ -67,6 +67,17 @@ export function parseMergedPr(payload: any): MergedPr | null {
 /// vendored bundle, not an expected limit.
 const MAX_FILE_CHARS = 24_000;
 
+/// Bounds on the whole context block, since it now reaches past the diff.
+/// Generous for a repository a milestone is written against, and a hard stop
+/// against someone pointing a stream at a monorepo.
+const MAX_CONTEXT_FILES = 15;
+const MAX_CONTEXT_CHARS = 90_000;
+
+/// Files worth showing a code reviewer. Lockfiles, builds and vendored trees
+/// are noise that would crowd out the work being judged.
+const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|java|kt|swift|c|h|cc|cpp|sol|sql|sh|md)$/i;
+const IGNORED = /(^|\/)(node_modules|dist|build|out|vendor|\.next|coverage|__snapshots__)(\/|$)|lock(file)?\.|-lock\.(json|yaml)$/i;
+
 const gh = (path: string, accept = 'application/vnd.github+json') =>
   fetch(`https://api.github.com${path}`, {
     headers: {
@@ -128,15 +139,47 @@ export async function fetchDiff(spec: string, prNumber: number): Promise<string>
   }
   const at = ref ? `?ref=${ref}` : '';
 
-  // Best-effort. The diff alone is still a judgeable answer, so a failure here
-  // degrades the evidence rather than blocking a payout.
+  // WHICH FILES, not just the ones this pull request touched.
+  //
+  // Context used to be the diff's own files. That makes "judged on the final
+  // state" true only when the milestone's work happens to live in the files
+  // this particular pull request edited. It bit on PR #8: a one-line comment on
+  // `src/ledger.test.ts` meant the agent was shown the tests and NOT
+  // `src/ledger.ts`, so it saw tests calling a function it could not see and
+  // declined the milestone at confidence 1.0 — while the function had been
+  // merged three pull requests earlier and was sitting right there.
+  //
+  // The milestone is cumulative, so the evidence has to be the repository, not
+  // the changeset. Touched files come first so the diff's own subjects are
+  // never the ones dropped by the cap.
   let context = '';
   try {
     const filesRes = await gh(`/repos/${repo}/pulls/${prNumber}/files?per_page=50`);
     if (filesRes.ok) {
-      const files = (await filesRes.json()) as { filename: string; status: string }[];
+      const touched = ((await filesRes.json()) as { filename: string; status: string }[])
+        .filter((f) => f.status !== 'removed')
+        .map((f) => f.filename);
+
+      const rest: string[] = [];
+      if (ref) {
+        const treeRes = await gh(`/repos/${repo}/git/trees/${ref}?recursive=1`);
+        if (treeRes.ok) {
+          const tree = (await treeRes.json()) as { tree?: { path: string; type: string }[] };
+          for (const node of tree.tree ?? []) {
+            if (node.type !== 'blob') continue;
+            if (touched.includes(node.path)) continue;
+            if (IGNORED.test(node.path) || !SOURCE.test(node.path)) continue;
+            rest.push(node.path);
+          }
+        }
+      }
+
+      const files = [...touched, ...rest.sort()]
+        .slice(0, MAX_CONTEXT_FILES)
+        .map((filename) => ({ filename, status: 'ok' }));
+
       for (const f of files) {
-        if (f.status === 'removed') continue;
+        if (context.length >= MAX_CONTEXT_CHARS) break;
         const raw = await gh(
           `/repos/${repo}/contents/${encodeURI(f.filename)}${at}`,
           'application/vnd.github.raw',
@@ -155,7 +198,9 @@ export async function fetchDiff(spec: string, prNumber: number): Promise<string>
   }
 
   return context
-    ? `${diff}\n\n===== FILES AFTER THIS MERGE =====\nThe milestone is judged on this FINAL STATE. ` +
-        `Work from earlier pull requests appears here even though it is not in the diff above.\n${context}`
+    ? `${diff}\n\n===== THE REPOSITORY AFTER THIS MERGE =====\nThe milestone is judged on this FINAL ` +
+        `STATE, not on the diff alone. These are the repository's source files as they stand now, so ` +
+        `work delivered by EARLIER pull requests appears here even though it is absent from the diff ` +
+        `above. A small diff on top of finished work is finished work.\n${context}`
     : diff;
 }

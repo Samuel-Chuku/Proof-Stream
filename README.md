@@ -151,10 +151,10 @@ the standing certification, and the contract reverts `NotAnIncrease` if one is s
 Nothing can push certification past 100%, so no further merge can add anything.
 
 Below 100% the honest answer is more interesting. The agents judge the **final state of the
-files**, not just the diff — deliberately, because a milestone is delivered across several
-pull requests and an incremental diff cannot answer a cumulative question. So a trivial
-merge that touches a file where finished work already lives **will** be judged on that
-finished work and can raise certification toward what the work is genuinely worth.
+repository**, not just the diff — deliberately, because a milestone is delivered across
+several pull requests and an incremental diff cannot answer a cumulative question. So a
+trivial merge **will** be judged against the finished work already in the branch, and can
+raise certification toward what that work is genuinely worth.
 
 We tested this rather than assuming it:
 

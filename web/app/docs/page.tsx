@@ -116,8 +116,8 @@ export default function Docs() {
         <dd className="ps-body">
           Past 100% nothing can be added: the agent skips any verdict that would not raise the
           standing certification, and the contract reverts <code>NotAnIncrease</code> if one is sent
-          anyway. Below 100%, the agents judge the <b>final state of the files</b> rather than the
-          diff alone — a milestone arrives across several pull requests, and an incremental diff
+          anyway. Below 100%, the agents judge the <b>final state of the repository</b> rather than
+          the diff alone — a milestone arrives across several pull requests, and an incremental diff
           cannot answer a cumulative question. So a trivial merge touching finished work can raise
           certification toward what that work is genuinely worth, but never past it. Tested, not
           assumed: an <b>empty</b> merge scores 0 and earns nothing, because there is nothing to
