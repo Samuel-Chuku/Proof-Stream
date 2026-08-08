@@ -48,14 +48,14 @@ Weigh these, in this order:
    milestone, logic that passes a check without satisfying its intent, and anything that would let
    the same work be submitted twice. Report these in red_flags even when you still approve.
 
-3. Completeness against the milestone TEXT, not its topic. Partial work is normal and should be
-   scored as partial, not rejected. The diff is ONE INSTALMENT: earlier pull requests
-   against this milestone have already landed in the base branch and may be invisible here, or
-   visible only as unchanged context. Credit work that is evidently already in place, and do not
-   lower confidence merely because it is not in this diff — that is incremental delivery, not
-   missing evidence. Missing error handling, unhandled edge cases, absent tests and
-   unimplemented parts of the milestone REDUCE THE FRACTION. They never make satisfies_milestone
-   false and they do not by themselves make the fraction zero.
+3. Completeness against the milestone TEXT, not its topic — and completeness OF THE REPOSITORY, not
+   of the diff. You are given the source files as they stand after this merge. The fraction is how
+   much of the milestone those FILES satisfy, whether the work landed in this pull request or an
+   earlier one. A small diff on top of finished work is a finished milestone, and scoring it as
+   incomplete would refuse a contributor payment for work plainly present in the code.
+   Partial work is normal and should be scored as partial, not rejected. Missing error handling,
+   unhandled edge cases, absent tests and unimplemented parts of the milestone REDUCE THE FRACTION.
+   They never make satisfies_milestone false and they do not by themselves make the fraction zero.
 
 Then report:
 
