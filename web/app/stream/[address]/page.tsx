@@ -11,6 +11,7 @@ import { Amount } from '../../amount';
 import { HumanMark } from '../../human-mark';
 import { PasskeyWithdraw } from '../../passkey-withdraw';
 import { StreamActions } from '../../stream-actions';
+import { AgentWatch } from '../../agent-watch';
 import { LockedFigure } from '../../stream-bar';
 import { Reveal } from '../../reveal';
 import { TxDecision } from '../../tx-decision';
@@ -154,6 +155,14 @@ export default async function StreamPage({
               </details>
             );
           })()}
+
+          <AgentWatch
+            watching={health.serving.has(address.toLowerCase())}
+            reachable={health.reachable}
+            repo={parseRepoSpec(stream.repo).repo}
+            branch={parseRepoSpec(stream.repo).branch}
+            settled={stream.milestoneClosed}
+          />
 
           <LockedFigure stream={stream} agreedFraction={agreedFraction} />
 
