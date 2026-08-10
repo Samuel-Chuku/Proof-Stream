@@ -9,7 +9,7 @@ Every hash below is a real transaction on Arc Testnet (chain `5042002`).
 
 **Current milestone:** Milestone 2: add an append-only transfer history to src/ledger.ts. Define a TransferRecord carrying from, to, amount and timestamp; have transfer() append one record for every successful transfer without mutating the existing log; expose history(records, accountId) returning only the records that involve that account; and cover both the recording and the query with unit tests in src/ledger.test.ts.
 
-> This run spans 5 deployments. The transaction table below covers
+> This run spans 9 deployments. The transaction table below covers
 > **all** of them, grouped by contract and newest first, because a transaction did
 > not stop being real when a newer contract replaced the one that made it. The
 > stream-state figures immediately below apply to the current contract only —
@@ -40,7 +40,7 @@ pull requests required.
 Each row is one transaction on Arc, sent either by the **agent's own wallet**
 (unlocks) or by the contributor (payouts).
 
-**Count: 53** across 5 contracts.
+**Count: 59** across 9 contracts.
 
 #### [`0xA84746722727e04eba331fB3AFD7D0940B815161`](https://testnet.arcscan.app/address/0xA84746722727e04eba331fB3AFD7D0940B815161)
 
@@ -130,6 +130,40 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 | --- | --- | --- | --- | --- | --- |
 | 2026-08-05 04:15:11 | certify | #1 | 40 | 100% | [`0xa3c009f9…212432`](https://testnet.arcscan.app/tx/0xa3c009f96c8b653386957881d603e905a21b99308cc94ac9ee139f1bd6212432) |
 
+#### [`0x8D9E87068dB41bE10972897ccaf73Bd20a71d289`](https://testnet.arcscan.app/address/0x8D9E87068dB41bE10972897ccaf73Bd20a71d289)
+
+**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+
+| When (UTC) | Action | PR | USDC | Agreed | Transaction |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-08 08:40:53 | certify | #10 | 30 | 97% | [`0xe9449425…34800d`](https://testnet.arcscan.app/tx/0xe94494251356328e823eebb117f5885e50f336c748f2666952434462d234800d) |
+
+#### [`0x82059bC1d4cdF0D48663568818f9938F62264BC4`](https://testnet.arcscan.app/address/0x82059bC1d4cdF0D48663568818f9938F62264BC4)
+
+**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+
+| When (UTC) | Action | PR | USDC | Agreed | Transaction |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-08 10:04:33 | certify | #11 | 20 | 95% | [`0xfaabdeb4…1e47b8`](https://testnet.arcscan.app/tx/0xfaabdeb4d19d72a4d146476f96af4b544fe9a5c994543752e894a38fdd1e47b8) |
+| 2026-08-08 12:33:11 | certify | #13 | 20 | 100% | [`0xbf138287…b69911`](https://testnet.arcscan.app/tx/0xbf138287b450d3afb028b4c9a89b9923a2d3b725bd7933d7083bb2d24ab69911) |
+
+#### [`0xD2cf76F4ed9940DCA441B9b26d73B3c87f795445`](https://testnet.arcscan.app/address/0xD2cf76F4ed9940DCA441B9b26d73B3c87f795445)
+
+**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+
+| When (UTC) | Action | PR | USDC | Agreed | Transaction |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-09 12:32:37 | certify | #1 | 50 | 50% | [`0x7b8b9826…14e2ba`](https://testnet.arcscan.app/tx/0x7b8b98268f8f8a86f34ee43bf83afcc8e08abcdde8d32ea59f5c9121b914e2ba) |
+
+#### [`0xBE7cfBDF1d6538124ddA65EDD8Eb091FCaeE88a8`](https://testnet.arcscan.app/address/0xBE7cfBDF1d6538124ddA65EDD8Eb091FCaeE88a8)
+
+**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+
+| When (UTC) | Action | PR | USDC | Agreed | Transaction |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-09 13:00:19 | certify | #2 | 50 | 50% | [`0x6933e5eb…a33304`](https://testnet.arcscan.app/tx/0x6933e5eb80de7bd28c09c5fa8d41d8a4e372ef4cd3c5a2e546f7252ceda33304) |
+| 2026-08-09 13:12:29 | certify | #3 | 45 | 95% | [`0xe2eeb35b…378fff`](https://testnet.arcscan.app/tx/0xe2eeb35baa6459cb51c950c2a4f12de65703fdc19c984dd8752b566a4c378fff) |
+
 ## Decisions that moved no money
 
 The agent refusing to pay is as much a result as the agent paying. These cost
@@ -160,15 +194,15 @@ balance rising.
 
 | Verification fees paid | Paid reviews | Fee per call |
 | --- | --- | --- |
-| 0.015 USDC | 60 | 0.005 USDC |
+| 0.015 USDC | 69 | 0.005 USDC |
 
 **On-chain Gateway balances** (via `availableBalance` on
 [`0x0077777d7EBA4688BDeF3E311b846F25870A19B9`](https://testnet.arcscan.app/address/0x0077777d7EBA4688BDeF3E311b846F25870A19B9)):
 
 | Party | Gateway balance |
 | --- | --- |
-| Attestor (buyer) | 4.7 USDC |
-| Verifier (seller) | 0.3 USDC |
+| Attestor (buyer) | 4.655 USDC |
+| Verifier (seller) | 0.345 USDC |
 
 **Transfer receipts:**
 
@@ -232,15 +266,24 @@ balance rising.
 - `9f7ab0fd-e639-4ce3-87f0-b0ac47c6d2e5` — PR #3, 0.005 USDC
 - `e10fa2a7-d212-40e9-a30c-16564c54c6cc` — PR #3, 0.005 USDC
 - `80497ffe-1f51-4e07-9f64-61fec3e3a430` — PR #3, 0.005 USDC
+- `c057e7ef-ac13-47ab-a0c3-a5407788b90a` — PR #5, 0.005 USDC
+- `774f038a-8a4f-48d3-bbac-7e41dab41280` — PR #6, 0.005 USDC
+- `d36afdf3-3715-401b-974c-986eb8045b01` — PR #7, 0.005 USDC
+- `4e23470b-b390-4db5-b822-40a5c0727cde` — PR #10, 0.005 USDC
+- `846ab9b6-9901-4a4f-94b6-ab9ca7afc416` — PR #11, 0.005 USDC
+- `1e7ca354-b12c-439c-961b-17c5dbb3a031` — PR #13, 0.005 USDC
+- `0899cb89-10f4-4e51-a014-84cd67c42f7a` — PR #1, 0.005 USDC
+- `3ef0e0ee-fd5f-44d7-9ff9-786652b559b4` — PR #2, 0.005 USDC
+- `2b10084f-8182-4985-be79-937f2b09df0c` — PR #3, 0.005 USDC
 
 ## What the judgment cost
 
 | Item | USD |
 | --- | --- |
 | Attestor inference | $0.0000 |
-| Verifier inference | $0.6002 |
+| Verifier inference | $0.6033 |
 | Verification fees | $0.0150 |
-| **Total** | **$0.6152 across 9 decisions** |
+| **Total** | **$0.6183 across 9 decisions** |
 
 Gas is excluded here because Arc charges it in USDC directly from the agent's
 wallet; see the transactions above for per-transaction cost.
