@@ -23,6 +23,11 @@ const EVENTS = [
   parseAbiItem('event StreamPaused(uint64 at)'),
   parseAbiItem('event StreamResumed(uint64 at)'),
   parseAbiItem('event RepoSet(string repo)'),
+  // Moves no money, but it is the employer widening what the agent may ever
+  // spend. That belongs in the public record next to the payments it governs —
+  // a mandate change is exactly the kind of thing a contributor should be able
+  // to see without being told.
+  parseAbiItem('event PolicyRaised(uint256 maxTranche, uint256 dailyUnlockCap)'),
 ] as const;
 
 const MAX_LOG_WINDOW = 45_000n;
@@ -63,6 +68,7 @@ const PRIORITY: Record<string, number> = {
   StreamPaused: 2,
   StreamResumed: 2,
   RepoSet: 1,
+  PolicyRaised: 1,
   MilestoneActivated: 0,
 };
 
@@ -90,6 +96,18 @@ function describe(name: string, args: Record<string, unknown>): Omit<OnChainTx, 
       return { action: 'RESUME', detail: 'THE CLOCK RESTARTS', by: 'EMPLOYER' };
     case 'RepoSet':
       return { action: 'REPOINT', detail: String(args.repo ?? ''), by: 'EMPLOYER' };
+    case 'PolicyRaised': {
+      // No amountRaw: nothing moved. The caps are the story, so they go in the
+      // detail where an amount would otherwise sit.
+      const per = usdc(args.maxTranche as bigint);
+      const day = usdc(args.dailyUnlockCap as bigint);
+      const human = (v: string) => (Number(v) / 1e6).toFixed(0);
+      return {
+        action: 'RAISE LIMITS',
+        detail: `NOW ${human(per)} PER CERTIFICATION · ${human(day)} PER DAY`,
+        by: 'EMPLOYER',
+      };
+    }
     case 'MilestoneActivated':
       return { action: 'MILESTONE STARTS', detail: 'BUDGET FULLY DEPOSITED', by: 'EMPLOYER' };
     default:
