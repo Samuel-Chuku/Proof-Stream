@@ -115,6 +115,14 @@ export const env = {
   // demo, where reasoning quality is what is on screen.
   model: process.env.AGENT_MODEL || 'openai/gpt-oss-20b:free',
 
+  /// Tried in order when the primary is rate-limited or unavailable. The free
+  /// pools are SHARED across every OpenRouter user, so a 429 says nothing about
+  /// this project's usage and everything about who else is busy — and a stream
+  /// that happens to merge during someone else's spike gets no judgment at all.
+  /// Comma-separated; blank disables fallback.
+  fallbackModels: (process.env.AGENT_FALLBACK_MODELS ?? 'meta-llama/llama-3.3-70b-instruct:free,mistralai/mistral-small-3.2-24b-instruct:free')
+    .split(',').map((m) => m.trim()).filter(Boolean),
+
   port: Number(process.env.PORT || 8787),
   ingressUrl: process.env.AGENT_INGRESS_URL || '(not set — tunnel URL goes here)',
 
@@ -162,4 +170,10 @@ export const env = {
   // sold at a loss since Phase 3 (roadmap R1) — $0.005 charged against
   // $0.0103-$0.0124 of measured inference, about 6x underwater on every call.
   verifierModel: process.env.VERIFIER_MODEL || 'poolside/laguna-s-2.1:free',
+
+  /// Same idea for the second opinion. Kept on a DIFFERENT vendor from the
+  /// attestor's list — a fallback that lands both agents on the same model
+  /// would quietly turn the second opinion into an echo.
+  verifierFallbackModels: (process.env.VERIFIER_FALLBACK_MODELS ?? 'mistralai/mistral-small-3.2-24b-instruct:free,google/gemma-3-27b-it:free')
+    .split(',').map((m) => m.trim()).filter(Boolean),
 };

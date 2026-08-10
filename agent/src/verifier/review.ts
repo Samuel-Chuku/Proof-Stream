@@ -158,12 +158,24 @@ function clamp01(n: unknown): number {
 ///
 /// Free model pools are shared and return 429 under load. One retry with a
 /// pause costs nothing and saves a long unattended run from dying.
+
+/// How long the provider asked us to wait, in ms. OpenRouter puts it in the
+/// Retry-After header and again inside the error body; either will do.
+function retryAfterMs(res: Response, body: string): number {
+  const header = Number(res.headers.get('retry-after'));
+  if (Number.isFinite(header) && header > 0) return header * 1000;
+  const m = body.match(/"retry_after_seconds"\s*:\s*(\d+)/);
+  return m ? Number(m[1]) * 1000 : 0;
+}
+
 async function callLlm(body: unknown, key: string): Promise<any> {
   // Sent as a PREFERENCE. Some endpoints refuse it outright —
   // `openai/gpt-oss-20b:free` answers 400 "Reasoning is mandatory for this
   // endpoint and cannot be disabled" — so a blanket demand breaks any model
   // that reasons by design. Dropped and retried once if refused.
   let payload: any = body;
+  // Copied so a fallback consumed on one call does not shrink the next call's list.
+  const fallbacks = [...env.verifierFallbackModels];
 
   for (let attempt = 0; ; attempt++) {
     // A wrong LLM_BASE_URL fails at the socket, not with an HTTP status, so the
@@ -220,9 +232,28 @@ async function callLlm(body: unknown, key: string): Promise<any> {
     }
 
     const text = await res.text();
-    if (res.status === 429 && attempt < 3) {
-      await new Promise((r) => setTimeout(r, 5_000 * 2 ** attempt));
-      continue;
+
+    // RATE LIMITED. The free pools are shared across every OpenRouter user, so
+    // this says nothing about our usage and everything about who else is busy.
+    //
+    // Honour the provider's own Retry-After when it sends one. It told us 24
+    // seconds and the old fixed backoff waited 5, then 10, then 20 — three
+    // requests that could not possibly succeed, and then a hard failure that
+    // cost a stream its judgment.
+    if (res.status === 429) {
+      const after = retryAfterMs(res, text);
+      if (attempt < 3 && after <= 60_000) {
+        await new Promise((r) => setTimeout(r, after || 5_000 * 2 ** attempt));
+        continue;
+      }
+      // Still limited after backing off: move to the next model rather than
+      // give up. A judgment from a different model beats no judgment at all.
+      const next = fallbacks.shift();
+      if (next) {
+        payload = { ...payload, model: next };
+        attempt = -1; // fresh budget for the new model
+        continue;
+      }
     }
     if (res.status === 400 && payload?.reasoning && /reasoning is mandatory/i.test(text)) {
       const { reasoning: _dropped, ...rest } = payload;
