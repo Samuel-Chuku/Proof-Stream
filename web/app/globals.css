@@ -1083,10 +1083,6 @@ code {
   line-height: var(--ps-lh-data-m);
 }
 
-.ps-watch {
-  white-space: nowrap;
-}
-
 /* ---- Coverage notice --------------------------------------
    A status line, not an alarm. The inverted panel is reserved
    for a policy revert — borrowing it here made every ordinary
