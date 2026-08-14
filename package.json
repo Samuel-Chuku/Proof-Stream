@@ -33,6 +33,8 @@
     "test:repo": "tsx --test config/test/repo.test.ts",
     "logs:pull": "tsx --env-file=.env scripts/pull-logs.ts",
     "test:json": "tsx --test agent/test/extract-json.test.ts",
+    "test:metering": "tsx --test agent/test/metering.test.ts",
+    "test:create-stream": "tsx --test web/test/create-stream.test.ts",
     "watch": "tsx scripts/watch.ts"
   },
   "devDependencies": {
