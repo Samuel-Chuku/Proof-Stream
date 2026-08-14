@@ -9,6 +9,7 @@ import { env } from './env';
 import { fetchDiff, type MergedPr } from './github';
 import { buySecondOpinion } from './pay';
 import { resolveStreams, type StreamEntry } from './registry';
+import { serialize } from './serialize';
 import { judge } from './verdict';
 
 const LOG_PATH = new URL('../verdicts.jsonl', import.meta.url).pathname;
@@ -64,10 +65,16 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
   // Sequential, not parallel. Each stream costs an inference call and a
   // verifier fee, and Arc's RPC rate-limits hard enough that a burst of
   // concurrent reads is the thing most likely to fail.
+  //
+  // That orders the streams WITHIN one call only. Webhook deliveries start this
+  // function unawaited and `reconcile()` runs alongside them, so judgments for a
+  // single stream are serialized ACROSS calls as well: two overlapping ones read
+  // the same nonce, both pay for a second opinion, and the loser reverts. See
+  // serialize.ts.
   const outcomes: PipelineOutcome[] = [];
   for (const entry of entries) {
     try {
-      outcomes.push(await judgeForStream(pr, entry));
+      outcomes.push(await serialize(entry.stream.toLowerCase(), () => judgeForStream(pr, entry)));
     } catch (err) {
       log({
         event: 'unlock_failed',
@@ -182,6 +189,24 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
       reason: `confidence ${verdict.confidence} below threshold ${env.confidenceThreshold}`,
     });
     return 'escalated';
+  }
+
+  // Cheapest gate that can refuse, and it has to come BEFORE the fee.
+  //
+  // The agreed fraction is min(attestor, verifier), so it can never exceed the
+  // attestor's own: if THIS verdict already could not raise the standing
+  // certification, no second opinion can rescue it. The equivalent check further
+  // down runs after `buySecondOpinion`, so every redelivered webhook and every
+  // reconcile pass over already-judged work spent $0.005 of the agent's money to
+  // be told what the number on chain already said.
+  const attestorBps = BigInt(Math.round(verdict.tranche_fraction * 10_000));
+  if (attestorBps <= stream.certifiedBps) {
+    log({
+      event: 'skipped',
+      ...base,
+      reason: `already certified at ${Number(stream.certifiedBps) / 100}% — this verdict (${Number(attestorBps) / 100}%) cannot raise it, so no second opinion was bought`,
+    });
+    return 'skipped';
   }
 
   // The attestor is convinced. Before it acts on its own conviction it buys an

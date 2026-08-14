@@ -33,6 +33,7 @@
     "test:repo": "tsx --test config/test/repo.test.ts",
     "logs:pull": "tsx --env-file=.env scripts/pull-logs.ts",
     "test:json": "tsx --test agent/test/extract-json.test.ts",
+    "test:serialize": "tsx --test agent/test/serialize.test.ts",
     "watch": "tsx scripts/watch.ts"
   },
   "devDependencies": {
