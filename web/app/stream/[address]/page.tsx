@@ -1,4 +1,4 @@
-import { EXPLORER_URL, formatUsdc, parseRepoSpec } from '@proofstream/config';
+import { EXPLORER_URL, formatUsdc, parseRepoSpec, parseUsdc } from '@proofstream/config';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { readStreamTransactions } from '../../../lib/onchain';
@@ -244,7 +244,11 @@ export default async function StreamPage({
                   <div className="ps-tx-row" key={`${v.at}-tx-${i}`}>
                     <span className="ps-tx-time">{stamp(v.at)}</span>
                     <span className="ps-tx-action">UNLOCK</span>
-                    <Amount raw={Number(v.trancheUsdc ?? 0) * 1e6} size="m" />
+                    {/* parseUsdc, not `Number(x) * 1e6`: the log stores a decimal
+                        string, and multiplying it lands a hair off the integer
+                        `Amount` is defined over. 1.005 becomes 1004999.9999999999,
+                        whose modulo renders as `1.4999.999999999884`. */}
+                    <Amount raw={parseUsdc(v.trancheUsdc ?? '0')} size="m" />
                     {/* The judgment that produced this transaction, one click
                         away — the row is otherwise just an amount. */}
                     {v.verdict ? (
@@ -405,7 +409,7 @@ function VerdictCard({ event }: { event: AgentEvent }) {
               a blocked release names the sum it was refused, because that is
               the point of the row, but never as a figure that reads as paid. */}
           {paid && event.trancheUsdc ? (
-            <Amount raw={Number(event.trancheUsdc) * 1e6} size="s" />
+            <Amount raw={parseUsdc(event.trancheUsdc)} size="s" />
           ) : blocked && event.trancheUsdc ? (
             <span className="ps-caption ps-amount-blocked">{event.trancheUsdc} USDC REFUSED</span>
           ) : (
