@@ -270,9 +270,10 @@ pnpm review:test <pr>          # what the verifier thinks
 ## Environment variables
 
 Copy `.env.example` to `.env` and fill it in. The stream's own terms — budget, duration,
-milestone, policy caps, payee, repository — are all optional overrides there; they freeze
-on-chain at deploy, and every consumer then reads them from the contract rather than from
-its own configuration.
+milestone, policy caps, payee — are all optional overrides there; they freeze on-chain at
+deploy, and every consumer then reads them from the contract rather than from its own
+configuration. The repository is the exception: `Deploy.s.sol` requires `GITHUB_REPO` and
+reverts without it, because a stream that does not name a repository has no work to judge.
 
 | Variable | Purpose |
 | --- | --- |
@@ -283,6 +284,7 @@ its own configuration.
 | `AGENT_WALLET_ID`, `AGENT_ADDRESS`, `VERIFIER_WALLET_ID`, `VERIFIER_ADDRESS` | Written by `pnpm circle:setup` |
 | `REGISTRY_ADDRESS`, `REGISTRY_DEPLOY_BLOCK` | Stream discovery. Leave blank to serve only `WORKSTREAM_ADDRESS` |
 | `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET` | Reading diffs and verifying webhook signatures. The webhook secret is a **master** — each stream's own secret is derived from it |
+| `GITHUB_REPO` | `owner/name#branch` for the stream being deployed. Required by `Deploy.s.sol` only — the agent never reads it, because each stream names its own repository on-chain. **Name the branch:** GitHub protects the default branch and nothing else, so without one a contributor can merge their own pull request between throwaway branches and be paid for work no employer reviewed |
 | `AGENT_INGRESS_URL` | Public URL GitHub delivers webhooks to |
 | `LLM_BASE_URL`, `LLM_API_KEY`, `AGENT_MODEL`, `VERIFIER_MODEL` | The two judges. Different vendors on purpose |
 | `GITHUB_APP_*`, `SESSION_SECRET` | GitHub App connect flow for the web app |
