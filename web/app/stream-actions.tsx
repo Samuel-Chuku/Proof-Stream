@@ -9,6 +9,10 @@ import { Amount } from './amount';
 import { Connect } from './connect';
 import { passkeysConfigured } from '../lib/passkey';
 
+/// Cap sliders move in whole USDC. Anything finer offers an employer a decision
+/// they have no basis to make, and the value is a ceiling rather than a payment.
+const CAP_STEP = 1_000_000;
+
 /// Not every failure is a failed transaction, and calling them all one thing
 /// sends people hunting for chain problems that do not exist.
 ///
@@ -123,6 +127,13 @@ export function StreamActions({ stream }: { stream: Stream }) {
   const outstanding = BigInt(stream.budget) - BigInt(stream.funded);
 
   const capBudget = Number(stream.budget);
+
+  /// A range input's selectable values are `min + n*step`, so when the span is
+  /// not a whole number of steps THE MAX CANNOT BE CHOSEN: from a 7.50 cap in
+  /// 1 USDC steps the stops run 8.50 … 29.50 and a 30 USDC budget was never
+  /// reachable, which is the value this panel most exists to offer. Dragging to
+  /// the end therefore snaps to the budget exactly.
+  const snapToBudget = (v: number) => (v + CAP_STEP > capBudget ? capBudget : v);
   // A stream already at the budget on both counts has nothing left to raise.
   const capsRaisable = Number(stream.maxTranche) < capBudget || Number(stream.dailyUnlockCap) < capBudget;
   const capsValid =
@@ -449,10 +460,10 @@ export function StreamActions({ stream }: { stream: Stream }) {
               className="ps-range"
               min={Number(stream.maxTranche)}
               max={capBudget}
-              step={1_000_000}
+              step={CAP_STEP}
               value={capsTranche}
               aria-label="Per-certification cap"
-              onChange={(e) => setTranche(Number(e.target.value))}
+              onChange={(e) => setTranche(snapToBudget(Number(e.target.value)))}
             />
           </div>
 
@@ -466,10 +477,10 @@ export function StreamActions({ stream }: { stream: Stream }) {
               className="ps-range"
               min={Number(stream.dailyUnlockCap)}
               max={capBudget}
-              step={1_000_000}
+              step={CAP_STEP}
               value={capsDaily}
               aria-label="Daily cap"
-              onChange={(e) => setCapsDaily(Math.max(Number(e.target.value), capsTranche))}
+              onChange={(e) => setCapsDaily(Math.max(snapToBudget(Number(e.target.value)), capsTranche))}
             />
           </div>
 
