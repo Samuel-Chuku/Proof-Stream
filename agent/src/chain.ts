@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
-import { createPublicClient, encodeFunctionData, http } from 'viem';
+import { createPublicClient, encodeFunctionData, http, parseAbiItem } from 'viem';
 import { arcTestnet } from 'viem/chains';
 import { env } from './env';
 
@@ -53,6 +53,19 @@ const WORK_STREAM_ABI = [
     outputs: [],
   },
 ] as const;
+
+/// Emitted by `certify`. `nonce` and `prNumber` are indexed, so a timed-out
+/// transaction can be looked up by exactly the values it was signed over.
+const CERTIFIED_EVENT = parseAbiItem(
+  'event MilestoneCertified(uint256 indexed nonce, uint256 indexed prNumber, string commitSha, uint256 confidenceBps, uint256 certifiedBps, uint256 addedTarget)',
+);
+
+/// How far back to look for that event. A certify that was in flight when the
+/// wait gave up is a couple of hundred blocks old at most (Arc runs ~0.51s
+/// blocks, and the wait is 120s), so this is generous. It also stays far under
+/// Arc's 100k-block `eth_getLogs` ceiling, which is the thing that would turn a
+/// confirmation into a second failure.
+const CONFIRM_LOOKBACK = 5_000n;
 
 export type StreamState = {
   milestone: string;
@@ -293,9 +306,73 @@ export async function sendCertification(
 
   const transactionId = res.data?.id;
   if (!transactionId) throw new Error('Circle returned no transaction id');
-  return waitForTransaction(transactionId);
+
+  const result = await waitForTransaction(transactionId);
+  // A timeout is not an outcome, so do not let it be recorded as one.
+  return result.state.startsWith(TIMEOUT_PREFIX) ? confirmOnChain(streamAddress, a, result) : result;
 }
 
+/// A log the contract emitted for THIS attestation, or undefined.
+///
+/// Filtering on the indexed nonce alone is not proof of authorship: the nonce is
+/// the contract's, and any caller holding a valid signature may spend it. So the
+/// unindexed fields are checked too — if something else consumed our nonce, ours
+/// reverted and must be reported as the failure it was.
+export function matchingCertification<
+  T extends { args: { nonce?: bigint; prNumber?: bigint; certifiedBps?: bigint } },
+>(logs: readonly T[], a: Attestation): T | undefined {
+  return logs.find(
+    (l) =>
+      l.args.nonce === a.nonce &&
+      l.args.prNumber === a.prNumber &&
+      l.args.certifiedBps === a.certifiedBps,
+  );
+}
+
+/// Circle stopped answering before the transaction reached a terminal state.
+/// That is NOT the transaction failing, and recording it as one is expensive:
+/// the pipeline logs `unlock_failed`, EVIDENCE.md loses a real on-chain
+/// transaction, and `reconcile`'s `alreadyJudged` sees the row and never
+/// revisits the PR — so a certification that actually landed stays invisible
+/// forever, and the contributor's raised claim is nowhere in the ledger.
+///
+/// So ask the chain, which knew all along. Failing to confirm returns the
+/// timeout unchanged rather than guessing in either direction: an unknown
+/// reported as unknown can be chased, an unknown reported as success cannot.
+async function confirmOnChain(
+  streamAddress: `0x${string}`,
+  a: Attestation,
+  timedOut: CertifyResult,
+): Promise<CertifyResult> {
+  try {
+    const latest = await withRetry(() => publicClient.getBlockNumber());
+    const logs = await withRetry(() =>
+      publicClient.getLogs({
+        address: streamAddress,
+        event: CERTIFIED_EVENT,
+        args: { nonce: a.nonce, prNumber: a.prNumber },
+        fromBlock: latest > CONFIRM_LOOKBACK ? latest - CONFIRM_LOOKBACK : 0n,
+        toBlock: 'latest',
+      }),
+    );
+
+    const hit = matchingCertification(logs, a);
+    if (!hit) return timedOut;
+
+    return {
+      transactionId: timedOut.transactionId,
+      state: 'COMPLETE',
+      txHash: hit.transactionHash,
+    };
+  } catch (err) {
+    return {
+      ...timedOut,
+      errorReason: `could not confirm on chain: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+const TIMEOUT_PREFIX = 'TIMEOUT_AFTER_';
 const TERMINAL = new Set(['COMPLETE', 'FAILED', 'DENIED', 'CANCELLED']);
 
 /// A policy revert surfaces here as FAILED — that is a demo feature, not a
@@ -313,5 +390,5 @@ async function waitForTransaction(transactionId: string, timeoutMs = 120_000): P
       return { transactionId, state: last, txHash: tx?.txHash, errorReason: tx?.errorReason };
     }
   }
-  return { transactionId, state: `TIMEOUT_AFTER_${last}` };
+  return { transactionId, state: `${TIMEOUT_PREFIX}${last}` };
 }
