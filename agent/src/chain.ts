@@ -3,6 +3,7 @@ import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-
 import { createPublicClient, encodeFunctionData, http, parseAbiItem } from 'viem';
 import { arcTestnet } from 'viem/chains';
 import { env } from './env';
+import { pollUntilTerminal } from './poll';
 
 const WORK_STREAM_ABI = [
   { type: 'function', name: 'agent', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
@@ -307,9 +308,25 @@ export async function sendCertification(
   const transactionId = res.data?.id;
   if (!transactionId) throw new Error('Circle returned no transaction id');
 
-  const result = await waitForTransaction(transactionId);
+  // A failed poll is not an answer about the transaction, so `pollUntilTerminal`
+  // swallows one and keeps going rather than throwing out of this function. A
+  // throw here would bypass the confirmation below entirely and land in the
+  // pipeline's catch as `unlock_failed`, which is the outcome that loses a real
+  // transaction from the ledger. See poll.ts.
+  const polled = await pollUntilTerminal(
+    async () => (await circle.getTransaction({ id: transactionId })).data?.transaction,
+    { onError: (err) => console.warn(`[chain] poll of ${transactionId} failed, retrying:`, err) },
+  );
+
+  const result: CertifyResult = {
+    transactionId,
+    state: polled.state,
+    txHash: polled.txHash,
+    errorReason: polled.errorReason,
+  };
+
   // A timeout is not an outcome, so do not let it be recorded as one.
-  return result.state.startsWith(TIMEOUT_PREFIX) ? confirmOnChain(streamAddress, a, result) : result;
+  return polled.timedOut ? confirmOnChain(streamAddress, a, result) : result;
 }
 
 /// A log the contract emitted for THIS attestation, or undefined.
@@ -372,23 +389,6 @@ async function confirmOnChain(
   }
 }
 
-const TIMEOUT_PREFIX = 'TIMEOUT_AFTER_';
-const TERMINAL = new Set(['COMPLETE', 'FAILED', 'DENIED', 'CANCELLED']);
-
-/// A policy revert surfaces here as FAILED — that is a demo feature, not a
-/// bug: it proves the agent physically cannot exceed its on-chain mandate.
-async function waitForTransaction(transactionId: string, timeoutMs = 120_000): Promise<CertifyResult> {
-  const deadline = Date.now() + timeoutMs;
-  let last = 'INITIATED';
-
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 3_000));
-    const res = await circle.getTransaction({ id: transactionId });
-    const tx = res.data?.transaction;
-    last = tx?.state ?? last;
-    if (TERMINAL.has(last)) {
-      return { transactionId, state: last, txHash: tx?.txHash, errorReason: tx?.errorReason };
-    }
-  }
-  return { transactionId, state: `${TIMEOUT_PREFIX}${last}` };
-}
+// The poll loop itself now lives in poll.ts, where it can be tested without an
+// .env. A policy revert still surfaces as FAILED, which is a demo feature and
+// not a bug: it proves the agent physically cannot exceed its on-chain mandate.
