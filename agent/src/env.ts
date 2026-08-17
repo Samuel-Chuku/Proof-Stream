@@ -66,7 +66,11 @@ export const env = {
   ///
   /// This is ROUTING, not a security boundary — a malicious agent could ignore
   /// it. What bounds a compromised key is the on-chain policy (T1/T6).
-  milestoneGraceHours: Number(process.env.MILESTONE_GRACE_HOURS ?? 4),
+  /// `||`, not `??`: a blank line in a copied .env is present-but-empty, which
+  /// `??` passes straight through to Number('') === 0. Here that would end the
+  /// grace window instantly and strand work merged near the deadline. An
+  /// explicit '0' still wins, because '0' is a truthy string.
+  milestoneGraceHours: Number(process.env.MILESTONE_GRACE_HOURS || 4),
 
   circleApiKey: required('CIRCLE_API_KEY'),
   entitySecret: required('ENTITY_SECRET'),
@@ -94,8 +98,11 @@ export const env = {
   // Both bounds matter: this spends money without being asked, and an
   // unbounded lookback against a repo with history would judge years of old
   // work on first run. Set either to 0 to disable.
-  reconcileLookbackHours: Number(process.env.RECONCILE_LOOKBACK_HOURS ?? 24),
-  reconcileMaxPrs: Number(process.env.RECONCILE_MAX_PRS ?? 5),
+  // `||` for the same reason as above. Setting either to '0' still disables
+  // reconciliation as documented; leaving one BLANK now means "default" rather
+  // than silently meaning "off".
+  reconcileLookbackHours: Number(process.env.RECONCILE_LOOKBACK_HOURS || 24),
+  reconcileMaxPrs: Number(process.env.RECONCILE_MAX_PRS || 5),
   webhookSecret: required('GITHUB_WEBHOOK_SECRET'),
 
   // --- LLM provider (any OpenAI-compatible endpoint) -----------------------

@@ -34,7 +34,9 @@
     "logs:pull": "tsx --env-file=.env scripts/pull-logs.ts",
     "test:json": "tsx --test agent/test/extract-json.test.ts",
     "test:serialize": "tsx --test agent/test/serialize.test.ts",
-    "watch": "tsx scripts/watch.ts"
+    "test:poll": "tsx --test agent/test/poll.test.ts",
+    "test:caps": "tsx --test web/test/caps.test.ts",
+    "watch": "tsx --env-file-if-exists=.env scripts/watch.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

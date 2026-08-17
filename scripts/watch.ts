@@ -11,8 +11,12 @@
 // while the agent restarts, and a 502 from the tunnel.
 import { AGENT_EVENTS_URL_FALLBACK } from './watch-config';
 
-const url = process.env.AGENT_EVENTS_URL ?? AGENT_EVENTS_URL_FALLBACK;
-const everyMs = Number(process.env.WATCH_INTERVAL_MS ?? 5_000);
+const url = process.env.AGENT_EVENTS_URL || AGENT_EVENTS_URL_FALLBACK;
+// `||`, not `??`. A variable that is PRESENT BUT BLANK is the normal state of a
+// freshly copied .env, and `??` only catches null and undefined: Number('') is
+// 0, so a blank line here became setInterval(tick, 0) and a busy loop. `||` on
+// the raw string still honours an explicit '0', because '0' is a truthy string.
+const everyMs = Number(process.env.WATCH_INTERVAL_MS || 5_000);
 
 type Verdict = {
   at?: string;
