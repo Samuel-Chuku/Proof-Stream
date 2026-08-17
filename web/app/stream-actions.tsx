@@ -3,15 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useAccount, useConfig, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
+import { capStops, stopFor, stopIndexFor } from '../lib/caps';
 import { ERC20_ABI, USDC } from '../lib/chain';
 import type { Stream } from '../lib/stream';
 import { Amount } from './amount';
 import { Connect } from './connect';
 import { passkeysConfigured } from '../lib/passkey';
-
-/// Cap sliders move in whole USDC. Anything finer offers an employer a decision
-/// they have no basis to make, and the value is a ceiling rather than a payment.
-const CAP_STEP = 1_000_000;
 
 /// Not every failure is a failed transaction, and calling them all one thing
 /// sends people hunting for chain problems that do not exist.
@@ -128,12 +125,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
 
   const capBudget = Number(stream.budget);
 
-  /// A range input's selectable values are `min + n*step`, so when the span is
-  /// not a whole number of steps THE MAX CANNOT BE CHOSEN: from a 7.50 cap in
-  /// 1 USDC steps the stops run 8.50 … 29.50 and a 30 USDC budget was never
-  /// reachable, which is the value this panel most exists to offer. Dragging to
-  /// the end therefore snaps to the budget exactly.
-  const snapToBudget = (v: number) => (v + CAP_STEP > capBudget ? capBudget : v);
+  /// Each slider is indexed over its own list of stops rather than driven by
+  /// min/max/step, so every position is a real value and the budget is always
+  /// reachable. See lib/caps.ts for why snapping in the handler was worse than
+  /// the bug it appeared to fix.
+  const trancheStops = capStops(Number(stream.maxTranche), capBudget);
+  const dailyStops = capStops(Number(stream.dailyUnlockCap), capBudget);
   // A stream already at the budget on both counts has nothing left to raise.
   const capsRaisable = Number(stream.maxTranche) < capBudget || Number(stream.dailyUnlockCap) < capBudget;
   const capsValid =
@@ -144,9 +141,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
 
   /// The daily cap can never sit below the per-certification one, so raising the
   /// latter pushes the former up with it rather than leaving an invalid pair.
+  /// The pushed value is snapped onto the DAILY slider's own stops, because a
+  /// value that is not one of its stops is exactly how the element and React
+  /// start disagreeing about what is selected.
   function setTranche(v: number) {
     setCapsTranche(v);
-    if (v > capsDaily) setCapsDaily(v);
+    if (v > capsDaily) setCapsDaily(stopFor(dailyStops, v));
   }
 
   // A settled milestone rejects fund, pause and close. Offering a button that
@@ -458,12 +458,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
             <input
               type="range"
               className="ps-range"
-              min={Number(stream.maxTranche)}
-              max={capBudget}
-              step={CAP_STEP}
-              value={capsTranche}
+              min={0}
+              max={trancheStops.length - 1}
+              step={1}
+              value={stopIndexFor(trancheStops, capsTranche)}
               aria-label="Per-certification cap"
-              onChange={(e) => setTranche(snapToBudget(Number(e.target.value)))}
+              onChange={(e) => setTranche(trancheStops[Number(e.target.value)])}
             />
           </div>
 
@@ -475,12 +475,16 @@ export function StreamActions({ stream }: { stream: Stream }) {
             <input
               type="range"
               className="ps-range"
-              min={Number(stream.dailyUnlockCap)}
-              max={capBudget}
-              step={CAP_STEP}
-              value={capsDaily}
+              min={0}
+              max={dailyStops.length - 1}
+              step={1}
+              value={stopIndexFor(dailyStops, capsDaily)}
               aria-label="Daily cap"
-              onChange={(e) => setCapsDaily(Math.max(snapToBudget(Number(e.target.value)), capsTranche))}
+              onChange={(e) => {
+                // Never below the per-certification cap, and always on a stop.
+                const picked = dailyStops[Number(e.target.value)];
+                setCapsDaily(picked < capsTranche ? stopFor(dailyStops, capsTranche) : picked);
+              }}
             />
           </div>
 
