@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAccount, useConfig, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { capStops, stopFor, stopIndexFor } from '../lib/caps';
@@ -129,8 +129,20 @@ export function StreamActions({ stream }: { stream: Stream }) {
   /// min/max/step, so every position is a real value and the budget is always
   /// reachable. See lib/caps.ts for why snapping in the handler was worse than
   /// the bug it appeared to fix.
-  const trancheStops = capStops(Number(stream.maxTranche), capBudget);
-  const dailyStops = capStops(Number(stream.dailyUnlockCap), capBudget);
+  ///
+  /// Memoised because `capStops` is O(budget in whole USDC) where the min/max/step
+  /// it replaced was O(1), and this component re-renders every 30 seconds off the
+  /// `now` clock above. Unmemoised, a large-budget stream rebuilt both lists on
+  /// every tick for a panel that is usually closed. The inputs are the caps and
+  /// the budget, all of which only change when a `raisePolicy` lands.
+  const trancheStops = useMemo(
+    () => capStops(Number(stream.maxTranche), capBudget),
+    [stream.maxTranche, capBudget],
+  );
+  const dailyStops = useMemo(
+    () => capStops(Number(stream.dailyUnlockCap), capBudget),
+    [stream.dailyUnlockCap, capBudget],
+  );
   // A stream already at the budget on both counts has nothing left to raise.
   const capsRaisable = Number(stream.maxTranche) < capBudget || Number(stream.dailyUnlockCap) < capBudget;
   const capsValid =

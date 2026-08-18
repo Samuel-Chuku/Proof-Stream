@@ -12,3 +12,7 @@ broadcast/
 .next-verify/
 placeholder.md
 agent/.backup/
+# Planning docs stay out of the public repo. The README, setup docs and
+# EVIDENCE.md are what a reader needs; a working backlog with dated
+# post-mortems and unshipped roadmap is for us. Infra config stays tracked.
+todo.md

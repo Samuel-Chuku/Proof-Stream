@@ -106,7 +106,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
     : null;
 
   if (!discovered) {
-    const from = BigInt(process.env.REGISTRY_DEPLOY_BLOCK ?? '54593230');
+    const from = BigInt(process.env.REGISTRY_DEPLOY_BLOCK || '54593230');
     const latest = await rpc.getBlockNumber();
 
     // Every window up front, then run them a few at a time. Sequentially this

@@ -90,7 +90,11 @@ export default async function StreamPage({
   const mySummary = allStreams.find((x) => x.address.toLowerCase() === address.toLowerCase());
   const humanTxs = await readStreamTransactions(
     address,
-    BigInt(mySummary?.registeredAtBlock ?? process.env.REGISTRY_DEPLOY_BLOCK ?? '54593230'),
+    // Parenthesised because `a ?? b || c` is a SyntaxError, not a precedence
+    // question — ES2020 refuses to guess. `??` on the summary is right (a real
+    // block number of 0 must survive); `||` on the env var is right (a blank
+    // line in a copied .env would make BigInt('') === 0n and scan from genesis).
+    BigInt(mySummary?.registeredAtBlock ?? (process.env.REGISTRY_DEPLOY_BLOCK || '54593230')),
     fresh,
   );
 
@@ -247,8 +251,13 @@ export default async function StreamPage({
                     {/* parseUsdc, not `Number(x) * 1e6`: the log stores a decimal
                         string, and multiplying it lands a hair off the integer
                         `Amount` is defined over. 1.005 becomes 1004999.9999999999,
-                        whose modulo renders as `1.4999.999999999884`. */}
-                    <Amount raw={parseUsdc(v.trancheUsdc ?? '0')} size="m" />
+                        whose modulo renders as `1.4999.999999999884`.
+
+                        `||`, not `??`: these rows arrive unvalidated over HTTP
+                        from AGENT_EVENTS_URL, `??` does not catch '', and
+                        parseUnits('') throws InvalidDecimalNumberError. This is
+                        a Server Component, so one blank field 500s the page. */}
+                    <Amount raw={parseUsdc(v.trancheUsdc || '0')} size="m" />
                     {/* The judgment that produced this transaction, one click
                         away — the row is otherwise just an amount. */}
                     {v.verdict ? (
