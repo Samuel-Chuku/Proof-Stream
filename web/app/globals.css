@@ -900,6 +900,7 @@ code {
    the agent SPENT. Reversing that would break the one rule the whole interface
    is read by. A bordered chip on the sunk fill, like an address. */
 .ps-x402 {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--ps-2);
