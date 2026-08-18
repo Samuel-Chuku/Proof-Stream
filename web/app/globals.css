@@ -933,6 +933,43 @@ code {
    Says plainly that a nanopayment is NOT its own Arc transaction: claiming
    otherwise would inflate the transaction count, which is the one number a
    judge is most likely to check. */
+/* Floats OVER the page rather than displacing it. Two things went wrong before
+   this existed: as a sibling inside the flex header it laid out beside the chip
+   instead of below it, and as an inline block it pushed every paragraph under
+   it down on open and back up on close — so reading one receipt moved the text
+   you were already reading.
+   `white-space: normal` is load-bearing: the chip sets `nowrap`, which a child
+   inherits, and that alone turns this panel into one long horizontal line. */
+.ps-x402-pop {
+  position: absolute;
+  top: calc(100% + var(--ps-1));
+  right: 0;
+  z-index: 20;
+  display: block;
+  width: 280px;
+  padding: var(--ps-2) var(--ps-3);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+  background: var(--ps-surface);
+  box-shadow: var(--ps-shadow-2);
+  color: var(--ps-ink-dim);
+  text-align: left;
+  white-space: normal;
+  letter-spacing: 0;
+}
+
+.ps-x402-pop-receipt {
+  display: block;
+  margin-top: var(--ps-2);
+}
+
+/* A fixed 280px panel would overhang a narrow viewport. */
+@media (max-width: 420px) {
+  .ps-x402-pop {
+    width: min(280px, calc(100vw - var(--ps-4) * 2));
+  }
+}
+
 .ps-x402-note {
   display: flex;
   align-items: center;
