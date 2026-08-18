@@ -11,6 +11,17 @@ import { AddressChip } from './address-chip';
 import { AgentMark } from './agent-mark';
 
 const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
+
+/// The certified share as a PERCENTAGE OF THE MILESTONE.
+///
+/// It used to render as `0.50` directly beside a confidence of `0.90`, two
+/// numbers on the same 0-1 scale meaning entirely different things — one is how
+/// much of the job is done, the other is how sure the agent is about that. A
+/// reader could only tell them apart by knowing the system already.
+const share = (n: number | undefined) => (n === undefined ? '—' : `${Math.round(n * 100)}%`);
+
+/// Gateway transfer ids are long and nobody reads the middle.
+const receipt = (id: string) => (id.length > 18 ? `${id.slice(0, 10)}…${id.slice(-6)}` : id);
 const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
 
 /// The same bar the agent applies. Below it the attestor escalates instead of
@@ -91,8 +102,6 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
         <dd>
           <Confidence value={v.confidence} />
         </dd>
-        <dt>Judged by</dt>
-        <dd>{event.model}</dd>
         {event.txHash && (
           <>
             <dt>Transaction</dt>
@@ -105,7 +114,7 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
 
       <div className="ps-verdict-voice">
         <p className="ps-label ps-verdict-voice-head">
-          <AgentMark role="attestor" /> ATTESTOR · {event.model}
+          <AgentMark role="attestor" /> ATTESTOR
         </p>
         <p className="ps-verdict-reasoning">{v.reasoning}</p>
       </div>
@@ -113,10 +122,19 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
       {event.verifier ? (
         <div className="ps-verdict-voice">
           <p className="ps-label ps-verdict-voice-head">
-            <AgentMark role="verifier" /> VERIFIER · {event.verifier.model} · PAID{' '}
-            {event.verificationFeeUsdc} USDC
+            <AgentMark role="verifier" /> VERIFIER
+            {event.verificationFeeUsdc && (
+              <span className="ps-x402">x402 · {event.verificationFeeUsdc} USDC</span>
+            )}
           </p>
           <p className="ps-verdict-reasoning">{event.verifier.reasoning}</p>
+          {event.verificationFeeUsdc && (
+            <p className="ps-caption ps-x402-note">
+              Paid before the answer was read.{' '}
+              {event.gatewayTransfer && <>Receipt {receipt(event.gatewayTransfer)}. </>}
+              Nanopayments settle in batches, so this is not a separate Arc transaction.
+            </p>
+          )}
         </div>
       ) : (
         <div className="ps-verdict-voice">
@@ -133,7 +151,7 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
       <div className="ps-verdict-foot">
         <span className="ps-label">
           {event.verifier
-            ? `BOTH AGREED — PAID AT ${pct(event.agreedFraction)}, THE LOWER OF THE TWO`
+            ? `BOTH AGREED — ${share(event.agreedFraction)} OF THE MILESTONE CERTIFIED, THE LOWER OF THE TWO`
             : 'DECIDED BY THE ATTESTOR ALONE'}
         </span>
         <span className="ps-label">{time(event.at)}</span>

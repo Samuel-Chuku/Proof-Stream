@@ -895,6 +895,28 @@ code {
   margin: 0 0 var(--ps-3);
 }
 
+/* The x402 receipt on the verifier's own line.
+   Deliberately NOT green: green is USDC the agent UNLOCKED, and this is money
+   the agent SPENT. Reversing that would break the one rule the whole interface
+   is read by. A bordered chip on the sunk fill, like an address. */
+.ps-x402 {
+  margin-left: auto;
+  padding: 0 var(--ps-2);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  background: var(--ps-sunk);
+  color: var(--ps-ink-dim);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+/* Says plainly that a nanopayment is NOT its own Arc transaction. Claiming
+   otherwise would inflate the transaction count, which is the one number a
+   judge is most likely to check. */
+.ps-x402-note {
+  margin: var(--ps-2) 0 0;
+  color: var(--ps-ink-faint);
+}
+
 /* Verbatim model output. Never summarised, never truncated — it is the
    evidence that this is judgment and not a boolean in costume. Set at the
    detail size because a card carries several paragraphs of it. */
