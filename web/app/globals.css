@@ -900,6 +900,9 @@ code {
    the agent SPENT. Reversing that would break the one rule the whole interface
    is read by. A bordered chip on the sunk fill, like an address. */
 .ps-x402 {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-2);
   margin-left: auto;
   padding: 0 var(--ps-2);
   border: var(--ps-bw-hair) solid var(--ps-border);
@@ -909,10 +912,31 @@ code {
   white-space: nowrap;
 }
 
-/* Says plainly that a nanopayment is NOT its own Arc transaction. Claiming
+/* The `?` sits INSIDE the chip, so the chip keeps its own border and the button
+   does not double it up. */
+.ps-x402-why {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: auto;
+}
+
+.ps-x402-why:hover,
+.ps-x402-why[aria-expanded='true'] {
+  background: transparent;
+  color: var(--ps-ink);
+}
+
+/* Folded away by default. It is the answer to a question, not a status, and
+   open on every decision it cost most of a screen on a busy stream.
+   Says plainly that a nanopayment is NOT its own Arc transaction: claiming
    otherwise would inflate the transaction count, which is the one number a
    judge is most likely to check. */
 .ps-x402-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ps-2);
   margin: var(--ps-2) 0 0;
   color: var(--ps-ink-faint);
 }

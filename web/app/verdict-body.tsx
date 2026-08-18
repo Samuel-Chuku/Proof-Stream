@@ -9,6 +9,7 @@ import { EXPLORER_URL } from '@proofstream/config';
 import type { AgentEvent } from '../lib/events';
 import { AddressChip } from './address-chip';
 import { AgentMark } from './agent-mark';
+import { X402Receipt } from './x402-receipt';
 
 const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
 
@@ -20,8 +21,6 @@ const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
 /// reader could only tell them apart by knowing the system already.
 const share = (n: number | undefined) => (n === undefined ? '—' : `${Math.round(n * 100)}%`);
 
-/// Gateway transfer ids are long and nobody reads the middle.
-const receipt = (id: string) => (id.length > 18 ? `${id.slice(0, 10)}…${id.slice(-6)}` : id);
 const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
 
 /// The same bar the agent applies. Below it the attestor escalates instead of
@@ -124,17 +123,10 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
           <p className="ps-label ps-verdict-voice-head">
             <AgentMark role="verifier" /> VERIFIER
             {event.verificationFeeUsdc && (
-              <span className="ps-x402">x402 · {event.verificationFeeUsdc} USDC</span>
+              <X402Receipt fee={event.verificationFeeUsdc} transfer={event.gatewayTransfer} />
             )}
           </p>
           <p className="ps-verdict-reasoning">{event.verifier.reasoning}</p>
-          {event.verificationFeeUsdc && (
-            <p className="ps-caption ps-x402-note">
-              Paid before the answer was read.{' '}
-              {event.gatewayTransfer && <>Receipt {receipt(event.gatewayTransfer)}. </>}
-              Nanopayments settle in batches, so this is not a separate Arc transaction.
-            </p>
-          )}
         </div>
       ) : (
         <div className="ps-verdict-voice">
