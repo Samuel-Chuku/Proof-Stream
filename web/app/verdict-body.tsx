@@ -9,8 +9,18 @@ import { EXPLORER_URL } from '@proofstream/config';
 import type { AgentEvent } from '../lib/events';
 import { AddressChip } from './address-chip';
 import { AgentMark } from './agent-mark';
+import { X402Receipt } from './x402-receipt';
 
 const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
+
+/// The certified share as a PERCENTAGE OF THE MILESTONE.
+///
+/// It used to render as `0.50` directly beside a confidence of `0.90`, two
+/// numbers on the same 0-1 scale meaning entirely different things — one is how
+/// much of the job is done, the other is how sure the agent is about that. A
+/// reader could only tell them apart by knowing the system already.
+const share = (n: number | undefined) => (n === undefined ? '—' : `${Math.round(n * 100)}%`);
+
 const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
 
 /// The same bar the agent applies. Below it the attestor escalates instead of
@@ -91,8 +101,6 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
         <dd>
           <Confidence value={v.confidence} />
         </dd>
-        <dt>Judged by</dt>
-        <dd>{event.model}</dd>
         {event.txHash && (
           <>
             <dt>Transaction</dt>
@@ -105,7 +113,7 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
 
       <div className="ps-verdict-voice">
         <p className="ps-label ps-verdict-voice-head">
-          <AgentMark role="attestor" /> ATTESTOR · {event.model}
+          <AgentMark role="attestor" /> ATTESTOR
         </p>
         <p className="ps-verdict-reasoning">{v.reasoning}</p>
       </div>
@@ -113,8 +121,10 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
       {event.verifier ? (
         <div className="ps-verdict-voice">
           <p className="ps-label ps-verdict-voice-head">
-            <AgentMark role="verifier" /> VERIFIER · {event.verifier.model} · PAID{' '}
-            {event.verificationFeeUsdc} USDC
+            <AgentMark role="verifier" /> VERIFIER
+            {event.verificationFeeUsdc && (
+              <X402Receipt fee={event.verificationFeeUsdc} transfer={event.gatewayTransfer} />
+            )}
           </p>
           <p className="ps-verdict-reasoning">{event.verifier.reasoning}</p>
         </div>
@@ -133,7 +143,7 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
       <div className="ps-verdict-foot">
         <span className="ps-label">
           {event.verifier
-            ? `BOTH AGREED — PAID AT ${pct(event.agreedFraction)}, THE LOWER OF THE TWO`
+            ? `BOTH AGREED — ${share(event.agreedFraction)} OF THE MILESTONE CERTIFIED, THE LOWER OF THE TWO`
             : 'DECIDED BY THE ATTESTOR ALONE'}
         </span>
         <span className="ps-label">{time(event.at)}</span>
