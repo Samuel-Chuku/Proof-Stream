@@ -386,19 +386,34 @@ function VerdictCard({ event }: { event: AgentEvent }) {
   // "HELD · 30.000000 USDC", which says the opposite of what happened.
   const paid = event.event === 'unlocked';
   const blocked = event.event === 'unlock_failed';
-  const refused = !v.satisfies_milestone;
+  // READ THE DECISION THE PIPELINE MADE, not the verdict fields it decided from.
+  //
+  // This said `!v.satisfies_milestone`, which the pipeline STOPPED trusting: the
+  // fraction is the gate, because the same model on the same prompt returned
+  // satisfies=false alongside a fraction of 0.5 and a paragraph describing
+  // partial work. A flaky boolean was labelling decisions the agent had made on
+  // other grounds, so a verifier's veto and a low-confidence hold both rendered
+  // as REFUSED.
+  const refused = event.event === 'declined';
+  const vetoed = event.event === 'vetoed';
 
   // Green edge ONLY where money actually moved; ink for a refusal; faint for an
   // escalation; hatched for a release the CONTRACT stopped. See globals.css for
   // why there is no red.
-  const tone = paid ? 'paid' : blocked ? 'blocked' : refused ? 'refused' : 'held';
+  const tone = paid ? 'paid' : blocked ? 'blocked' : refused || vetoed ? 'refused' : 'held';
   const outcome = paid
     ? 'RELEASED'
     : blocked
-      ? 'BLOCKED BY THE ON-CHAIN POLICY'
-      : refused
-        ? 'REFUSED'
-        : 'HELD';
+      ? // Same distinction the panel below draws: the mandate can only be
+        // blamed when the mandate can explain it.
+        event.policyCouldExplain === false
+        ? 'DID NOT REACH THE CHAIN'
+        : 'BLOCKED BY THE ON-CHAIN POLICY'
+      : vetoed
+        ? 'VETOED BY THE VERIFIER'
+        : refused
+          ? 'REFUSED'
+          : 'HELD';
 
   return (
     <details className={`ps-verdict ps-verdict-${tone}`}>
