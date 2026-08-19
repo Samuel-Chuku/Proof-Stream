@@ -25,7 +25,7 @@ const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
 
 /// The same bar the agent applies. Below it the attestor escalates instead of
 /// unlocking, so this is the one line on the scale that means anything.
-const THRESHOLD = Number(process.env.AGENT_CONFIDENCE_THRESHOLD ?? 0.7);
+const THRESHOLD = Number(process.env.AGENT_CONFIDENCE_THRESHOLD || 0.7);
 
 /// Confidence as ten cells, not a traffic light.
 ///

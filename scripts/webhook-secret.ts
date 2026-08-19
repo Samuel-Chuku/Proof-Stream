@@ -24,7 +24,7 @@ if (!master) {
   process.exit(1);
 }
 
-const ingress = process.env.AGENT_INGRESS_URL ?? 'https://<your-ingress-host>';
+const ingress = process.env.AGENT_INGRESS_URL || 'https://<your-ingress-host>';
 const secret = createHmac('sha256', master).update(stream.toLowerCase()).digest('hex');
 
 console.log('Configure this webhook on the target repository:\n');

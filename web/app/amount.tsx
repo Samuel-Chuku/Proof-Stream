@@ -21,7 +21,12 @@ export function Amount({
   size?: 'xl' | 'm' | 's';
   suffix?: boolean;
 }) {
-  const value = Number(raw);
+  // Rounded on the way in, because `raw` is DEFINED as whole 6-decimal units
+  // and the modulo below turns any fraction into digits rather than dropping
+  // it: a caller passing 1004999.9999999999 rendered `1.4999.999999999884`.
+  // Callers should convert with parseUsdc; this makes the component safe when
+  // one does not.
+  const value = Math.round(Number(raw));
   const whole = Math.trunc(value / USDC);
   // Padded, not rounded: 6 dp always, so the column never changes width.
   const fraction = String(Math.abs(value % USDC)).padStart(6, '0');
