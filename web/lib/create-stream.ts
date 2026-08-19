@@ -110,6 +110,25 @@ export function advisories(terms: StreamTerms): string[] {
   const notes: string[] = [];
   const budget = usdc(terms.budget || '0');
   const dailyCap = usdc(terms.dailyUnlockCap || '0');
+  const maxTranche = usdc(terms.maxTranche || '0');
+
+  // A per-certification cap below the budget does not throttle a rogue agent so
+  // much as meter an honest contributor: the milestone can then only be paid in
+  // full across several
+  // certifications, and EACH ONE needs its own merge inside the window. When
+  // those merges never arrive, the remainder refunds to the employer, who keeps
+  // the finished work.
+  //
+  // On 2026-08-08 that cost a real contributor 67 of the 97 USDC both agents
+  // agreed was owed. Almost all of the damage came from nobody doing this
+  // arithmetic before deploying — which is exactly what a form is for. Listed
+  // first because it is the more expensive of the two mistakes.
+  if (maxTranche > 0n && budget > 0n && maxTranche < budget) {
+    const certifications = (budget + maxTranche - 1n) / maxTranche;
+    notes.push(
+      `A per-certification cap of ${terms.maxTranche} USDC against a ${terms.budget} USDC budget means the agent needs ${certifications} separate certifications to pay this milestone in full, and each one needs its own merge inside the milestone's window. Anything it never gets to certify returns to you rather than to the contributor. Leave the cap at the full budget unless you specifically want to throttle the rate.`,
+    );
+  }
 
   if (dailyCap > 0n && budget > 0n && dailyCap < budget) {
     notes.push(

@@ -36,6 +36,8 @@
     "test:serialize": "tsx --test agent/test/serialize.test.ts",
     "test:poll": "tsx --test agent/test/poll.test.ts",
     "test:caps": "tsx --test web/test/caps.test.ts",
+    "test:metering": "tsx --test agent/test/metering.test.ts",
+    "test:create-stream": "tsx --test web/test/create-stream.test.ts",
     "watch": "tsx --env-file-if-exists=.env scripts/watch.ts"
   },
   "devDependencies": {

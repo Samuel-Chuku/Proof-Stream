@@ -7,6 +7,7 @@ import { formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config'
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
 import { env } from './env';
 import { fetchDiff, type MergedPr } from './github';
+import { meterCertification } from './metering';
 import { buySecondOpinion } from './pay';
 import { resolveStreams, type StreamEntry } from './registry';
 import { serialize } from './serialize';
@@ -259,7 +260,11 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // the contract's `earned()` meters when it arrives. The agent may certify a
   // milestone complete on day one and the contributor still collects on
   // schedule — which is why one certification keeps paying with no further PRs.
-  const desiredBps = BigInt(Math.round(agreedFraction * 10_000));
+  // All of the certification arithmetic lives in `metering.ts` so it can be
+  // tested without an .env or a chain (`pnpm test:metering`). It had none, and
+  // it decides what a contributor is paid.
+  const { desiredBps, certifiedBps, cappedTarget, trancheAdded, metered, raises } =
+    meterCertification(agreedFraction, stream);
 
   // On-chain `certifiedBps` is monotonic, so a verdict at or below the standing
   // one reverts. Judging the same work twice — a redelivered webhook, a
@@ -275,17 +280,12 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     return 'skipped';
   }
 
-  // Meter to the policy rather than reverting against it. `maxTranche` caps how
-  // much entitlement ONE attestation may create; exceeding it would revert and
-  // throw the verdict away, when certification is monotonic and the remainder
-  // can simply be added by the next judgment.
-  const fullTarget = (stream.budget * desiredBps) / 10_000n;
-  const headroom = stream.target + stream.maxTranche;
-  const cappedTarget = fullTarget > headroom ? headroom : fullTarget;
-  const certifiedBps = (cappedTarget * 10_000n) / stream.budget;
-  const metered = certifiedBps < desiredBps;
-
-  if (certifiedBps <= stream.certifiedBps) {
+  // `meterCertification` clipped to the policy rather than letting the contract
+  // revert: `maxTranche` caps how much entitlement ONE attestation may create,
+  // and throwing the whole verdict away over it would be worse than certifying
+  // part of it, because certification is monotonic and the next judgment can
+  // add the remainder.
+  if (!raises) {
     log({
       event: 'skipped',
       ...base,
@@ -339,7 +339,7 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     certifiedPercent: Number(certifiedBps) / 100,
     // What this attestation added to the contributor's claim. The money itself
     // arrives on the stream's schedule, not here.
-    trancheUsdc: formatUsdc(cappedTarget - stream.target),
+    trancheUsdc: formatUsdc(trancheAdded),
     claimUsdc: formatUsdc(cappedTarget),
     meteredByPolicy: metered || undefined,
     // False means the send failed for a reason the mandate cannot explain:
