@@ -495,7 +495,15 @@ export function StreamActions({ stream }: { stream: Stream }) {
               onChange={(e) => {
                 // Never below the per-certification cap, and always on a stop.
                 const picked = dailyStops[Number(e.target.value)];
-                setCapsDaily(picked < capsTranche ? stopFor(dailyStops, capsTranche) : picked);
+                const clamped = picked < capsTranche ? stopFor(dailyStops, capsTranche) : picked;
+                setCapsDaily(clamped);
+                // Put the DOM back ourselves. When the clamp lands on the value
+                // already in state, React bails out of re-rendering, so the
+                // thumb stays where the drag ended while the label reads the
+                // clamped figure. The committed value is the correct one either
+                // way, but a control that disagrees with its own label is the
+                // exact divergence caps.ts was written to remove.
+                e.target.value = String(stopIndexFor(dailyStops, clamped));
               }}
             />
           </div>

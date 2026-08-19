@@ -1,4 +1,4 @@
-import { EXPLORER_URL, formatUsdc, parseRepoSpec, parseUsdc } from '@proofstream/config';
+import { EXPLORER_URL, formatUsdc, parseRepoSpec, parseUsdcLoose } from '@proofstream/config';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { readStreamTransactions } from '../../../lib/onchain';
@@ -257,7 +257,7 @@ export default async function StreamPage({
                         from AGENT_EVENTS_URL, `??` does not catch '', and
                         parseUnits('') throws InvalidDecimalNumberError. This is
                         a Server Component, so one blank field 500s the page. */}
-                    <Amount raw={parseUsdc(v.trancheUsdc || '0')} size="m" />
+                    <Amount raw={parseUsdcLoose(v.trancheUsdc)} size="m" />
                     {/* The judgment that produced this transaction, one click
                         away — the row is otherwise just an amount. */}
                     {v.verdict ? (
@@ -418,7 +418,7 @@ function VerdictCard({ event }: { event: AgentEvent }) {
               a blocked release names the sum it was refused, because that is
               the point of the row, but never as a figure that reads as paid. */}
           {paid && event.trancheUsdc ? (
-            <Amount raw={parseUsdc(event.trancheUsdc)} size="s" />
+            <Amount raw={parseUsdcLoose(event.trancheUsdc)} size="s" />
           ) : blocked && event.trancheUsdc ? (
             <span className="ps-caption ps-amount-blocked">{event.trancheUsdc} USDC REFUSED</span>
           ) : (

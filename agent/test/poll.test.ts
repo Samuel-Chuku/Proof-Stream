@@ -119,3 +119,63 @@ test('a snapshot with no state at all is not mistaken for terminal', async () =>
   assert.equal(result.timedOut, true);
   assert.equal(result.state, `${TIMEOUT_PREFIX}INITIATED`);
 });
+
+// A timeout must not throw away what the poll already saw.
+//
+// Circle reports SENT with a txHash before the state turns terminal. Discarding
+// it meant a certification that landed a second after the deadline was logged as
+// `unlock_failed` with no hash and no explorer link, and `alreadyJudged` then
+// stopped `reconcile` revisiting that pull request. The money moved and the
+// ledger said it had not.
+test('a timeout keeps the txHash the poll already saw', async () => {
+  const states = [
+    { state: 'INITIATED' },
+    { state: 'SENT', txHash: '0xabc123' },
+    { state: 'SENT', txHash: '0xabc123' },
+  ];
+  let i = 0;
+  const result = await pollUntilTerminal(async () => states[Math.min(i++, states.length - 1)], {
+    timeoutMs: 30,
+    intervalMs: 10,
+    sleep: async () => {},
+    now: (() => {
+      let t = 0;
+      return () => (t += 10);
+    })(),
+  });
+
+  assert.equal(result.timedOut, true);
+  assert.equal(result.txHash, '0xabc123', 'the hash seen before the deadline must survive it');
+  assert.match(result.state, /^TIMEOUT_AFTER_/);
+});
+
+test('a timeout that never saw a hash reports none, rather than inventing one', async () => {
+  const result = await pollUntilTerminal(async () => ({ state: 'INITIATED' }), {
+    timeoutMs: 30,
+    intervalMs: 10,
+    sleep: async () => {},
+    now: (() => {
+      let t = 0;
+      return () => (t += 10);
+    })(),
+  });
+  assert.equal(result.timedOut, true);
+  assert.equal(result.txHash, undefined);
+});
+
+test('a later snapshot without a hash does not erase an earlier one', async () => {
+  // Circle can answer with a sparse object. Merging rather than replacing means
+  // a hash, once seen, is not lost to a subsequent partial response.
+  const states = [{ state: 'SENT', txHash: '0xdef456' }, { state: 'CONFIRMING' }];
+  let i = 0;
+  const result = await pollUntilTerminal(async () => states[Math.min(i++, states.length - 1)], {
+    timeoutMs: 30,
+    intervalMs: 10,
+    sleep: async () => {},
+    now: (() => {
+      let t = 0;
+      return () => (t += 10);
+    })(),
+  });
+  assert.equal(result.txHash, '0xdef456');
+});

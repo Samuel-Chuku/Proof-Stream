@@ -23,8 +23,16 @@ const url = process.env.AGENT_EVENTS_URL || AGENT_EVENTS_URL_FALLBACK;
 // setInterval(tick, 0), the exact busy loop this change exists to remove, and a
 // watcher that never ticks would just be a hung process. So the floor wins over
 // the request, and anything unparseable falls back rather than becoming NaN.
-const requested = Number(process.env.WATCH_INTERVAL_MS || 5_000);
-const everyMs = Number.isFinite(requested) && requested >= 1_000 ? requested : 5_000;
+const FLOOR_MS = 1_000;
+const DEFAULT_MS = 5_000;
+const requested = Number(process.env.WATCH_INTERVAL_MS || DEFAULT_MS);
+// CLAMP, do not fall back. The comment above promises the floor wins over the
+// request, and falling back to the default broke that promise in the one
+// direction anyone would notice: WATCH_INTERVAL_MS=500 asked for faster and got
+// 5s, five times slower than the floor it was silently refused. Unparseable is
+// a different case and still takes the default, because there is no request to
+// honour.
+const everyMs = Number.isFinite(requested) ? Math.max(requested, FLOOR_MS) : DEFAULT_MS;
 
 type Verdict = {
   at?: string;

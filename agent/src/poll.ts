@@ -65,11 +65,20 @@ export async function pollUntilTerminal(
 
   const deadline = now() + timeoutMs;
   let last = 'INITIATED';
+  // KEEP WHAT WE SAW. Circle reports SENT with a txHash well before the state
+  // turns terminal, and a timeout used to discard it. The transaction then mines
+  // a second later, `confirmOnChain` finds no log yet, and the pipeline records
+  // `unlock_failed` with no hash and no explorer link — after which
+  // `alreadyJudged` stops `reconcile` ever revisiting that pull request. So a
+  // real, landed certification became permanently invisible, and the one value
+  // that would have let anyone find it was thrown away on the way out.
+  let seen: TxSnapshot | undefined;
 
   while (now() < deadline) {
     await sleep(intervalMs);
     try {
       const tx = await fetchSnapshot();
+      if (tx) seen = { ...seen, ...tx };
       last = tx?.state ?? last;
       if (TERMINAL.has(last)) {
         return { state: last, txHash: tx?.txHash, errorReason: tx?.errorReason, timedOut: false };
@@ -80,5 +89,10 @@ export async function pollUntilTerminal(
     }
   }
 
-  return { state: `${TIMEOUT_PREFIX}${last}`, timedOut: true };
+  return {
+    state: `${TIMEOUT_PREFIX}${last}`,
+    txHash: seen?.txHash,
+    errorReason: seen?.errorReason,
+    timedOut: true,
+  };
 }
