@@ -420,7 +420,9 @@ function VerdictCard({ event }: { event: AgentEvent }) {
           {paid && event.trancheUsdc ? (
             <Amount raw={parseUsdcLoose(event.trancheUsdc)} size="s" />
           ) : blocked && event.trancheUsdc ? (
-            <span className="ps-caption ps-amount-blocked">{event.trancheUsdc} USDC REFUSED</span>
+            <span className="ps-caption ps-amount-blocked">
+              {event.trancheUsdc} USDC {event.policyCouldExplain === false ? 'NOT SENT' : 'REFUSED'}
+            </span>
           ) : (
             <span className="ps-caption">NO PAYOUT</span>
           )}

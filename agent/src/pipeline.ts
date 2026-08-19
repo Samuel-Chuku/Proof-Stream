@@ -313,6 +313,24 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   const result = await sendCertification(streamAddress, attestation, signature);
   const outcome: PipelineOutcome = result.state === 'COMPLETE' ? 'unlocked' : 'unlock_failed';
 
+  // COULD THE POLICY HAVE REFUSED THIS, OR DID WE NEVER GET AS FAR AS ASKING?
+  //
+  // `unlock_failed` covers both, and the dashboard was asserting the first: "THE
+  // CONTRACT REFUSED THIS RELEASE ... because it would have exceeded the
+  // on-chain limits". During the townhall on 2026-08-18 it said exactly that
+  // about a release the contract never saw. The identical certification — 20% of
+  // the budget, 20 USDC added, the same caps — succeeded 44 minutes later
+  // untouched, so the policy was never the thing standing in the way.
+  //
+  // We can tell the difference, because the agent already read the caps. It
+  // METERS to `maxTranche`, so a per-certification violation is impossible by
+  // construction; and a step at or under the daily ceiling cannot be the first
+  // thing that day to breach it. When both hold, whatever refused this was not
+  // the mandate, and claiming otherwise turns the strongest demo in the product
+  // into a claim that does not survive being checked.
+  const added = cappedTarget - stream.target;
+  const withinKnownPolicy = added <= stream.maxTranche && added <= stream.dailyUnlockCap;
+
   log({
     event: outcome,
     ...base,
@@ -324,6 +342,9 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     trancheUsdc: formatUsdc(cappedTarget - stream.target),
     claimUsdc: formatUsdc(cappedTarget),
     meteredByPolicy: metered || undefined,
+    // False means the send failed for a reason the mandate cannot explain:
+    // gas, the estimator, the network. The UI must not call that a policy block.
+    policyCouldExplain: outcome === 'unlock_failed' ? !withinKnownPolicy : undefined,
     nonce: Number(attestation.nonce),
     circleTransactionId: result.transactionId,
     state: result.state,

@@ -82,18 +82,34 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
           agents AGREED here. What stopped it was the mandate the employer set
           on the contract, which is the one claim in this product that cannot be
           taken on trust and this is the row that proves it. */}
-      {blocked && (
-        <div className="ps-invert ps-revert">
-          <p className="ps-label">THE CONTRACT REFUSED THIS RELEASE</p>
-          <p className="ps-body">
-            Both agents approved it. The transaction never reached the chain because it would have
-            exceeded the on-chain limits this stream was deployed with — the agent physically cannot
-            spend beyond its mandate, and no amount of agreement between the two of them changes
-            that.
-          </p>
-          {event.errorReason && <p className="ps-caption">NODE REPORTED: {event.errorReason}</p>}
-        </div>
-      )}
+      {blocked &&
+        (event.policyCouldExplain !== false ? (
+          <div className="ps-invert ps-revert">
+            <p className="ps-label">THE CONTRACT REFUSED THIS RELEASE</p>
+            <p className="ps-body">
+              Both agents approved it. The transaction never reached the chain because it would have
+              exceeded the on-chain limits this stream was deployed with — the agent physically
+              cannot spend beyond its mandate, and no amount of agreement between the two of them
+              changes that.
+            </p>
+            {event.errorReason && <p className="ps-caption">NODE REPORTED: {event.errorReason}</p>}
+          </div>
+        ) : (
+          /* The release failed, but NOT because of the mandate. The agent meters
+             to the per-certification cap before it signs, and this step was also
+             within the daily one, so the policy cannot be the explanation.
+             Saying it anyway is how a live demo ends up claiming the contract
+             refused something the contract never saw. */
+          <div className="ps-invert ps-revert">
+            <p className="ps-label">THIS RELEASE DID NOT REACH THE CHAIN</p>
+            <p className="ps-body">
+              Both agents approved it and it was inside the limits this stream was deployed with, so
+              the mandate is not what stopped it. The send itself failed. Nothing was certified and
+              nothing was spent, and the next merge will be judged on the same work.
+            </p>
+            {event.errorReason && <p className="ps-caption">NODE REPORTED: {event.errorReason}</p>}
+          </div>
+        ))}
       <dl className="ps-verdict-fields">
         <dt>Satisfies milestone</dt>
         <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>
