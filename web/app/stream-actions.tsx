@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { erc20Abi } from 'viem';
 import { useAccount, useConfig, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { capStops, stopFor, stopIndexFor } from '../lib/caps';
-import { ERC20_ABI, USDC } from '../lib/chain';
+import { USDC } from '../lib/chain';
 import type { Stream } from '../lib/stream';
 import { Amount } from './amount';
 import { Connect } from './connect';
@@ -272,7 +273,7 @@ export function StreamActions({ stream }: { stream: Stream }) {
                 // approve then fund: the stream pulls with transferFrom.
                 const approval = await writeContractAsync({
                   address: USDC,
-                  abi: ERC20_ABI,
+                  abi: erc20Abi,
                   functionName: 'approve',
                   args: [stream.address as `0x${string}`, outstanding],
                 });

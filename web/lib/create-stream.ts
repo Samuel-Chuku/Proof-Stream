@@ -8,10 +8,10 @@
 // openMilestone, fund, pause and closeMilestone are all unreachable, and worse,
 // closeMilestone would refund the unspent budget INTO the factory, permanently.
 // Deploying from the user's wallet is what makes the stream genuinely theirs.
-import { formatRepoSpec } from '@proofstream/config';
-import { encodeFunctionData, parseUnits } from 'viem';
-import { STREAM_REGISTRY_ABI, WORK_STREAM_ABI, WORK_STREAM_BYTECODE } from './artifacts';
-import { ERC20_ABI, REGISTRY_ADDRESS, USDC } from './chain';
+import { formatRepoSpec, STREAM_REGISTRY_ABI, WORK_STREAM_ABI } from '@proofstream/config';
+import { encodeFunctionData, erc20Abi, parseUnits } from 'viem';
+import { WORK_STREAM_BYTECODE } from './bytecode';
+import { REGISTRY_ADDRESS, USDC } from './chain';
 
 export type StreamTerms = {
   /** Who gets paid. */
@@ -176,7 +176,7 @@ export function registerStream(stream: `0x${string}`) {
 export function approveBudget(stream: `0x${string}`, budget: string) {
   return {
     address: USDC,
-    abi: ERC20_ABI,
+    abi: erc20Abi,
     functionName: 'approve',
     args: [stream, usdc(budget)],
   } as const;

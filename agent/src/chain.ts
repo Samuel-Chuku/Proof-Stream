@@ -1,59 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
+import { WORK_STREAM_ABI } from '@proofstream/config';
 import { createPublicClient, encodeFunctionData, http, parseAbiItem } from 'viem';
 import { arcTestnet } from 'viem/chains';
 import { env } from './env';
 import { pollUntilTerminal } from './poll';
-
-const WORK_STREAM_ABI = [
-  { type: 'function', name: 'agent', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
-  { type: 'function', name: 'milestoneClosed', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'milestoneEndsAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'activatedAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint64' }] },
-  { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
-  { type: 'function', name: 'milestoneHash', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
-  { type: 'function', name: 'repo', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
-  { type: 'function', name: 'funded', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'budget', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'fullyFunded', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'isActive', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'certifiedBps', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'target', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'earned', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'milestoneIndex', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'nonce', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'accrued', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  {
-    type: 'function',
-    name: 'policy',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'address' }],
-  },
-  {
-    type: 'function',
-    name: 'certify',
-    stateMutability: 'nonpayable',
-    inputs: [
-      {
-        type: 'tuple',
-        name: 'a',
-        components: [
-          { name: 'nonce', type: 'uint256' },
-          { name: 'certifiedBps', type: 'uint256' },
-          { name: 'prNumber', type: 'uint256' },
-          { name: 'commitSha', type: 'string' },
-          { name: 'confidenceBps', type: 'uint256' },
-          { name: 'issuedAt', type: 'uint256' },
-          { name: 'milestoneHash', type: 'bytes32' },
-        ],
-      },
-      { name: 'signature', type: 'bytes' },
-    ],
-    outputs: [],
-  },
-] as const;
 
 /// Emitted by `certify`. `nonce` and `prNumber` are indexed, so a timed-out
 /// transaction can be looked up by exactly the values it was signed over.

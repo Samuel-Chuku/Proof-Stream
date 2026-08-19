@@ -1,7 +1,8 @@
 'use client';
 
+import { erc20Abi } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
-import { ERC20_ABI, USDC } from '../lib/chain';
+import { USDC } from '../lib/chain';
 
 /// The connected wallet's USDC balance, in the nav, on every page.
 ///
@@ -23,7 +24,7 @@ export function UsdcBalance() {
 
   const { data, isLoading } = useReadContract({
     address: USDC,
-    abi: ERC20_ABI,
+    abi: erc20Abi,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     query: {
