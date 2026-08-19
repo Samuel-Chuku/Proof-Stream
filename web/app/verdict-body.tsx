@@ -9,13 +9,23 @@ import { EXPLORER_URL } from '@proofstream/config';
 import type { AgentEvent } from '../lib/events';
 import { AddressChip } from './address-chip';
 import { AgentMark } from './agent-mark';
+import { X402Receipt } from './x402-receipt';
 
 const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
+
+/// The certified share as a PERCENTAGE OF THE MILESTONE.
+///
+/// It used to render as `0.50` directly beside a confidence of `0.90`, two
+/// numbers on the same 0-1 scale meaning entirely different things — one is how
+/// much of the job is done, the other is how sure the agent is about that. A
+/// reader could only tell them apart by knowing the system already.
+const share = (n: number | undefined) => (n === undefined ? '—' : `${Math.round(n * 100)}%`);
+
 const time = (iso: string) => `${iso.slice(11, 19)} UTC`;
 
 /// The same bar the agent applies. Below it the attestor escalates instead of
 /// unlocking, so this is the one line on the scale that means anything.
-const THRESHOLD = Number(process.env.AGENT_CONFIDENCE_THRESHOLD ?? 0.7);
+const THRESHOLD = Number(process.env.AGENT_CONFIDENCE_THRESHOLD || 0.7);
 
 /// Confidence as ten cells, not a traffic light.
 ///
@@ -72,18 +82,34 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
           agents AGREED here. What stopped it was the mandate the employer set
           on the contract, which is the one claim in this product that cannot be
           taken on trust and this is the row that proves it. */}
-      {blocked && (
-        <div className="ps-invert ps-revert">
-          <p className="ps-label">THE CONTRACT REFUSED THIS RELEASE</p>
-          <p className="ps-body">
-            Both agents approved it. The transaction never reached the chain because it would have
-            exceeded the on-chain limits this stream was deployed with — the agent physically cannot
-            spend beyond its mandate, and no amount of agreement between the two of them changes
-            that.
-          </p>
-          {event.errorReason && <p className="ps-caption">NODE REPORTED: {event.errorReason}</p>}
-        </div>
-      )}
+      {blocked &&
+        (event.policyCouldExplain !== false ? (
+          <div className="ps-invert ps-revert">
+            <p className="ps-label">THE CONTRACT REFUSED THIS RELEASE</p>
+            <p className="ps-body">
+              Both agents approved it. The transaction never reached the chain because it would have
+              exceeded the on-chain limits this stream was deployed with — the agent physically
+              cannot spend beyond its mandate, and no amount of agreement between the two of them
+              changes that.
+            </p>
+            {event.errorReason && <p className="ps-caption">NODE REPORTED: {event.errorReason}</p>}
+          </div>
+        ) : (
+          /* The release failed, but NOT because of the mandate. The agent meters
+             to the per-certification cap before it signs, and this step was also
+             within the daily one, so the policy cannot be the explanation.
+             Saying it anyway is how a live demo ends up claiming the contract
+             refused something the contract never saw. */
+          <div className="ps-invert ps-revert">
+            <p className="ps-label">THIS RELEASE DID NOT REACH THE CHAIN</p>
+            <p className="ps-body">
+              Both agents approved it and it was inside the limits this stream was deployed with, so
+              the mandate is not what stopped it. The send itself failed. Nothing was certified and
+              nothing was spent, and the next merge will be judged on the same work.
+            </p>
+            {event.errorReason && <p className="ps-caption">NODE REPORTED: {event.errorReason}</p>}
+          </div>
+        ))}
       <dl className="ps-verdict-fields">
         <dt>Satisfies milestone</dt>
         <dd>{v.satisfies_milestone ? 'YES' : 'NO'}</dd>
@@ -91,8 +117,6 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
         <dd>
           <Confidence value={v.confidence} />
         </dd>
-        <dt>Judged by</dt>
-        <dd>{event.model}</dd>
         {event.txHash && (
           <>
             <dt>Transaction</dt>
@@ -105,7 +129,7 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
 
       <div className="ps-verdict-voice">
         <p className="ps-label ps-verdict-voice-head">
-          <AgentMark role="attestor" /> ATTESTOR · {event.model}
+          <AgentMark role="attestor" /> ATTESTOR
         </p>
         <p className="ps-verdict-reasoning">{v.reasoning}</p>
       </div>
@@ -113,8 +137,10 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
       {event.verifier ? (
         <div className="ps-verdict-voice">
           <p className="ps-label ps-verdict-voice-head">
-            <AgentMark role="verifier" /> VERIFIER · {event.verifier.model} · PAID{' '}
-            {event.verificationFeeUsdc} USDC
+            <AgentMark role="verifier" /> VERIFIER
+            {event.verificationFeeUsdc && (
+              <X402Receipt fee={event.verificationFeeUsdc} transfer={event.gatewayTransfer} />
+            )}
           </p>
           <p className="ps-verdict-reasoning">{event.verifier.reasoning}</p>
         </div>
@@ -133,7 +159,7 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
       <div className="ps-verdict-foot">
         <span className="ps-label">
           {event.verifier
-            ? `BOTH AGREED — PAID AT ${pct(event.agreedFraction)}, THE LOWER OF THE TWO`
+            ? `BOTH AGREED — ${share(event.agreedFraction)} OF THE MILESTONE CERTIFIED, THE LOWER OF THE TWO`
             : 'DECIDED BY THE ATTESTOR ALONE'}
         </span>
         <span className="ps-label">{time(event.at)}</span>

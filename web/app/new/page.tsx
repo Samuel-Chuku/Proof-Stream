@@ -12,6 +12,14 @@ import { Connect } from '../connect';
 type Repo = { id: number; fullName: string; private: boolean; defaultBranch: string };
 type Step = 'deploy' | 'register' | 'approve' | 'fund';
 
+/// The budget the form opens on. The caps below are DERIVED from it rather than
+/// typed out again: they used to be literals, and when `suggestedCaps` moved to
+/// recommending the whole budget the literals stayed at a quarter. Anyone who
+/// accepted the default budget therefore deployed a 7.50 ceiling on a 30 USDC
+/// stream without ever seeing the number change, the agent metered their
+/// certification to a quarter, and the rest refunded to the employer on close.
+const INITIAL_BUDGET = '30';
+
 const ORDER: { key: Step; label: string; detail: string }[] = [
   { key: 'deploy', label: 'DEPLOY YOUR STREAM', detail: 'Created from your wallet, so you own it.' },
   { key: 'register', label: 'ANNOUNCE IT TO THE AGENT', detail: 'Without this the agent never sees your repository.' },
@@ -56,12 +64,11 @@ export default function NewStream() {
     contributor: '' as `0x${string}`,
     agent: AGENT_ADDRESS,
     milestone: '',
-    budget: '30',
+    budget: INITIAL_BUDGET,
     durationSeconds: 1800,
     repo: '',
     branch: '',
-    maxTranche: '7.50',
-    dailyUnlockCap: '30.00',
+    ...suggestedCaps(INITIAL_BUDGET),
     payee: '' as `0x${string}`,
   });
 

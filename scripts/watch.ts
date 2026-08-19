@@ -11,8 +11,28 @@
 // while the agent restarts, and a 502 from the tunnel.
 import { AGENT_EVENTS_URL_FALLBACK } from './watch-config';
 
-const url = process.env.AGENT_EVENTS_URL ?? AGENT_EVENTS_URL_FALLBACK;
-const everyMs = Number(process.env.WATCH_INTERVAL_MS ?? 5_000);
+const url = process.env.AGENT_EVENTS_URL || AGENT_EVENTS_URL_FALLBACK;
+// `||`, not `??`. A variable that is PRESENT BUT BLANK is the normal state of a
+// freshly copied .env, and `??` only catches null and undefined: Number('') is
+// 0, so a blank line here became setInterval(tick, 0) and a busy loop.
+//
+// `||` alone is not enough HERE, though, and this is where this file differs
+// from the reconcile knobs in agent/src/env.ts. There '0' is documented as
+// "disable" and `||` deliberately lets it through, because '0' is a truthy
+// string. A watcher has no such meaning: WATCH_INTERVAL_MS=0 is still
+// setInterval(tick, 0), the exact busy loop this change exists to remove, and a
+// watcher that never ticks would just be a hung process. So the floor wins over
+// the request, and anything unparseable falls back rather than becoming NaN.
+const FLOOR_MS = 1_000;
+const DEFAULT_MS = 5_000;
+const requested = Number(process.env.WATCH_INTERVAL_MS || DEFAULT_MS);
+// CLAMP, do not fall back. The comment above promises the floor wins over the
+// request, and falling back to the default broke that promise in the one
+// direction anyone would notice: WATCH_INTERVAL_MS=500 asked for faster and got
+// 5s, five times slower than the floor it was silently refused. Unparseable is
+// a different case and still takes the default, because there is no request to
+// honour.
+const everyMs = Number.isFinite(requested) ? Math.max(requested, FLOOR_MS) : DEFAULT_MS;
 
 type Verdict = {
   at?: string;

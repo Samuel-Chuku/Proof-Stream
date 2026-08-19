@@ -895,6 +895,90 @@ code {
   margin: 0 0 var(--ps-3);
 }
 
+/* The x402 receipt on the verifier's own line.
+   Deliberately NOT green: green is USDC the agent UNLOCKED, and this is money
+   the agent SPENT. Reversing that would break the one rule the whole interface
+   is read by. A bordered chip on the sunk fill, like an address. */
+.ps-x402 {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-2);
+  margin-left: auto;
+  padding: 0 var(--ps-2);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  background: var(--ps-sunk);
+  color: var(--ps-ink-dim);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+/* The `?` sits INSIDE the chip, so the chip keeps its own border and the button
+   does not double it up. */
+.ps-x402-why {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: auto;
+}
+
+.ps-x402-why:hover,
+.ps-x402-why[aria-expanded='true'] {
+  background: transparent;
+  color: var(--ps-ink);
+}
+
+/* Folded away by default. It is the answer to a question, not a status, and
+   open on every decision it cost most of a screen on a busy stream.
+   Says plainly that a nanopayment is NOT its own Arc transaction: claiming
+   otherwise would inflate the transaction count, which is the one number a
+   judge is most likely to check. */
+/* Floats OVER the page rather than displacing it. Two things went wrong before
+   this existed: as a sibling inside the flex header it laid out beside the chip
+   instead of below it, and as an inline block it pushed every paragraph under
+   it down on open and back up on close — so reading one receipt moved the text
+   you were already reading.
+   `white-space: normal` is load-bearing: the chip sets `nowrap`, which a child
+   inherits, and that alone turns this panel into one long horizontal line. */
+.ps-x402-pop {
+  position: absolute;
+  top: calc(100% + var(--ps-1));
+  right: 0;
+  z-index: 20;
+  display: block;
+  width: 280px;
+  padding: var(--ps-2) var(--ps-3);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+  background: var(--ps-surface);
+  box-shadow: var(--ps-shadow-2);
+  color: var(--ps-ink-dim);
+  text-align: left;
+  white-space: normal;
+  letter-spacing: 0;
+}
+
+.ps-x402-pop-receipt {
+  display: block;
+  margin-top: var(--ps-2);
+}
+
+/* A fixed 280px panel would overhang a narrow viewport. */
+@media (max-width: 420px) {
+  .ps-x402-pop {
+    width: min(280px, calc(100vw - var(--ps-4) * 2));
+  }
+}
+
+.ps-x402-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ps-2);
+  margin: var(--ps-2) 0 0;
+  color: var(--ps-ink-faint);
+}
+
 /* Verbatim model output. Never summarised, never truncated — it is the
    evidence that this is judgment and not a boolean in costume. Set at the
    detail size because a card carries several paragraphs of it. */

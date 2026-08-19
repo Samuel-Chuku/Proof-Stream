@@ -20,6 +20,26 @@ export function parseUsdc(human: string): bigint {
   return parseUnits(human, USDC_DECIMALS);
 }
 
+/** Human string → 6-dp raw units, or 0n if it is not a number at all.
+ *
+ *  FOR UNTRUSTED INPUT ONLY. `parseUsdc` throws `InvalidDecimalNumberError` on
+ *  anything that is not a decimal, which is correct for a form field the user
+ *  can fix. It is wrong for a value that arrived over HTTP from the agent's
+ *  event feed: that throw escapes an async Server Component and takes the whole
+ *  page down, where the worst a bad row should ever do is render as zero.
+ *
+ *  Deliberately silent. A malformed amount in a log is not something a reader of
+ *  the stream page can act on, and half a page is worth more than none.
+ */
+export function parseUsdcLoose(human: string | undefined | null): bigint {
+  if (typeof human !== 'string' || human.trim() === '') return 0n;
+  try {
+    return parseUnits(human.trim(), USDC_DECIMALS);
+  } catch {
+    return 0n;
+  }
+}
+
 /** 18-dp native gas raw units → human string */
 export function formatNative(raw: bigint): string {
   return formatUnits(raw, NATIVE_DECIMALS);

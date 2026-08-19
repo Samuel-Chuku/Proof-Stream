@@ -17,11 +17,11 @@ export { arcTestnet };
 export const USDC = '0x3600000000000000000000000000000000000000' as const;
 
 /** Deployed once for the whole system; every employer announces their stream here. */
-export const REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ??
+export const REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ||
   '0x528B36beF91B338166F08aA41676e9f1f1BF019f') as `0x${string}`;
 
 /** The attestor a new stream appoints. A stream naming anyone else is ignored. */
-export const AGENT_ADDRESS = (process.env.NEXT_PUBLIC_AGENT_ADDRESS ??
+export const AGENT_ADDRESS = (process.env.NEXT_PUBLIC_AGENT_ADDRESS ||
   '0x2cd7cc0407218f905731f88c08eeb86a94dd634a') as `0x${string}`;
 
 export const EXPLORER = 'https://testnet.arcscan.app';

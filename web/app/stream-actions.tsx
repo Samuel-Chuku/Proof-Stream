@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAccount, useConfig, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
+import { capStops, stopFor, stopIndexFor } from '../lib/caps';
 import { ERC20_ABI, USDC } from '../lib/chain';
 import type { Stream } from '../lib/stream';
 import { Amount } from './amount';
@@ -123,6 +124,25 @@ export function StreamActions({ stream }: { stream: Stream }) {
   const outstanding = BigInt(stream.budget) - BigInt(stream.funded);
 
   const capBudget = Number(stream.budget);
+
+  /// Each slider is indexed over its own list of stops rather than driven by
+  /// min/max/step, so every position is a real value and the budget is always
+  /// reachable. See lib/caps.ts for why snapping in the handler was worse than
+  /// the bug it appeared to fix.
+  ///
+  /// Memoised because `capStops` is O(budget in whole USDC) where the min/max/step
+  /// it replaced was O(1), and this component re-renders every 30 seconds off the
+  /// `now` clock above. Unmemoised, a large-budget stream rebuilt both lists on
+  /// every tick for a panel that is usually closed. The inputs are the caps and
+  /// the budget, all of which only change when a `raisePolicy` lands.
+  const trancheStops = useMemo(
+    () => capStops(Number(stream.maxTranche), capBudget),
+    [stream.maxTranche, capBudget],
+  );
+  const dailyStops = useMemo(
+    () => capStops(Number(stream.dailyUnlockCap), capBudget),
+    [stream.dailyUnlockCap, capBudget],
+  );
   // A stream already at the budget on both counts has nothing left to raise.
   const capsRaisable = Number(stream.maxTranche) < capBudget || Number(stream.dailyUnlockCap) < capBudget;
   const capsValid =
@@ -133,9 +153,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
 
   /// The daily cap can never sit below the per-certification one, so raising the
   /// latter pushes the former up with it rather than leaving an invalid pair.
+  /// The pushed value is snapped onto the DAILY slider's own stops, because a
+  /// value that is not one of its stops is exactly how the element and React
+  /// start disagreeing about what is selected.
   function setTranche(v: number) {
     setCapsTranche(v);
-    if (v > capsDaily) setCapsDaily(v);
+    if (v > capsDaily) setCapsDaily(stopFor(dailyStops, v));
   }
 
   // A settled milestone rejects fund, pause and close. Offering a button that
@@ -447,12 +470,12 @@ export function StreamActions({ stream }: { stream: Stream }) {
             <input
               type="range"
               className="ps-range"
-              min={Number(stream.maxTranche)}
-              max={capBudget}
-              step={1_000_000}
-              value={capsTranche}
+              min={0}
+              max={trancheStops.length - 1}
+              step={1}
+              value={stopIndexFor(trancheStops, capsTranche)}
               aria-label="Per-certification cap"
-              onChange={(e) => setTranche(Number(e.target.value))}
+              onChange={(e) => setTranche(trancheStops[Number(e.target.value)])}
             />
           </div>
 
@@ -464,12 +487,24 @@ export function StreamActions({ stream }: { stream: Stream }) {
             <input
               type="range"
               className="ps-range"
-              min={Number(stream.dailyUnlockCap)}
-              max={capBudget}
-              step={1_000_000}
-              value={capsDaily}
+              min={0}
+              max={dailyStops.length - 1}
+              step={1}
+              value={stopIndexFor(dailyStops, capsDaily)}
               aria-label="Daily cap"
-              onChange={(e) => setCapsDaily(Math.max(Number(e.target.value), capsTranche))}
+              onChange={(e) => {
+                // Never below the per-certification cap, and always on a stop.
+                const picked = dailyStops[Number(e.target.value)];
+                const clamped = picked < capsTranche ? stopFor(dailyStops, capsTranche) : picked;
+                setCapsDaily(clamped);
+                // Put the DOM back ourselves. When the clamp lands on the value
+                // already in state, React bails out of re-rendering, so the
+                // thumb stays where the drag ended while the label reads the
+                // clamped figure. The committed value is the correct one either
+                // way, but a control that disagrees with its own label is the
+                // exact divergence caps.ts was written to remove.
+                e.target.value = String(stopIndexFor(dailyStops, clamped));
+              }}
             />
           </div>
 

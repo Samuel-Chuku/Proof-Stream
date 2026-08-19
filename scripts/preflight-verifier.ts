@@ -152,7 +152,7 @@ try {
 // payment fails with invalid_signature.
 try {
   const { signPaymentAuthorization } = await import('../agent/src/pay');
-  const probeStream = (process.env.WORKSTREAM_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`;
+  const probeStream = (process.env.WORKSTREAM_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`;
   const { paymentRequired, payload } = await signPaymentAuthorization(probeStream);
 
   const requirements: any = (paymentRequired as any).accepts?.[0];

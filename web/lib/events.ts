@@ -39,6 +39,11 @@ export type AgentEvent = {
   };
   verificationFeeUsdc?: string;
   gatewayTransfer?: string;
+  /** Only present on `unlock_failed`. True when the request genuinely exceeded a
+   *  cap the agent can see, so the mandate is a real explanation. False means it
+   *  never reached the chain for some other reason and the UI must not claim the
+   *  contract refused it. */
+  policyCouldExplain?: boolean;
   agreedFraction?: number;
   trancheUsdc?: string;
   /** Circle's terminal state for the send. FAILED with no txHash means the node

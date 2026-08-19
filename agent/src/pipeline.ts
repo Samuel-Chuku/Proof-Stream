@@ -7,9 +7,10 @@ import { formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config'
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
 import { env } from './env';
 import { fetchDiff, type MergedPr } from './github';
+import { meterCertification } from './metering';
 import { buySecondOpinion } from './pay';
 import { resolveStreams, type StreamEntry } from './registry';
-import { meterCertification } from './metering';
+import { serialize } from './serialize';
 import { judge } from './verdict';
 
 const LOG_PATH = new URL('../verdicts.jsonl', import.meta.url).pathname;
@@ -65,10 +66,16 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
   // Sequential, not parallel. Each stream costs an inference call and a
   // verifier fee, and Arc's RPC rate-limits hard enough that a burst of
   // concurrent reads is the thing most likely to fail.
+  //
+  // That orders the streams WITHIN one call only. Webhook deliveries start this
+  // function unawaited and `reconcile()` runs alongside them, so judgments for a
+  // single stream are serialized ACROSS calls as well: two overlapping ones read
+  // the same nonce, both pay for a second opinion, and the loser reverts. See
+  // serialize.ts.
   const outcomes: PipelineOutcome[] = [];
   for (const entry of entries) {
     try {
-      outcomes.push(await judgeForStream(pr, entry));
+      outcomes.push(await serialize(entry.stream.toLowerCase(), () => judgeForStream(pr, entry)));
     } catch (err) {
       log({
         event: 'unlock_failed',
@@ -185,6 +192,24 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     return 'escalated';
   }
 
+  // Cheapest gate that can refuse, and it has to come BEFORE the fee.
+  //
+  // The agreed fraction is min(attestor, verifier), so it can never exceed the
+  // attestor's own: if THIS verdict already could not raise the standing
+  // certification, no second opinion can rescue it. The equivalent check further
+  // down runs after `buySecondOpinion`, so every redelivered webhook and every
+  // reconcile pass over already-judged work spent $0.005 of the agent's money to
+  // be told what the number on chain already said.
+  const attestorBps = BigInt(Math.round(verdict.tranche_fraction * 10_000));
+  if (attestorBps <= stream.certifiedBps) {
+    log({
+      event: 'skipped',
+      ...base,
+      reason: `already certified at ${Number(stream.certifiedBps) / 100}% — this verdict (${Number(attestorBps) / 100}%) cannot raise it, so no second opinion was bought`,
+    });
+    return 'skipped';
+  }
+
   // The attestor is convinced. Before it acts on its own conviction it buys an
   // independent second opinion and pays for it out of its own wallet. Fails
   // closed: if the verifier cannot be paid or does not answer, nothing unlocks.
@@ -288,6 +313,24 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   const result = await sendCertification(streamAddress, attestation, signature);
   const outcome: PipelineOutcome = result.state === 'COMPLETE' ? 'unlocked' : 'unlock_failed';
 
+  // COULD THE POLICY HAVE REFUSED THIS, OR DID WE NEVER GET AS FAR AS ASKING?
+  //
+  // `unlock_failed` covers both, and the dashboard was asserting the first: "THE
+  // CONTRACT REFUSED THIS RELEASE ... because it would have exceeded the
+  // on-chain limits". During the townhall on 2026-08-18 it said exactly that
+  // about a release the contract never saw. The identical certification — 20% of
+  // the budget, 20 USDC added, the same caps — succeeded 44 minutes later
+  // untouched, so the policy was never the thing standing in the way.
+  //
+  // We can tell the difference, because the agent already read the caps. It
+  // METERS to `maxTranche`, so a per-certification violation is impossible by
+  // construction; and a step at or under the daily ceiling cannot be the first
+  // thing that day to breach it. When both hold, whatever refused this was not
+  // the mandate, and claiming otherwise turns the strongest demo in the product
+  // into a claim that does not survive being checked.
+  const added = cappedTarget - stream.target;
+  const withinKnownPolicy = added <= stream.maxTranche && added <= stream.dailyUnlockCap;
+
   log({
     event: outcome,
     ...base,
@@ -299,6 +342,9 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     trancheUsdc: formatUsdc(trancheAdded),
     claimUsdc: formatUsdc(cappedTarget),
     meteredByPolicy: metered || undefined,
+    // False means the send failed for a reason the mandate cannot explain:
+    // gas, the estimator, the network. The UI must not call that a policy block.
+    policyCouldExplain: outcome === 'unlock_failed' ? !withinKnownPolicy : undefined,
     nonce: Number(attestation.nonce),
     circleTransactionId: result.transactionId,
     state: result.state,

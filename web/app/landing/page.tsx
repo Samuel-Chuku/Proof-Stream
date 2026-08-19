@@ -52,6 +52,7 @@ export default async function Landing() {
       percent:
         v.agreedFraction !== undefined ? Math.round(v.agreedFraction * 100) : undefined,
       reasoning: v.verdict?.reasoning?.slice(0, 240),
+      policyCouldExplain: v.policyCouldExplain,
     }));
 
   // Derived from the request rather than configured: a preview deployment then

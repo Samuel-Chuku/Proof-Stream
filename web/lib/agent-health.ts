@@ -56,7 +56,7 @@ const MAX_STREAMS_PER_REPO = 5;
 
 /// Mirrors MILESTONE_GRACE_HOURS in agent/src/env.ts, and reads the same
 /// variable so a host running both stays consistent.
-const GRACE_HOURS = Number(process.env.MILESTONE_GRACE_HOURS ?? 4);
+const GRACE_HOURS = Number(process.env.MILESTONE_GRACE_HOURS || 4);
 
 export type Coverage =
   | { served: true }

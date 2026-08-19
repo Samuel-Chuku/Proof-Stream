@@ -24,6 +24,9 @@ export type Decision = {
   amountUsdc?: string;
   percent?: number;
   reasoning?: string;
+  /** Only on `unlock_failed`. False means the mandate cannot explain it, so the
+   *  strip must not advertise a policy block that did not happen. */
+  policyCouldExplain?: boolean;
 };
 
 const ROTATE_MS = 6_000;
@@ -88,7 +91,9 @@ export function LiveDecisions({ decisions }: { decisions: Decision[] }) {
           <span>PR #{d.pr}</span>
           <span className="ps-live-sep">·</span>
           <span className={paid ? 'ps-live-verdict ps-live-paid' : 'ps-live-verdict'}>
-            {LABEL[d.event] ?? d.event.toUpperCase()}
+            {d.event === 'unlock_failed' && d.policyCouldExplain === false
+              ? 'DID NOT REACH THE CHAIN'
+              : (LABEL[d.event] ?? d.event.toUpperCase())}
             {d.percent !== undefined && ` ${d.percent}%`}
           </span>
           {paid && d.amountUsdc && <span className="ps-live-amount">{d.amountUsdc} USDC</span>}
