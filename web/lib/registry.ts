@@ -7,8 +7,19 @@
 // `latest` takes a different validation path on the node, while viem resolves
 // it to a number first and the real request IS capped.
 import { WORK_STREAM_ABI } from '@proofstream/config';
-import { createPublicClient, http, parseAbiItem } from 'viem';
+import { type ContractFunctionName, createPublicClient, http, parseAbiItem } from 'viem';
 import { arcTestnet } from 'viem/chains';
+
+/// The names below are checked against the GENERATED ABI at compile time.
+///
+/// This used to take a bare `string`, and `readContract` is called with
+/// `functionName as never`, so tsc could not see a name the contract does not
+/// have. That is exactly how `activatedAt` was read with no matching ABI entry
+/// on 2026-08-05: it compiled, the agent started, discovered zero streams, and
+/// looked like a registry fault. Now that the ABI is generated `as const`, viem
+/// can name every readable function and a typo fails the build instead.
+type ReadFn = ContractFunctionName<typeof WORK_STREAM_ABI, 'view' | 'pure'>;
+
 
 const STREAM_REGISTERED = parseAbiItem(
   'event StreamRegistered(address indexed stream, address indexed employer, address indexed agent, string repo)',
@@ -140,7 +151,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
   const settled = await Promise.all(
     discovered.map(async ({ stream, employer, block }): Promise<StreamSummary | null> => {
     try {
-      const read = <T>(functionName: string) =>
+      const read = <T>(functionName: ReadFn) =>
         rpc.readContract({ address: stream, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
 
       const [repo, milestone, budget, funded, earned, target, index, fullyFunded, paused, endsAt, closed, withdrawn] =

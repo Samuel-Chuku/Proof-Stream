@@ -328,8 +328,7 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // thing that day to breach it. When both hold, whatever refused this was not
   // the mandate, and claiming otherwise turns the strongest demo in the product
   // into a claim that does not survive being checked.
-  const added = cappedTarget - stream.target;
-  const withinKnownPolicy = added <= stream.maxTranche && added <= stream.dailyUnlockCap;
+  const withinKnownPolicy = trancheAdded <= stream.maxTranche && trancheAdded <= stream.dailyUnlockCap;
 
   log({
     event: outcome,
