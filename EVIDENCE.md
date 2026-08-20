@@ -527,12 +527,26 @@ balance rising.
 
 ## What the judgment cost
 
+Split, because only one of these left the agent's own wallet, and totalling them
+would dilute the claim this project exists to make.
+
+**Paid by the agent, on-chain, with no human in the loop:**
+
+| Item | USDC |
+| --- | --- |
+| Verification fees | 0.3850 |
+
+That figure reconciles with the chain: 77 paid calls at
+0.005 USDC is exactly the verifier's Gateway balance shown above. Gas is
+excluded because Arc charges it in USDC directly from the agent's wallet — see
+the per-transaction cost in the tables above.
+
+**Paid by us, on a shared API key** — the agents do not yet buy their own
+inference, and saying so is cheaper than being asked:
+
 | Item | USD |
 | --- | --- |
 | Attestor inference | $0.9316 |
 | Verifier inference | $0.6060 |
-| Verification fees | $0.3850 |
-| **Total** | **$1.9226 across 269 decisions** |
 
-Gas is excluded here because Arc charges it in USDC directly from the agent's
-wallet; see the transactions above for per-transaction cost.
+Across 269 decisions.

@@ -303,15 +303,29 @@ ${paidReviews.map((r) => `- \`${r.gatewayTransfer}\` — PR #${r.pr}, ${r.feeUsd
 
 ## What the judgment cost
 
+Split, because only one of these left the agent's own wallet, and totalling them
+would dilute the claim this project exists to make.
+
+**Paid by the agent, on-chain, with no human in the loop:**
+
+| Item | USDC |
+| --- | --- |
+| Verification fees | ${feesPaid.toFixed(4)} |
+
+That figure reconciles with the chain: ${paidReviews.length} paid calls at
+0.005 USDC is exactly the verifier's Gateway balance shown above. Gas is
+excluded because Arc charges it in USDC directly from the agent's wallet — see
+the per-transaction cost in the tables above.
+
+**Paid by us, on a shared API key** — the agents do not yet buy their own
+inference, and saying so is cheaper than being asked:
+
 | Item | USD |
 | --- | --- |
 | Attestor inference | $${attestorInference.toFixed(4)} |
 | Verifier inference | $${verifierInference.toFixed(4)} |
-| Verification fees | $${feesPaid.toFixed(4)} |
-| **Total** | **$${(attestorInference + verifierInference + feesPaid).toFixed(4)} across ${allVerdicts.filter((v) => v.verdict).length} decisions** |
 
-Gas is excluded here because Arc charges it in USDC directly from the agent's
-wallet; see the transactions above for per-transaction cost.
+Across ${allVerdicts.filter((v) => v.verdict).length} decisions.
 `;
 
 writeFileSync(new URL('../EVIDENCE.md', import.meta.url).pathname, md);
