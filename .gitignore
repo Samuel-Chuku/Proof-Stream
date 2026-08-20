@@ -16,3 +16,15 @@ agent/.backup/
 # EVIDENCE.md are what a reader needs; a working backlog with dated
 # post-mortems and unshipped roadmap is for us. Infra config stays tracked.
 todo.md
+
+# Runtime ledgers. These are WRITTEN BY THE RUNNING AGENT, so they are state,
+# not source. They were tracked until 2026-08-20, and a deploy overwrote
+# verdicts.jsonl with the committed snapshot and destroyed eight days of
+# decisions including the whole townhall run.
+#
+# Untracking stops `git pull` and `git checkout`. It does NOT stop
+# `git clean -fdx`, a fresh clone, or an rsync --delete, because the files
+# still sit inside the deploy directory. Set PROOFSTREAM_LOG_DIR to a path
+# outside the checkout on any deployed host — that is the actual fix.
+# `pnpm logs:pull` copies them down for evidence generation.
+agent/*.jsonl
