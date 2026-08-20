@@ -83,15 +83,43 @@ try {
 // Which streams will this agent actually serve? Same discovery path the agent
 // uses, so a green preflight means the running agent sees the same fleet.
 const { knownStreams, refresh } = await import('../agent/src/registry');
-await refresh(() => {});
+
+// Capture the discovery log rather than discarding it. This check used to
+// report "no registered stream appoints this agent", which is a CAUSE, and it
+// was wrong: on 2026-08-19 both live streams did appoint this agent and were
+// simply past their milestone end. Refusing, expiring, settling and appointing
+// someone else are four different situations that all end in an empty list, and
+// naming the wrong one sends you to check REGISTRY_ADDRESS for hours. Same
+// discipline as the `unlock_failed` fix in 593f0ca: report what happened, not
+// what you assume caused it.
+const discovery: Record<string, number> = {};
+await refresh((entry) => {
+  const event = String(entry.event ?? '');
+  if (event.startsWith('registry_')) discovery[event] = (discovery[event] ?? 0) + 1;
+});
 const served = knownStreams();
+
+const WHY: Record<string, string> = {
+  registry_expired: 'past milestone end + grace',
+  registry_settled: 'milestone closed',
+  registry_refused: 'appoints a different agent',
+  registry_skipped: 'names no repo',
+  registry_repo_crowded: 'another stream holds the repo',
+  registry_read_failed: 'could not be read',
+};
+const reasons = Object.entries(discovery)
+  .filter(([event]) => event in WHY)
+  .map(([event, n]) => `${n} ${WHY[event]}`)
+  .join(', ');
 
 add(
   'streams discovered',
   served.length > 0,
   served.length > 0
     ? served.map((s) => `${s.repo} → ${s.stream}`).join(', ')
-    : 'none — no registered stream appoints this agent (check REGISTRY_ADDRESS and the stream\'s agent())',
+    : reasons
+      ? `none served — ${reasons}`
+      : 'none — the registry returned no stream naming this agent (check REGISTRY_ADDRESS)',
 );
 
 /// How many discovered streams are actually funded and accruing. A fleet with

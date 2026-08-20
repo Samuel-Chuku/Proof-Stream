@@ -2,8 +2,19 @@
 // may ever be imported by a client component — the browser gets numbers, never
 // the transport.
 import { USDC_ADDRESS, WORK_STREAM_ABI } from '@proofstream/config';
-import { createPublicClient, erc20Abi, http } from 'viem';
+import { type ContractFunctionName, createPublicClient, erc20Abi, http } from 'viem';
 import { arcTestnet } from 'viem/chains';
+
+/// The names below are checked against the GENERATED ABI at compile time.
+///
+/// This used to take a bare `string`, and `readContract` is called with
+/// `functionName as never`, so tsc could not see a name the contract does not
+/// have. That is exactly how `activatedAt` was read with no matching ABI entry
+/// on 2026-08-05: it compiled, the agent started, discovered zero streams, and
+/// looked like a registry fault. Now that the ABI is generated `as const`, viem
+/// can name every readable function and a typo fails the build instead.
+type ReadFn = ContractFunctionName<typeof WORK_STREAM_ABI, 'view' | 'pure'>;
+
 
 /** Everything the page needs, as strings — bigints do not cross to the client. */
 export type Stream = {
@@ -89,7 +100,7 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
     batch: { multicall: true },
   });
 
-  const read = <T>(functionName: string) =>
+  const read = <T>(functionName: ReadFn) =>
     client.readContract({ address, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
 
   try {

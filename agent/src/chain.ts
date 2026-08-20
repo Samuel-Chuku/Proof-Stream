@@ -1,10 +1,21 @@
 import { randomUUID } from 'node:crypto';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import { WORK_STREAM_ABI } from '@proofstream/config';
-import { createPublicClient, encodeFunctionData, http, parseAbiItem } from 'viem';
+import { type ContractFunctionName, createPublicClient, encodeFunctionData, http, parseAbiItem } from 'viem';
 import { arcTestnet } from 'viem/chains';
 import { env } from './env';
 import { pollUntilTerminal } from './poll';
+
+/// The names below are checked against the GENERATED ABI at compile time.
+///
+/// This used to take a bare `string`, and `readContract` is called with
+/// `functionName as never`, so tsc could not see a name the contract does not
+/// have. That is exactly how `activatedAt` was read with no matching ABI entry
+/// on 2026-08-05: it compiled, the agent started, discovered zero streams, and
+/// looked like a registry fault. Now that the ABI is generated `as const`, viem
+/// can name every readable function and a typo fails the build instead.
+type ReadFn = ContractFunctionName<typeof WORK_STREAM_ABI, 'view' | 'pure'>;
+
 
 /// Emitted by `certify`. `nonce` and `prNumber` are indexed, so a timed-out
 /// transaction can be looked up by exactly the values it was signed over.
@@ -91,7 +102,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
 export async function readIdentity(
   streamAddress: `0x${string}`,
 ): Promise<{ agent: `0x${string}`; repo: string; closed: boolean; endsAt: bigint; activatedAt: bigint }> {
-  const read = <T>(functionName: string) =>
+  const read = <T>(functionName: ReadFn) =>
     withRetry(
       () =>
         publicClient.readContract({
@@ -118,7 +129,7 @@ export async function readIdentity(
 }
 
 export async function readStream(streamAddress: `0x${string}`): Promise<StreamState> {
-  const read = <T>(functionName: string) =>
+  const read = <T>(functionName: ReadFn) =>
     withRetry(
       () =>
         publicClient.readContract({
