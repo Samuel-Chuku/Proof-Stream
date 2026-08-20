@@ -26,33 +26,6 @@ export const AGENT_ADDRESS = (process.env.NEXT_PUBLIC_AGENT_ADDRESS ||
 
 export const EXPLORER = 'https://testnet.arcscan.app';
 
-/** Minimal ERC-20 surface — approve before funding, balance for display. */
-export const ERC20_ABI = [
-  {
-    type: 'function',
-    name: 'approve',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'spender', type: 'address' },
-      { name: 'value', type: 'uint256' },
-    ],
-    outputs: [{ type: 'bool' }],
-  },
-  {
-    type: 'function',
-    name: 'allowance',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'spender', type: 'address' },
-    ],
-    outputs: [{ type: 'uint256' }],
-  },
-  {
-    type: 'function',
-    name: 'balanceOf',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ type: 'uint256' }],
-  },
-] as const;
+// The ERC-20 surface is viem's `erc20Abi`, imported at each call site. There was
+// a hand-written copy here; it matched viem's signatures exactly, which is the
+// argument for not maintaining a second one.

@@ -6,6 +6,7 @@
 // `cast logs --to-block latest` and conclude it is soft — passing the string
 // `latest` takes a different validation path on the node, while viem resolves
 // it to a number first and the real request IS capped.
+import { WORK_STREAM_ABI } from '@proofstream/config';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 import { arcTestnet } from 'viem/chains';
 
@@ -18,22 +19,6 @@ const MAX_LOG_WINDOW = 45_000n;
 /// How many log windows to request at once. Enough to collapse the sweep,
 /// few enough not to trip Arc's rate limiter.
 const SWEEP_CONCURRENCY = 4;
-
-const WORK_STREAM_ABI = [
-  { type: 'function', name: 'repo', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
-  { type: 'function', name: 'milestone', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
-  { type: 'function', name: 'budget', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'funded', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'earned', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'target', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'milestoneIndex', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'fullyFunded', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'isActive', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'milestoneEndsAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'milestoneClosed', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'withdrawn', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-] as const;
 
 export type StreamSummary = {
   address: string;

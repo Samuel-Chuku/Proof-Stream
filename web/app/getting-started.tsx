@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { erc20Abi } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
-import { ERC20_ABI, USDC, arcTestnet } from '../lib/chain';
+import { USDC, arcTestnet } from '../lib/chain';
 import { Connect } from './connect';
 
 /// First-run guidance, as a checklist that reads real state rather than a
@@ -37,7 +38,7 @@ export function GettingStarted({ hasStreams }: { hasStreams: boolean }) {
 
   const { data: balance } = useReadContract({
     address: USDC,
-    abi: ERC20_ABI,
+    abi: erc20Abi,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     chainId: arcTestnet.id,
