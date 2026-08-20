@@ -53,7 +53,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0x3E35722196DA80c82A5ef65A279b8F085b96cBFB`](https://testnet.arcscan.app/address/0x3E35722196DA80c82A5ef65A279b8F085b96cBFB)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -63,7 +63,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0xF6362b807915FD998a03FaEc73361166333F4Ac9`](https://testnet.arcscan.app/address/0xF6362b807915FD998a03FaEc73361166333F4Ac9)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -116,7 +116,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0xCd708Df8f3C44B53D3440122B295629EFB7bf733`](https://testnet.arcscan.app/address/0xCd708Df8f3C44B53D3440122B295629EFB7bf733)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -124,7 +124,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0x678694fac27e493C2274EA1eb5620C412e4c4afe`](https://testnet.arcscan.app/address/0x678694fac27e493C2274EA1eb5620C412e4c4afe)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -132,7 +132,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0x8D9E87068dB41bE10972897ccaf73Bd20a71d289`](https://testnet.arcscan.app/address/0x8D9E87068dB41bE10972897ccaf73Bd20a71d289)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -140,7 +140,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0x82059bC1d4cdF0D48663568818f9938F62264BC4`](https://testnet.arcscan.app/address/0x82059bC1d4cdF0D48663568818f9938F62264BC4)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -149,7 +149,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0xD2cf76F4ed9940DCA441B9b26d73B3c87f795445`](https://testnet.arcscan.app/address/0xD2cf76F4ed9940DCA441B9b26d73B3c87f795445)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -157,7 +157,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0xBE7cfBDF1d6538124ddA65EDD8Eb091FCaeE88a8`](https://testnet.arcscan.app/address/0xBE7cfBDF1d6538124ddA65EDD8Eb091FCaeE88a8)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -166,7 +166,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0xCC37b370b0CdDb68846D0d4AcA1D7cF13B5b41A3`](https://testnet.arcscan.app/address/0xCC37b370b0CdDb68846D0d4AcA1D7cF13B5b41A3)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -176,7 +176,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0x8df7d23c93d4A3f8F53BD84a08BF2Afc5938a2bb`](https://testnet.arcscan.app/address/0x8df7d23c93d4A3f8F53BD84a08BF2Afc5938a2bb)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -185,7 +185,7 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 
 #### [`0xF5Ee20FbB318eFeC036276791F207D086C09B386`](https://testnet.arcscan.app/address/0xF5Ee20FbB318eFeC036276791F207D086C09B386)
 
-**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
 
 | When (UTC) | Action | PR | USDC | Agreed | Transaction |
 | --- | --- | --- | --- | --- | --- |
@@ -197,10 +197,217 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 The agent refusing to pay is as much a result as the agent paying. These cost
 inference only.
 
-**Count: 7**
+**Count: 220**
 
 | When (UTC) | PR | Outcome | Attestor confidence | Why |
 | --- | --- | --- | --- | --- |
+| 2026-07-29 09:22:04 | #3 | declined | 85% | work does not satisfy the milestone |
+| 2026-07-30 15:13:50 | #5 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 15:14:10 | #6 | declined | 85% | work does not satisfy the milestone |
+| 2026-07-30 15:14:30 | #7 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 15:14:49 | #8 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 15:24:36 | #9 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 15:24:56 | #10 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 15:25:13 | #11 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 15:26:11 | #13 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 15:27:13 | #15 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 15:27:32 | #16 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 15:59:17 | #17 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 15:59:37 | #18 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 16:00:54 | #21 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:01:25 | #22 | escalated | 75% | second opinion unavailable: verifier returned HTTP 500: {"error":"Review was not valid JSO |
+| 2026-07-30 16:01:48 | #23 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:02:07 | #24 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:17:34 | #25 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 16:17:54 | #26 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 16:18:13 | #27 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:19:27 | #29 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:19:48 | #30 | escalated | 60% | confidence 0.6 below threshold 0.7 |
+| 2026-07-30 16:20:13 | #31 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 16:20:42 | #32 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:36:09 | #33 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:36:27 | #34 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 16:36:45 | #35 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:37:46 | #37 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:38:49 | #39 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 16:39:08 | #40 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:54:37 | #41 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 16:54:56 | #42 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 16:55:15 | #43 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:56:15 | #45 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 16:57:18 | #47 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 16:57:36 | #48 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 17:13:05 | #49 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 17:13:24 | #50 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 17:13:42 | #51 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:14:42 | #53 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:15:54 | #55 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 17:16:13 | #56 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 17:31:41 | #57 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 17:32:00 | #58 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 17:32:18 | #59 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:33:16 | #61 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:34:20 | #63 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 17:34:38 | #64 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 17:50:16 | #65 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 17:50:35 | #66 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:51:35 | #68 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 17:52:37 | #70 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 17:52:56 | #71 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 18:08:25 | #72 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:08:45 | #73 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 18:09:03 | #74 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:10:06 | #76 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:11:08 | #78 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:11:26 | #79 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 18:26:59 | #80 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:27:17 | #81 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:27:35 | #82 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:28:36 | #84 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:29:39 | #86 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:29:58 | #87 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 18:45:26 | #88 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:45:45 | #89 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:46:05 | #90 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:47:04 | #92 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 18:48:05 | #94 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 18:48:24 | #95 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 20:12:49 | #96 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:13:09 | #97 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 20:13:36 | #98 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:14:38 | #100 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:15:49 | #102 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:16:06 | #103 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 20:26:33 | #104 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:26:52 | #105 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 20:27:10 | #106 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:28:10 | #108 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:29:13 | #110 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:29:32 | #111 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 20:39:59 | #112 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:40:18 | #113 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 20:40:37 | #114 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:41:37 | #116 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:41:59 | #117 | escalated | 65% | confidence 0.65 below threshold 0.7 |
+| 2026-07-30 20:42:17 | #118 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:42:36 | #119 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 20:53:05 | #120 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:53:26 | #121 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 20:53:44 | #122 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:54:47 | #124 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 20:55:50 | #126 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 20:56:08 | #127 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:06:35 | #128 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:06:57 | #129 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:07:20 | #130 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:08:16 | #132 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:08:51 | #133 | skipped | 75% | nothing accrued to unlock yet |
+| 2026-07-30 21:09:09 | #134 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:09:27 | #135 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 21:19:52 | #136 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:20:09 | #137 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:20:28 | #138 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:21:02 | #139 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 21:21:19 | #140 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:21:56 | #141 | skipped | 82% | nothing accrued to unlock yet |
+| 2026-07-30 21:22:16 | #142 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:22:34 | #143 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 21:32:55 | #144 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:33:16 | #145 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 21:33:34 | #146 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:34:13 | #147 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 21:34:31 | #148 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:35:07 | #149 | skipped | 75% | nothing accrued to unlock yet |
+| 2026-07-30 21:35:27 | #150 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:35:45 | #151 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 21:46:10 | #152 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:46:28 | #153 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:46:50 | #154 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:47:24 | #155 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 21:47:42 | #156 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 21:48:01 | #157 | escalated | 65% | confidence 0.65 below threshold 0.7 |
+| 2026-07-30 21:48:20 | #158 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:48:38 | #159 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 21:59:00 | #160 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 21:59:17 | #161 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 21:59:35 | #162 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:00:14 | #163 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:00:31 | #164 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:01:08 | #165 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:01:28 | #166 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:01:49 | #167 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:12:13 | #168 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:12:31 | #169 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 22:12:49 | #170 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:13:24 | #171 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:13:42 | #172 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:14:01 | #173 | escalated | 55% | confidence 0.55 below threshold 0.7 |
+| 2026-07-30 22:14:19 | #174 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:14:42 | #175 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:25:06 | #176 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:25:24 | #177 | declined | 92% | work does not satisfy the milestone |
+| 2026-07-30 22:25:42 | #178 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:26:23 | #179 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:26:41 | #180 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:27:24 | #181 | skipped | 75% | nothing accrued to unlock yet |
+| 2026-07-30 22:27:44 | #182 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:28:04 | #183 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:38:28 | #184 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-30 22:38:46 | #185 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-30 22:39:03 | #186 | declined | 98% | work does not satisfy the milestone |
+| 2026-07-30 22:39:41 | #187 | skipped | 85% | nothing accrued to unlock yet |
+| 2026-07-30 22:39:59 | #188 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:40:37 | #189 | skipped | 75% | nothing accrued to unlock yet |
+| 2026-07-30 22:40:57 | #190 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-30 22:41:15 | #191 | declined | 97% | work does not satisfy the milestone |
+| 2026-07-31 07:33:33 | #192 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 07:34:09 | #193 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 07:34:33 | #194 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 07:34:58 | #195 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-31 07:35:19 | #196 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 07:36:00 | #197 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-31 07:36:24 | #198 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 07:37:04 | #199 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 07:49:44 | #200 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-31 07:50:10 | #201 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 07:50:32 | #202 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 07:51:09 | #203 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 07:51:32 | #204 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 07:52:15 | #205 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-31 07:52:39 | #206 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 07:53:05 | #207 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 08:05:38 | #208 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:06:15 | #209 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:06:35 | #210 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 08:07:34 | #211 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:08:03 | #212 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:08:27 | #213 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-31 08:09:07 | #214 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:09:36 | #215 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 08:22:27 | #216 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:22:52 | #217 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:23:23 | #218 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 08:23:49 | #219 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-31 08:24:22 | #220 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:25:04 | #221 | declined | 60% | work does not satisfy the milestone |
+| 2026-07-31 08:25:32 | #222 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:25:59 | #223 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:29:54 | #224 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-31 08:30:23 | #225 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:31:11 | #226 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 08:31:39 | #227 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:32:16 | #228 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:32:40 | #229 | declined | 90% | work does not satisfy the milestone |
+| 2026-07-31 08:33:10 | #230 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:33:49 | #231 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:37:13 | #232 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:37:39 | #233 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:38:12 | #234 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:40:21 | #236 | declined | 100% | work does not satisfy the milestone |
+| 2026-07-31 08:42:10 | #238 | declined | 95% | work does not satisfy the milestone |
+| 2026-07-31 08:42:31 | #239 | declined | 100% | work does not satisfy the milestone |
+| 2026-08-04 12:24:14 | #1 | escalated | 95% | second opinion unavailable: verifier returned HTTP 500: {"error":"Review was not valid JSO |
+| 2026-08-04 14:39:54 | #1 | escalated | 95% | second opinion unavailable: fetch failed |
 | 2026-08-05 14:15:29 | #2 | declined | 90% | work does not satisfy the milestone |
 | 2026-08-05 17:02:20 | #2 | declined | 90% | work earns nothing against this milestone |
 | 2026-08-05 17:26:07 | #3 | escalated | 95% | second opinion unavailable: verifier returned HTTP 500: {"error":"Unexpected end of JSON i |
@@ -208,6 +415,12 @@ inference only.
 | 2026-08-05 18:07:58 | #3 | escalated | 95% | second opinion unavailable: verifier returned HTTP 500: {"error":"Review was not valid JSO |
 | 2026-08-05 18:29:30 | #3 | escalated | 95% | second opinion unavailable: fetch failed |
 | 2026-08-05 19:14:57 | #3 | unlock_failed | 100% |  |
+| 2026-08-08 07:20:27 | #5 | escalated | 95% | second opinion unavailable: verifier returned HTTP 500: {"error":"Review was not valid JSO |
+| 2026-08-08 07:24:15 | #6 | escalated | 90% | second opinion unavailable: verifier returned HTTP 500: {"error":"Review was not valid JSO |
+| 2026-08-08 07:35:24 | #7 | escalated | 70% | second opinion unavailable: verifier returned HTTP 500: {"error":"Review was not valid JSO |
+| 2026-08-08 07:50:41 | #8 | declined | 100% | work earns nothing against this milestone |
+| 2026-08-08 10:10:29 | #12 | declined | 100% | work earns nothing against this milestone |
+| 2026-08-18 17:25:50 | #1 | unlock_failed | 90% |  |
 
 ## Gateway nanopayments — batched, NOT one Arc transaction each
 
@@ -222,7 +435,7 @@ balance rising.
 
 | Verification fees paid | Paid reviews | Fee per call |
 | --- | --- | --- |
-| 0.015 USDC | 77 | 0.005 USDC |
+| 0.385 USDC | 77 | 0.005 USDC |
 
 **On-chain Gateway balances** (via `availableBalance` on
 [`0x0077777d7EBA4688BDeF3E311b846F25870A19B9`](https://testnet.arcscan.app/address/0x0077777d7EBA4688BDeF3E311b846F25870A19B9)):
@@ -316,10 +529,10 @@ balance rising.
 
 | Item | USD |
 | --- | --- |
-| Attestor inference | $0.0000 |
+| Attestor inference | $0.9316 |
 | Verifier inference | $0.6060 |
-| Verification fees | $0.0150 |
-| **Total** | **$0.6210 across 9 decisions** |
+| Verification fees | $0.3850 |
+| **Total** | **$1.9226 across 269 decisions** |
 
 Gas is excluded here because Arc charges it in USDC directly from the agent's
 wallet; see the transactions above for per-transaction cost.

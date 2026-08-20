@@ -93,13 +93,20 @@ if (!workStream) throw new Error('WORKSTREAM_ADDRESS is not set');
 //
 // The CURRENT contract still gets the live-state section to itself — accrued,
 // earned and certified only mean something for a stream that is still running.
-const onThis = (e: { workStream?: string }) =>
-  (e.workStream ?? '').toLowerCase() === workStream.toLowerCase();
-const verdicts = allVerdicts.filter(onThis);
-const payouts = allPayouts.filter(onThis);
+// NOTE ON SCOPE, because mixing two of them is what made this file contradict
+// itself. The rule this document already states at the top is: the transaction
+// tables cover EVERY deployment, and only the stream-state figures are about the
+// contract this run points at.
+//
+// `feesPaid` was scoped to the current contract while `paidReviews` was not, so
+// one table row read "0.015 USDC | 77 paid reviews" — 3 calls and 77 calls, in
+// the same row. T3 is explicit that an inconsistent count costs more credibility
+// than a smaller honest one, so every programme-wide figure below now comes from
+// the unfiltered logs. The stream-state figures come from on-chain reads against
+// WORKSTREAM_ADDRESS, so nothing here needs to filter the logs by contract.
 
-/// Contracts in report order: the current one first, then every superseded one
-/// by first appearance. Entries logged before the address was recorded have no
+/// Contracts in report order: the current one first, then every earlier one by
+/// first appearance. Entries logged before the address was recorded have no
 /// contract to group under and are dropped from the table rather than shown
 /// against the wrong one.
 const contractsInOrder = (): string[] => {
@@ -171,7 +178,10 @@ const directSections = contracts
     const label =
       i === 0
         ? '**Current stream.**'
-        : '**Superseded deployment.** Retired when the contract was redeployed; these transactions are no less real.';
+        // NOT "superseded by a redeploy". Since the agent went multi-tenant these
+        // are also separate streams on other repos that simply ended, and calling
+        // an expired tenant a retired redeployment is a claim we cannot support.
+        : '**Earlier stream.** No longer the contract this run points at; these transactions are no less real.';
     return (
       `#### [\`${address}\`](${EXPLORER_URL}/address/${address})\n\n${label}\n\n` +
       `| When (UTC) | Action | PR | USDC | Agreed | Transaction |\n| --- | --- | --- | --- | --- | --- |\n` +
@@ -184,13 +194,20 @@ const directRows = contracts.flatMap(rowsFor);
 
 // --- decisions that moved no money ----------------------------------------
 
-const refusals = verdicts.filter((v) => !v.txHash && v.verdict);
+const refusals = allVerdicts.filter((v) => !v.txHash && v.verdict);
 
 // --- nanopayments (batched — NOT one Arc tx each) --------------------------
 
 const paidReviews = reviews.filter((r) => r.gatewayTransfer);
-const feesPaid = verdicts.reduce((s, v) => s + Number(v.verificationFeeUsdc ?? 0), 0);
-const attestorInference = verdicts.reduce((s, v) => s + (v.inferenceCostUsd ?? 0), 0);
+// Fees come from the SELLER's record, not the buyer's, because the seller's
+// reconciles with the chain and the buyer's does not. The attestor logs a fee on
+// 63 verdicts; the verifier records 77 paid transfers, and 77 x 0.005 = 0.385,
+// which is exactly the verifier's on-chain Gateway balance below. The gap is
+// verifications bought outside the pipeline (`pnpm verify:once`, seeding runs),
+// which are real purchases with no verdict row. Deriving the total from verdicts
+// made this table say "0.315 USDC | 77 paid reviews" in one row.
+const feesPaid = paidReviews.reduce((s, r) => s + Number(r.feeUsdc ?? 0.005), 0);
+const attestorInference = allVerdicts.reduce((s, v) => s + (v.inferenceCostUsd ?? 0), 0);
 const verifierInference = reviews.reduce((s, r) => s + (r.inferenceCostUsd ?? 0), 0);
 
 const md = `# Evidence
@@ -291,7 +308,7 @@ ${paidReviews.map((r) => `- \`${r.gatewayTransfer}\` — PR #${r.pr}, ${r.feeUsd
 | Attestor inference | $${attestorInference.toFixed(4)} |
 | Verifier inference | $${verifierInference.toFixed(4)} |
 | Verification fees | $${feesPaid.toFixed(4)} |
-| **Total** | **$${(attestorInference + verifierInference + feesPaid).toFixed(4)} across ${verdicts.filter((v) => v.verdict).length} decisions** |
+| **Total** | **$${(attestorInference + verifierInference + feesPaid).toFixed(4)} across ${allVerdicts.filter((v) => v.verdict).length} decisions** |
 
 Gas is excluded here because Arc charges it in USDC directly from the agent's
 wallet; see the transactions above for per-transaction cost.
