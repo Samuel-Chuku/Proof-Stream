@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { env } from './env';
+import { env, ledgerPath } from './env';
 import { parseMergedPr, verifySignature, webhookSecretFor } from './github';
 import { log, processPr } from './pipeline';
 import { reconcile } from './reconcile';
@@ -25,7 +25,7 @@ const APP_ROUTE = '/webhook/github';
 /// from, so it is deliberately unauthenticated.
 function readLog(file: string, limit: number): unknown[] {
   try {
-    const raw = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    const raw = readFileSync(ledgerPath(file), 'utf8');
     return raw
       .split('\n')
       .filter(Boolean)

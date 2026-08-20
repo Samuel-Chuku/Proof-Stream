@@ -21,11 +21,11 @@
 // its first startup.
 import { readFileSync } from 'node:fs';
 import { parseRepoSpec } from '@proofstream/config';
-import { env } from './env';
+import { env, ledgerPath } from './env';
 import type { MergedPr } from './github';
 import { knownStreams } from './registry';
 
-const LOG_PATH = new URL('../verdicts.jsonl', import.meta.url);
+const LOG_PATH = ledgerPath('verdicts.jsonl');
 
 type Logger = (entry: Record<string, unknown>) => void;
 

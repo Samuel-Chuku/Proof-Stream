@@ -12,11 +12,11 @@ import { ARC_CAIP2, GATEWAY_FACILITATOR_URL, REASONING, VERIFICATION_FEE, VERIFI
 import express from 'express';
 import { isAddress } from 'viem';
 import { readStream } from '../chain';
-import { env } from '../env';
+import { env, ledgerPath } from '../env';
 import { fetchDiff } from '../github';
 import { review } from './review';
 
-const LOG_PATH = new URL('../../reviews.jsonl', import.meta.url).pathname;
+const LOG_PATH = ledgerPath('reviews.jsonl');
 
 function log(entry: Record<string, unknown>) {
   const line = { at: new Date().toISOString(), ...entry };

@@ -5,7 +5,7 @@
 import { appendFileSync } from 'node:fs';
 import { formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
-import { env } from './env';
+import { env, ledgerPath } from './env';
 import { fetchDiff, type MergedPr } from './github';
 import { meterCertification } from './metering';
 import { buySecondOpinion } from './pay';
@@ -13,7 +13,7 @@ import { resolveStreams, type StreamEntry } from './registry';
 import { serialize } from './serialize';
 import { judge } from './verdict';
 
-const LOG_PATH = new URL('../verdicts.jsonl', import.meta.url).pathname;
+const LOG_PATH = ledgerPath('verdicts.jsonl');
 
 export function log(entry: Record<string, unknown>) {
   const line = { at: new Date().toISOString(), ...entry };

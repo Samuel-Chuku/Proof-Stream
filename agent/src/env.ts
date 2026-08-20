@@ -2,6 +2,9 @@
 // moment a webhook arrives — a missing key mid-demo is the worst time to find
 // out. AGENT_INGRESS_URL is the single knob for where GitHub reaches us (T7),
 // so the tunnel can be swapped for a VPS without touching code.
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set — see .env.example`);
@@ -36,6 +39,37 @@ function required2(...names: string[]): string {
 }
 
 requireOneOf('REGISTRY_ADDRESS', 'WORKSTREAM_ADDRESS');
+
+/// Where the runtime ledgers live: `verdicts.jsonl` and `reviews.jsonl`.
+///
+/// Defaults to `agent/` inside the checkout, which is right for local
+/// development and WRONG for a deployed host. On the VPS these files are
+/// written by a running process while that same directory is a deploy target,
+/// so every `git pull`, `git checkout` or fresh clone competes with them.
+///
+/// This is not hypothetical. A deploy overwrote `verdicts.jsonl` with the
+/// committed snapshot and destroyed eight days of decisions, the entire
+/// 2026-08-18 townhall run among them; `reviews.jsonl` survived only because
+/// its `skip-worktree` flag happened to still be set. Untracking the files
+/// stops `git pull`, but NOT `git clean -fdx`, a fresh clone, or an rsync with
+/// `--delete`. Moving the directory OUT of the checkout is what makes it
+/// permanent, because no git operation can reach a path git does not manage.
+///
+/// Set `PROOFSTREAM_LOG_DIR` to a path outside the repo, e.g.
+/// `/var/lib/proofstream`. `||` not `??`: a blank value in a copied .env must
+/// mean "default", not an empty path that resolves to the filesystem root.
+const LOG_DIR = process.env.PROOFSTREAM_LOG_DIR || new URL('../', import.meta.url).pathname;
+
+/// Absolute path to one ledger, creating the directory on first use.
+///
+/// The mkdir matters: on a fresh host the first append would otherwise throw
+/// mid-judgment, AFTER the agent has already paid the verifier for its second
+/// opinion. Losing the money and the record together is the worst version of
+/// this failure.
+export function ledgerPath(name: string): string {
+  mkdirSync(LOG_DIR, { recursive: true });
+  return join(LOG_DIR, name);
+}
 
 export const env = {
   arcRpcUrl: process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.network',
