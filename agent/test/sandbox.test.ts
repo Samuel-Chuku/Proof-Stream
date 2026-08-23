@@ -143,3 +143,47 @@ test('a missing BEAM_TOKEN fails with an instruction, not a vendor error', async
     if (saved.t !== undefined) process.env.BEAM_TOKEN = saved.t;
   }
 });
+
+test('the remote driver does NOT trust the SDK\'s wait()', () => {
+  // Measured against Beam on 2026-08-23: `proc.wait()` opens with
+  // `if (this.exitCode >= 0) return this.exitCode`, and the SDK seeds exitCode
+  // from the exec response, which carries 0 for a process that has only
+  // STARTED. `sleep 600` came back exit 0 in about a second.
+  //
+  // A correctness check on top of that reports every suite as passing —
+  // silently, and in the direction that releases money.
+  // Comments are stripped first — the code deliberately NAMES proc.wait() in a
+  // warning, and an earlier version of this test flagged its own documentation.
+  const code = remote.replace(/^\s*\/\/.*$/gm, '').replace(/^\s*\/\/\/.*$/gm, '');
+  assert.ok(!/proc\.wait\(\)/.test(code), 'must not call the SDK wait()');
+  assert.match(code, /proc\.status\(\)/, 'must poll status() instead');
+});
+
+test('output is captured on a timeout too', () => {
+  // On a hang the output is the only evidence of what it was doing. An earlier
+  // version returned empty strings and threw the diagnosis away.
+  const read = remote.indexOf('proc.stdout.read');
+  const timeoutReturn = remote.indexOf('timedOut: true');
+  assert.ok(read > 0 && timeoutReturn > 0);
+  assert.ok(read < timeoutReturn, 'output must be read before the timeout return');
+});
+
+test('the environment is scrubbed by allowlist, not by a list of known names', () => {
+  // Beam merges our env with the container's base rather than replacing it, so
+  // passing { PATH, HOME } adds and does not remove. A blocklist of the
+  // variables we happened to see on 2026-08-23 would go stale the first time
+  // the platform adds one.
+  assert.match(remote, /case "\$v" in PATH\|HOME/, 'must scrub by allowlist');
+  const scrub = remote.indexOf('const scrub');
+  const exec = remote.indexOf('execShell');
+  assert.ok(scrub > 0 && scrub < exec, 'the scrub must be built before the command runs');
+});
+
+test('the command runs under a real shell, not straight into exec', () => {
+  // Neither exec() nor execShell() runs a shell: the gateway execs argv[0].
+  // Shell syntax silently becomes arguments, which is how an egress probe
+  // written with `||` appeared to pass on 2026-08-23 while proving nothing.
+  assert.match(remote, /exec\(\['sh', '-c'/, "must invoke sh -c explicitly");
+  const code = remote.replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!/execShell\(/.test(code), 'execShell does not run a shell despite its name');
+});

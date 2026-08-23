@@ -193,7 +193,36 @@ async function runRemotely(
       await instance.fs.writeText(dest, f.contents);
     }
 
-    const proc = await instance.execShell(command, {
+    // TWO LAYERS, because `env` below only ADDS.
+    //
+    // Beam merges what we pass with the container's own base environment rather
+    // than replacing it, and that base contains BETA9_TOKEN — Beam's gateway
+    // credential, injected by the platform. Measured 2026-08-23. It reaches
+    // nothing of ours: no Circle key, no wallet, no GitHub token. What it would
+    // buy is our Beam account — sandboxes spawned on our credit.
+    //
+    // So scrub first. An allowlist, not a blocklist of names we happen to know
+    // today, so a credential Beam adds next month is removed by the same line.
+    //
+    // This is not airtight and should not be described as if it were: PID 1's
+    // environment is still readable through /proc by anything determined. It
+    // removes the casual path. What makes the token inert is control 4, egress
+    // blocking, which is verified.
+    const scrub = 'for v in $(env | cut -d= -f1); do case "$v" in PATH|HOME) ;; *) unset "$v" 2>/dev/null || true ;; esac; done';
+
+    // `sh -c`, EXPLICITLY, and via `exec` with an array rather than
+    // `execShell`.
+    //
+    // Neither method runs a shell. Both post the string to the same endpoint and
+    // the gateway execs argv[0] directly, so `for`, `;`, `||` and `2>&1` are not
+    // syntax — they are arguments, or a command that does not exist. Measured
+    // 2026-08-23: the scrub died with `exec: "for": executable file not found`,
+    // and before that an egress probe written with `||` had appeared to pass
+    // for the wrong reason entirely.
+    //
+    // The array form shell-quotes each element, which is the only reason the
+    // gateway keeps our command as ONE argument instead of splitting it.
+    const proc = await instance.exec(['sh', '-c', `${scrub}; ${command}`], {
       cwd: WORKDIR,
       // THE WHOLE GAME. An explicit object, never spread from process.env. A
       // sandbox that can read our environment is a sandbox that can read a
@@ -201,26 +230,45 @@ async function runRemotely(
       env: { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: WORKDIR },
     });
 
-    // Ours is the deadline that counts. `wait()` resolves with the exit code;
-    // the timer resolves with null and we report a timeout rather than a
-    // failure, because "the tests did not finish" and "the tests failed" are
-    // different answers and only one of them is the contributor's fault.
+    // DO NOT USE `proc.wait()`. It opens with `if (this.exitCode >= 0) return
+    // this.exitCode`, and the SDK seeds `exitCode` from the exec RESPONSE, which
+    // carries 0 for a process that has merely STARTED. So it returns 0
+    // immediately for everything.
+    //
+    // Measured 2026-08-23: `sleep 600` returned exit 0 in about a second, and
+    // the egress check read an empty stdout because nothing had run yet. A
+    // correctness check built on that would report every suite as passing —
+    // silently, and in the direction that pays out.
+    //
+    // `status()` is the honest source: it asks the gateway and returns -1 while
+    // the process is still running.
+    const finished = (async () => {
+      for (;;) {
+        const [code] = await proc.status();
+        if (code >= 0) return code;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    })();
+
     let timer: NodeJS.Timeout | undefined;
     const deadline = new Promise<null>((resolve) => {
       timer = setTimeout(() => resolve(null), limits.seconds * 1_000);
     });
 
-    const exitCode = await Promise.race([proc.wait(), deadline]).finally(() => clearTimeout(timer));
+    const exitCode = await Promise.race([finished, deadline]).finally(() => clearTimeout(timer));
 
-    if (exitCode === null) {
-      await proc.kill().catch(() => {});
-      return { exitCode: -1, stdout: '', stderr: '', timedOut: true };
-    }
-
+    // Read output either way. On a timeout it is the only evidence of what the
+    // run was doing when it hung, and throwing it away is throwing away the
+    // diagnosis.
     const [stdout, stderr] = await Promise.all([
       proc.stdout.read().catch(() => ''),
       proc.stderr.read().catch(() => ''),
     ]);
+
+    if (exitCode === null) {
+      await proc.kill().catch(() => {});
+      return { exitCode: -1, stdout, stderr, timedOut: true };
+    }
 
     return { exitCode, stdout, stderr, timedOut: false };
   } finally {
