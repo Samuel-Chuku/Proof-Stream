@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@beamcloud/beam-js": "1.0.17",
     "@proofstream/config": "workspace:*",
     "viem": "^2.21.0"
   }

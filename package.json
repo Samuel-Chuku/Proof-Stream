@@ -42,7 +42,8 @@
     "test:reconcile": "tsx --test agent/test/reconcile-judged.test.ts",
     "test:failover": "tsx --test agent/test/llm-failover.test.ts",
     "watch": "tsx --env-file-if-exists=.env scripts/watch.ts",
-    "stream:status": "tsx --env-file=.env scripts/stream-status.ts"
+    "stream:status": "tsx --env-file=.env scripts/stream-status.ts",
+    "sandbox:smoke": "tsx --env-file=.env scripts/sandbox-smoke.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
