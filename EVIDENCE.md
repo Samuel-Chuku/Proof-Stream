@@ -9,7 +9,7 @@ Every hash below is a real transaction on Arc Testnet (chain `5042002`).
 
 **Current milestone:** Milestone 2: add an append-only transfer history to src/ledger.ts. Define a TransferRecord carrying from, to, amount and timestamp; have transfer() append one record for every successful transfer without mutating the existing log; expose history(records, accountId) returning only the records that involve that account; and cover both the recording and the query with unit tests in src/ledger.test.ts.
 
-> This run spans 12 deployments. The transaction table below covers
+> This run spans 13 deployments. The transaction table below covers
 > **all** of them, grouped by contract and newest first, because a transaction did
 > not stop being real when a newer contract replaced the one that made it. The
 > stream-state figures immediately below apply to the current contract only —
@@ -40,7 +40,7 @@ pull requests required.
 Each row is one transaction on Arc, sent either by the **agent's own wallet**
 (unlocks) or by the contributor (payouts).
 
-**Count: 66** across 12 contracts.
+**Count: 68** across 13 contracts.
 
 #### [`0xA84746722727e04eba331fB3AFD7D0940B815161`](https://testnet.arcscan.app/address/0xA84746722727e04eba331fB3AFD7D0940B815161)
 
@@ -191,6 +191,15 @@ Each row is one transaction on Arc, sent either by the **agent's own wallet**
 | --- | --- | --- | --- | --- | --- |
 | 2026-08-18 18:09:36 | certify | #2 | 20 | 100% | [`0xefb3bed6…755d9c`](https://testnet.arcscan.app/tx/0xefb3bed6d9ec209c0e6f35e077c57d74865da44e19520391a91d06c959755d9c) |
 | 2026-08-18 18:53:30 | certify | #3 | 80 | 100% | [`0x94d47f7e…fbe0b2`](https://testnet.arcscan.app/tx/0x94d47f7e43e7157425bd904bdb7dca720979bc70cbb982be89855dc66ffbe0b2) |
+
+#### [`0x26B8379cCB664f94fCAC4837D0FcB62136a8dcE8`](https://testnet.arcscan.app/address/0x26B8379cCB664f94fCAC4837D0FcB62136a8dcE8)
+
+**Earlier stream.** No longer the contract this run points at; these transactions are no less real.
+
+| When (UTC) | Action | PR | USDC | Agreed | Transaction |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-23 15:30:25 | certify | #4 | 20 | 50% | [`0x851cba91…bbef08`](https://testnet.arcscan.app/tx/0x851cba91ff717a925eef2576c40b4e48ad0ba204ef5c5f0587191ca975bbef08) |
+| 2026-08-23 15:36:15 | certify | #5 | 20 | 100% | [`0x918319fb…8a7a67`](https://testnet.arcscan.app/tx/0x918319fbbc807f51475347d26696e061837e264688d7821687dce7dfed8a7a67) |
 
 ## Decisions that moved no money
 
@@ -435,15 +444,15 @@ balance rising.
 
 | Verification fees paid | Paid reviews | Fee per call |
 | --- | --- | --- |
-| 0.385 USDC | 77 | 0.005 USDC |
+| 0.395 USDC | 79 | 0.005 USDC |
 
 **On-chain Gateway balances** (via `availableBalance` on
 [`0x0077777d7EBA4688BDeF3E311b846F25870A19B9`](https://testnet.arcscan.app/address/0x0077777d7EBA4688BDeF3E311b846F25870A19B9)):
 
 | Party | Gateway balance |
 | --- | --- |
-| Attestor (buyer) | 19.715 USDC |
-| Verifier (seller) | 0.385 USDC |
+| Attestor (buyer) | 19.705 USDC |
+| Verifier (seller) | 0.395 USDC |
 
 **Transfer receipts:**
 
@@ -524,6 +533,8 @@ balance rising.
 - `2f82c6a6-d14b-4a81-80f9-fc746e6093a5` — PR #1, 0.005 USDC
 - `e102e85c-2f40-47f1-b747-8c5f89b29ceb` — PR #2, 0.005 USDC
 - `a1ebeecb-8780-4111-9951-6cfe1e63efdd` — PR #3, 0.005 USDC
+- `eafc243b-ded0-4b7a-8a03-83025a354638` — PR #4, 0.005 USDC
+- `94c2bc70-e29e-4003-a8fc-1afb292dee96` — PR #5, 0.005 USDC
 
 ## What the judgment cost
 
@@ -534,9 +545,9 @@ would dilute the claim this project exists to make.
 
 | Item | USDC |
 | --- | --- |
-| Verification fees | 0.3850 |
+| Verification fees | 0.3950 |
 
-That figure reconciles with the chain: 77 paid calls at
+That figure reconciles with the chain: 79 paid calls at
 0.005 USDC is exactly the verifier's Gateway balance shown above. Gas is
 excluded because Arc charges it in USDC directly from the agent's wallet — see
 the per-transaction cost in the tables above.
@@ -546,7 +557,7 @@ inference, and saying so is cheaper than being asked:
 
 | Item | USD |
 | --- | --- |
-| Attestor inference | $0.9316 |
-| Verifier inference | $0.6060 |
+| Attestor inference | $0.9319 |
+| Verifier inference | $0.6078 |
 
-Across 269 decisions.
+Across 271 decisions.

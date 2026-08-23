@@ -168,6 +168,20 @@ function retryAfterMs(res: Response, body: string): number {
   return m ? Number(m[1]) * 1000 : 0;
 }
 
+/// Statuses that mean THIS MODEL cannot serve us, as opposed to this request
+/// being wrong. Any of them is a reason to try the next fallback.
+///
+///   402  the account cannot pay for this model
+///   403  the model exists but is not available to this key
+///   404  the model is gone — a slug retired by the provider
+///
+/// 5xx is handled alongside them: the provider cannot answer for this model
+/// right now, and a different one may be served by different capacity.
+///
+/// 400 is deliberately EXCLUDED. That is our request being malformed, and every
+/// model would reject it identically, so failing over would just burn the list.
+const MODEL_UNUSABLE = new Set([402, 403, 404]);
+
 async function callLlm(body: unknown, key: string): Promise<any> {
   // Sent as a PREFERENCE. Some endpoints refuse it outright —
   // `openai/gpt-oss-20b:free` answers 400 "Reasoning is mandatory for this
@@ -260,6 +274,28 @@ async function callLlm(body: unknown, key: string): Promise<any> {
       payload = rest;
       continue;
     }
-    throw new Error(`LLM call failed (${env.llmBaseUrl}): ${res.status} ${text}`);
+    // THE MODEL CANNOT SERVE US, WHICH IS EXACTLY WHAT THE FALLBACK LIST IS FOR.
+    //
+    // Until 2026-08-23 only 429 reached the fallbacks, so a model that was
+    // merely BUSY was survivable while one that had been WITHDRAWN was fatal.
+    // That is backwards, and it cost a live run: the provider retired the
+    // primary's `:free` slug, both fallbacks had been retired too, and this
+    // threw on the first call without trying anything else.
+    //
+    // Matched on STATUS, never on the provider's error prose. Any
+    // OpenAI-compatible endpoint can be configured here — Ollama, Together,
+    // Groq, vLLM, a local model — and a message-shaped rule would work for
+    // exactly one of them.
+    if (MODEL_UNUSABLE.has(res.status) || res.status >= 500) {
+      const next = fallbacks.shift();
+      if (next) {
+        payload = { ...payload, model: next };
+        attempt = -1; // fresh budget for the new model
+        continue;
+      }
+    }
+    throw new Error(
+      `LLM call failed (${env.llmBaseUrl}, model ${payload?.model}): ${res.status} ${text}`,
+    );
   }
 }
