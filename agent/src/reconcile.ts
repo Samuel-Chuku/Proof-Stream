@@ -31,14 +31,26 @@ type Logger = (entry: Record<string, unknown>) => void;
 
 /// PR numbers this stream already has a verdict for. Read fresh each run: the
 /// pipeline appends to the same file while we work.
-function alreadyJudged(streamAddress: string): Set<number> {
+///
+/// `judged: false` marks a row where the judgment never happened at all — the
+/// LLM call threw, the ledger was read-only, the diff could not be fetched. Such
+/// a row must NOT count, or the pull request can never be retried by the very
+/// mechanism that exists to recover from those failures. It cost a live run on
+/// 2026-08-23: an LLM 404 wrote one of these, and every restart afterwards
+/// skipped the pull request as already judged.
+///
+/// Everything else counts, including a certification that reached the chain and
+/// reverted. Those bought a second opinion and produced a verdict; re-judging
+/// them would pay for the same work twice.
+export function alreadyJudged(streamAddress: string): Set<number> {
   const judged = new Set<number>();
   try {
     const raw = readFileSync(LOG_PATH, 'utf8');
     for (const line of raw.split('\n')) {
       if (!line) continue;
       try {
-        const entry = JSON.parse(line) as { workStream?: string; pr?: number };
+        const entry = JSON.parse(line) as { workStream?: string; pr?: number; judged?: boolean };
+        if (entry.judged === false) continue;
         if (entry.pr && entry.workStream?.toLowerCase() === streamAddress.toLowerCase()) {
           judged.add(entry.pr);
         }

@@ -83,6 +83,21 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
         repo: entry.repo,
         pr: pr.number,
         reason: `judgment threw: ${err instanceof Error ? err.message : String(err)}`,
+        // NOTHING WAS JUDGED HERE, and `reconcile` must be able to tell.
+        //
+        // Its `alreadyJudged` counts any row carrying this pr and stream, so a
+        // row written by this catch used to mean the pull request could never be
+        // retried — by the one mechanism built to recover from exactly these
+        // failures. On 2026-08-23 an LLM 404 and a read-only ledger each threw
+        // here, and every subsequent restart then skipped the pull request as
+        // already judged. Two of the three failures that day were config, and
+        // this is what turned them into a dead end.
+        //
+        // Deliberately narrow. `unlock_failed` also covers a send that reverted,
+        // ran out of gas, or timed out — and those DID reach a verdict and paid
+        // for a second opinion, so re-judging them would buy another opinion for
+        // work already judged. Only a judgment that never happened is retryable.
+        judged: false,
       });
       outcomes.push('unlock_failed');
     }
