@@ -144,7 +144,7 @@ async function runRemotely(
   command: string,
   limits: SandboxLimits,
 ): Promise<SandboxRun> {
-  const { Sandbox, beamOpts } = await import('@beamcloud/beam-js');
+  const { Sandbox, Image, beamOpts } = await import('@beamcloud/beam-js');
 
   // THE SDK AUTHENTICATES OFF A MUTABLE MODULE OBJECT, not off the environment.
   // It reads no env var and no config file of its own, so forgetting this does
@@ -168,12 +168,48 @@ async function runRemotely(
       process.env.BEAM_WORKSPACE_ID || (await resolveWorkspaceId(token, beamOpts.gatewayUrl));
   }
 
+  // THE SDK'S OWN HTTP TIMEOUT IS 30 SECONDS, AND IT FIRES BEFORE OUR DEADLINE.
+  //
+  // `limits.seconds` bounds the RUN. This bounds each individual request to the
+  // gateway, and creating a sandbox is one request that has to pull an image and
+  // start a container — comfortably more than 30s on a cold start. Left at the
+  // default, that surfaces as the whole correctness check being unavailable: an
+  // infrastructure flake dressed up as "we could not check this work".
+  //
+  // Raised above our own deadline on purpose, so OUR limit is always the one
+  // that decides when to give up. Any lower and a slow start looks like a hang.
+  beamOpts.timeout = Math.max(beamOpts.timeout, (limits.seconds + 120) * 1_000);
+
   const WORKDIR = '/workspace';
+
+  // A NODE IMAGE, PINNED, BECAUSE THE DEFAULT ONE CANNOT RUN THE SUITE.
+  //
+  // The platform's default image is Ubuntu 22.04 with Python and NO node and NO
+  // npx. The correctness check generates a TypeScript suite, so on the default
+  // image every run fails with `sh: 1: node: not found` — and a caller reading
+  // only the exit code scores that as the contributor's tests failing.
+  //
+  // Node 22 also removes the whole toolchain problem. It strips type
+  // annotations natively and `node --test` is built in, so a generated suite
+  // runs with NO `npm install` and NO transpiler. That matters far more than
+  // convenience: control 4 blocks egress before the command runs, so anything
+  // needing a registry could not work at all, and `npm install` is arbitrary
+  // code execution we would rather never perform.
+  //
+  // `ignorePython: true` because this image has no Python for the platform's
+  // usual runtime preparation to find. Verified live on this exact image:
+  // node v22.23.2, `node t.ts` runs a type-annotated file, and `node --test`
+  // emits the TAP the reference filter parses.
+  const image = new Image({
+    baseImage: process.env.SANDBOX_IMAGE || 'node:22-slim',
+    ignorePython: true,
+  });
 
   const sandbox = new Sandbox({
     name: 'proofstream-correctness',
     cpu: Number(process.env.SANDBOX_CPU || 2),
     memory: process.env.SANDBOX_MEMORY || '2Gi',
+    image,
     // Beam's own ceiling, set above ours so OUR deadline is the one that fires.
     // If this were the tighter of the two, a run could be reaped mid-test and
     // report a failure that was really a timeout.
@@ -197,9 +233,9 @@ async function runRemotely(
     //
     // Beam merges what we pass with the container's own base environment rather
     // than replacing it, and that base contains BETA9_TOKEN — Beam's gateway
-    // credential, injected by the platform. Measured 2026-08-23. It reaches
-    // nothing of ours: no Circle key, no wallet, no GitHub token. What it would
-    // buy is our Beam account — sandboxes spawned on our credit.
+    // credential, injected by the platform. It reaches nothing of ours: no
+    // Circle key, no wallet, no GitHub token. What it would buy is our Beam
+    // account — sandboxes spawned on our credit.
     //
     // So scrub first. An allowlist, not a blocklist of names we happen to know
     // today, so a credential Beam adds next month is removed by the same line.
@@ -215,10 +251,10 @@ async function runRemotely(
     //
     // Neither method runs a shell. Both post the string to the same endpoint and
     // the gateway execs argv[0] directly, so `for`, `;`, `||` and `2>&1` are not
-    // syntax — they are arguments, or a command that does not exist. Measured
-    // 2026-08-23: the scrub died with `exec: "for": executable file not found`,
-    // and before that an egress probe written with `||` had appeared to pass
-    // for the wrong reason entirely.
+    // syntax — they are arguments, or a command that does not exist. Without an
+    // explicit shell the scrub dies with `exec: "for": executable file not
+    // found`, and any probe written with `||` reports success for the wrong
+    // reason entirely.
     //
     // The array form shell-quotes each element, which is the only reason the
     // gateway keeps our command as ONE argument instead of splitting it.
@@ -235,10 +271,9 @@ async function runRemotely(
     // carries 0 for a process that has merely STARTED. So it returns 0
     // immediately for everything.
     //
-    // Measured 2026-08-23: `sleep 600` returned exit 0 in about a second, and
-    // the egress check read an empty stdout because nothing had run yet. A
-    // correctness check built on that would report every suite as passing —
-    // silently, and in the direction that pays out.
+    // `sleep 600` returns exit 0 in about a second, and output reads back empty
+    // because nothing has run yet. A correctness check built on that reports
+    // every suite as passing — silently, and in the direction that pays out.
     //
     // `status()` is the honest source: it asks the gateway and returns -1 while
     // the process is still running.

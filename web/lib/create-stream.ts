@@ -119,10 +119,10 @@ export function advisories(terms: StreamTerms): string[] {
   // those merges never arrive, the remainder refunds to the employer, who keeps
   // the finished work.
   //
-  // On 2026-08-08 that cost a real contributor 67 of the 97 USDC both agents
-  // agreed was owed. Almost all of the damage came from nobody doing this
-  // arithmetic before deploying — which is exactly what a form is for. Listed
-  // first because it is the more expensive of the two mistakes.
+  // This has cost a contributor most of what both agents agreed was owed, and
+  // almost all of the damage comes from nobody doing this arithmetic before
+  // deploying — which is exactly what a form is for. Listed first because it is
+  // the more expensive of the two mistakes.
   if (maxTranche > 0n && budget > 0n && maxTranche < budget) {
     const certifications = (budget + maxTranche - 1n) / maxTranche;
     notes.push(

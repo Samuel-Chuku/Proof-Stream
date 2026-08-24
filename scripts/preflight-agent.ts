@@ -84,14 +84,11 @@ try {
 // uses, so a green preflight means the running agent sees the same fleet.
 const { knownStreams, refresh } = await import('../agent/src/registry');
 
-// Capture the discovery log rather than discarding it. This check used to
-// report "no registered stream appoints this agent", which is a CAUSE, and it
-// was wrong: on 2026-08-19 both live streams did appoint this agent and were
-// simply past their milestone end. Refusing, expiring, settling and appointing
-// someone else are four different situations that all end in an empty list, and
-// naming the wrong one sends you to check REGISTRY_ADDRESS for hours. Same
-// discipline as the `unlock_failed` fix in 593f0ca: report what happened, not
-// what you assume caused it.
+// Capture the discovery log rather than discarding it, and report WHAT
+// happened rather than a guess at why. Refusing, expiring, settling and
+// appointing someone else are four different situations that all end in an
+// empty list; asserting one of them as the cause sends you to check
+// REGISTRY_ADDRESS for hours when the streams were simply past their end.
 const discovery: Record<string, number> = {};
 await refresh((entry) => {
   const event = String(entry.event ?? '');

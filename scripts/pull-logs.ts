@@ -65,8 +65,8 @@ if (!res.ok) {
 const remote = (await res.json()) as Record<string, Row[] | null>;
 
 // Back up before touching anything. These files are NOT tracked — that is the
-// point, git overwriting them is what destroyed eight days of verdicts — so git
-// is no longer a fallback and this backup is the only recovery there is.
+// point, since git overwriting them destroys the running agent's record — so
+// git is no longer a fallback and this backup is the only recovery there is.
 const backupDir = new URL('../agent/.backup/', import.meta.url).pathname;
 mkdirSync(backupDir, { recursive: true });
 

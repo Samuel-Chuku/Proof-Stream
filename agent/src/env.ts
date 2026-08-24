@@ -47,11 +47,9 @@ requireOneOf('REGISTRY_ADDRESS', 'WORKSTREAM_ADDRESS');
 /// written by a running process while that same directory is a deploy target,
 /// so every `git pull`, `git checkout` or fresh clone competes with them.
 ///
-/// This is not hypothetical. A deploy overwrote `verdicts.jsonl` with the
-/// committed snapshot and destroyed eight days of decisions, the entire
-/// 2026-08-18 townhall run among them; `reviews.jsonl` survived only because
-/// its `skip-worktree` flag happened to still be set. Untracking the files
-/// stops `git pull`, but NOT `git clean -fdx`, a fresh clone, or an rsync with
+/// A deploy that overwrites `verdicts.jsonl` with a committed snapshot destroys
+/// every decision the running agent has recorded. Untracking the files stops
+/// `git pull`, but NOT `git clean -fdx`, a fresh clone, or an rsync with
 /// `--delete`. Moving the directory OUT of the checkout is what makes it
 /// permanent, because no git operation can reach a path git does not manage.
 ///
@@ -170,6 +168,37 @@ export const env = {
   // Below this the agent releases nothing and stops (T5d). Nothing reviews it —
   // there is no queue and no appeal; the work waits for a later pull request.
   confidenceThreshold: Number(process.env.AGENT_CONFIDENCE_THRESHOLD || 0.7),
+
+  // --- the correctness check ----------------------------------------------
+  //
+  // OFF BY DEFAULT. It needs an isolated execution environment configured and
+  // costs inference on every judgment, so it is opt-in: a clone runs the same
+  // system whether or not one is available.
+  //
+  // Off, the agents judge whether the milestone's work is PRESENT in the code.
+  // On, a suite generated from the milestone is executed against the merged
+  // code and the result becomes evidence in that judgment. It never becomes the
+  // judgment itself — see correctness.ts for why a failing test may not be
+  // wired straight to a payout.
+  correctnessCheck: process.env.CORRECTNESS_CHECK === 'on',
+
+  /// THE MODEL IS THE MAIN CONTROL HERE, not a tuning detail, and this default
+  /// was chosen by measurement rather than by preference.
+  ///
+  /// Qualify any replacement before trusting it. A weak oracle does not error —
+  /// it writes a suite that passes everything and reports the code correct, so
+  /// the check degrades into a rubber stamp pointing in the direction that
+  /// releases money. Model choice moves this result far more than any prompt.
+  ///
+  /// Deliberately not the free default the rest of the agent uses; this job
+  /// needs a model that can write a suite that compiles and discriminates.
+  oracleModel: process.env.ORACLE_MODEL || 'anthropic/claude-sonnet-5',
+
+  /// Wall-clock ceiling for one suite run in the sandbox. Generous: a cold
+  /// sandbox has to start before a test can run, and killing a slow run reports
+  /// a timeout, never a failure — blaming a contributor for our own ceiling is
+  /// the one outcome this must not produce.
+  oracleTimeoutSeconds: Number(process.env.ORACLE_TIMEOUT_SECONDS || 180),
 
   // --- verifier agent (Phase 3) -------------------------------------------
   // Its own Circle wallet, its own process, its own model. The seller side

@@ -1,6 +1,9 @@
 import { AGENT_MAX_TOKENS, REASONING } from '@proofstream/config';
 import { extractJson } from './json';
 import { env } from './env';
+// TYPE ONLY, and it has to stay that way: correctness.ts reaches the model
+// through callLlm below, so a value import here would close a cycle.
+import type { CorrectnessResult } from './correctness';
 import type { MergedPr } from './github';
 
 export type Verdict = {
@@ -96,11 +99,85 @@ Reply with ONLY a JSON object, no prose or code fences:
 {"satisfies_milestone": boolean, "confidence": number, "tranche_fraction": number,
  "reasoning": "2-4 sentences citing specifics from the diff", "concerns": ["..."]}`;
 
-export async function judge(pr: MergedPr, milestone: string, diff: string): Promise<VerdictResult> {
+/// What to do with an executed test suite, appended to the system prompt only
+/// when there is one. A judgment made without this evidence must read exactly
+/// as it did before, so the rules for weighing it cannot be sitting in the
+/// prompt describing evidence that is not there.
+const CORRECTNESS_RULES = `
+
+YOU HAVE ALSO BEEN GIVEN THE RESULT OF AN EXECUTED TEST SUITE. Read these rules before using it.
+
+The suite was written from the MILESTONE TEXT ALONE by a model that was never shown the
+implementation, and then run against the merged code. It was written that way on purpose: a model
+shown the code writes tests that agree with whatever the code already does, including its bugs.
+
+WHAT IT IS GOOD FOR. You can read code and see that the work is present and plausible. You cannot
+run it. This is the only evidence you have about what the code actually DOES when called, and it is
+the one thing that catches an implementation that looks right and is subtly wrong.
+
+HOW TO WEIGH EACH RESULT:
+
+- PASSES — independent evidence that the code behaves as the milestone requires. Raise confidence.
+  It is not proof of correctness and does not by itself finish a milestone: a suite only tests what
+  it thought to test, so still judge completeness from the files.
+
+- FAILS — a named test failed on the merged code and did NOT fail on the earlier version, so the
+  code's observable behaviour genuinely differs from what the suite expected. THIS IS NOT AN
+  AUTOMATIC ZERO AND YOU MUST NOT TREAT IT AS ONE. Generated tests are wrong regularly. Your job is
+  to decide, against the milestone text, whether the failing test is FAIR:
+    * Does the milestone actually demand the behaviour the test asserts? Quote the part that does.
+      If you cannot point at one, the test invented a requirement and you should disregard it and
+      say so.
+    * Does it demand a particular MECHANISM the milestone left open — that an error is thrown rather
+      than returned, a specific message, a specific type? That is not a defect in the work.
+    * Or does it show the code failing to do something the milestone plainly asked for?
+  If the failure is fair and real, LOWER YOUR CONFIDENCE rather than inventing a lower fraction.
+  Below the threshold nothing is released and the work waits, which is the correct outcome for
+  "this may be broken" — far better than either paying for broken code or refusing honest work.
+  Name the failing test in your concerns either way, so the contributor sees a concrete case.
+
+- INCONCLUSIVE, VOID or UNAVAILABLE — the check established nothing. Ignore it completely and judge
+  exactly as you would have without it. Do not lower confidence because a check we run did not work;
+  that is our problem and not the contributor's.`;
+
+/// Rendered for the model, or `null` when there is nothing worth telling it.
+function correctnessEvidence(c: CorrectnessResult | undefined): string | null {
+  if (!c || c.outcome === 'unavailable') return null;
+
+  const head = `EXECUTED TEST SUITE — RESULT: ${c.outcome.toUpperCase()}`;
+  const ran = c.total > 0 ? `\n${c.passed} of ${c.total} generated tests passed on the merged code.` : '';
+  const why = c.reason ? `\nNote: ${c.reason}` : '';
+
+  const failing = c.kept.length
+    ? `\n\nTHESE TESTS FAILED ON THE MERGED CODE:\n${c.kept.map((t) => `  - ${t}`).join('\n')}` +
+      (c.filtered
+        ? '\nEach of these PASSED on the earlier version of this repository, so it is not an artefact ' +
+          'of the test being unreasonable about code in general — it is a difference in this work.'
+        : '\nThese have NOT been checked against an earlier version, so some of them may simply be ' +
+          'unfair. Weigh them accordingly.')
+    : '';
+
+  const cleared = c.discarded.length
+    ? `\n\n${c.discarded.length} further test(s) failed on BOTH this code and the earlier version, so they ` +
+      'test something this milestone never required and have been set aside. Do not hold them against ' +
+      'this work.'
+    : '';
+
+  return `${head}${ran}${why}${failing}${cleared}`;
+}
+
+export async function judge(
+  pr: MergedPr,
+  milestone: string,
+  diff: string,
+  correctness?: CorrectnessResult,
+): Promise<VerdictResult> {
   const truncated =
     diff.length > MAX_DIFF_CHARS
       ? `${diff.slice(0, MAX_DIFF_CHARS)}\n\n[diff truncated at ${MAX_DIFF_CHARS} characters]`
       : diff;
+
+  const evidence = correctnessEvidence(correctness);
 
   const userPrompt = `MILESTONE (current, read from the WorkStream contract):
 ${milestone}
@@ -109,7 +186,7 @@ PULL REQUEST #${pr.number} by ${pr.author}
 Title: ${pr.title}
 Description: ${pr.body || '(none)'}
 Merge commit: ${pr.commitSha}
-
+${evidence ? `\n===== ${evidence}\n` : ''}
 UNIFIED DIFF:
 ${truncated}`;
 
@@ -117,7 +194,7 @@ ${truncated}`;
     {
       model: env.model,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: evidence ? SYSTEM_PROMPT + CORRECTNESS_RULES : SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
       max_tokens: AGENT_MAX_TOKENS,
@@ -190,14 +267,19 @@ const MODEL_UNUSABLE = new Set([402, 403, 404]);
 /// the difference between a retired model slug costing one call and costing a
 /// whole run, and they are not reachable through `judge()` without a real diff,
 /// a real milestone and a real provider.
-export async function callLlm(body: unknown, key: string): Promise<any> {
+///
+/// `models` is the fallback chain to walk when a model cannot serve us. It
+/// defaults to the attestor's, and the ONE caller that overrides it passes an
+/// empty list on purpose: the correctness oracle would rather have no suite
+/// than a suite from a model measured to catch nothing.
+export async function callLlm(body: unknown, key: string, models: string[] = env.fallbackModels): Promise<any> {
   // Sent as a PREFERENCE. Some endpoints refuse it outright —
   // `openai/gpt-oss-20b:free` answers 400 "Reasoning is mandatory for this
   // endpoint and cannot be disabled" — so a blanket demand breaks any model
   // that reasons by design. Dropped and retried once if refused.
   let payload: any = body;
   // Copied so a fallback consumed on one call does not shrink the next call's list.
-  const fallbacks = [...env.fallbackModels];
+  const fallbacks = [...models];
 
   for (let attempt = 0; ; attempt++) {
     // A wrong LLM_BASE_URL fails at the socket, not with an HTTP status, so the
@@ -235,8 +317,8 @@ export async function callLlm(body: unknown, key: string): Promise<any> {
         // A WELL-FORMED 200 CARRYING NO ANSWER. The model spends its budget
         // reasoning and emits nothing, so `content` is ''. That is not a bad
         // prompt and not a bad model — it is a blip, and treating it as fatal
-        // blocked a payout on PR #9 with the message "Verdict was not valid
-        // JSON:" and nothing after the colon. Retry it like any other blip.
+        // treating it as fatal blocks a payout with the message "Verdict was
+        // not valid JSON:" and nothing after the colon. Retry it as a blip.
         const answered = (parsedBody?.choices?.[0]?.message?.content ?? '').trim();
         if (!answered && attempt < 3) {
           await new Promise((r) => setTimeout(r, 2_000 * 2 ** attempt));
@@ -284,11 +366,10 @@ export async function callLlm(body: unknown, key: string): Promise<any> {
     }
     // THE MODEL CANNOT SERVE US, WHICH IS EXACTLY WHAT THE FALLBACK LIST IS FOR.
     //
-    // Until 2026-08-23 only 429 reached the fallbacks, so a model that was
-    // merely BUSY was survivable while one that had been WITHDRAWN was fatal.
-    // That is backwards, and it cost a live run: the provider retired the
-    // primary's `:free` slug, both fallbacks had been retired too, and this
-    // threw on the first call without trying anything else.
+    // If only 429 reaches the fallbacks, a model that is merely BUSY is
+    // survivable while one that has been WITHDRAWN is fatal. That is backwards:
+    // providers retire `:free` slugs without notice, and a retired primary then
+    // throws on the first call without anything else being tried.
     //
     // Matched on STATUS, never on the provider's error prose. Any
     // OpenAI-compatible endpoint can be configured here — Ollama, Together,

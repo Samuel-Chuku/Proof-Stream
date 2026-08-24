@@ -96,12 +96,27 @@ test('CONTROL 3: our deadline fires before Beam reaps the sandbox', () => {
 test('CONTROL 4: egress is cut before any contributor code can run', () => {
   // Ordering is the point. `npm install` runs postinstall scripts, so it is
   // arbitrary code execution, and it must not be the thing that gets out.
+  //
+  // ANCHORED ON THE REAL CALL, NOT ON `execShell`. This test used to locate the
+  // run step with `remote.indexOf('execShell')`, and once the code stopped
+  // calling execShell that string survived only inside a warning comment. The
+  // ordering assertion was then comparing the position of a comment, so it
+  // would have held whatever the code did.
   const cut = remote.indexOf('updateNetworkPermissions');
   const write = remote.indexOf('fs.writeText');
-  const run = remote.indexOf('execShell');
+  const run = remote.indexOf('instance.exec([');
   assert.ok(cut > 0 && write > 0 && run > 0, 'all three steps must be present');
   assert.ok(cut < write, 'network must be blocked before files are written');
   assert.ok(cut < run, 'network must be blocked before the command runs');
+});
+
+test('the image is pinned to one that can actually run the suite', () => {
+  // The platform's DEFAULT image is Ubuntu 22.04 with Python and no node at
+  // all (measured 2026-08-24), so an unpinned sandbox fails every correctness
+  // check with `node: not found` — which a caller reading the exit code would
+  // score as the contributor's tests failing.
+  assert.match(remote, /baseImage:[^\n]*node:/, 'the base image must be a node image');
+  assert.match(remote, /ignorePython:\s*true/, 'a node image has no python for the runtime prep to find');
 });
 
 test('a timeout is reported as a timeout, not as a test failure', () => {
@@ -175,8 +190,9 @@ test('the environment is scrubbed by allowlist, not by a list of known names', (
   // the platform adds one.
   assert.match(remote, /case "\$v" in PATH\|HOME/, 'must scrub by allowlist');
   const scrub = remote.indexOf('const scrub');
-  const exec = remote.indexOf('execShell');
-  assert.ok(scrub > 0 && scrub < exec, 'the scrub must be built before the command runs');
+  const exec = remote.indexOf('instance.exec([');
+  assert.ok(scrub > 0 && exec > 0, 'both the scrub and the exec call must be present');
+  assert.ok(scrub < exec, 'the scrub must be built before the command runs');
 });
 
 test('the command runs under a real shell, not straight into exec', () => {

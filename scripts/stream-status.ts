@@ -3,10 +3,9 @@
 //   pnpm stream:status <address>
 //   pnpm stream:status                 # falls back to WORKSTREAM_ADDRESS
 //
-// Read-only. Written during the 2026-08-23 run, where the question that kept
-// coming up was not "what did the agent decide" — `pnpm watch` answers that —
-// but "what does the CONTRACT currently say", which nothing showed without
-// a dozen separate `cast call`s.
+// Read-only. `pnpm watch` answers "what did the agent decide"; this answers
+// "what does the CONTRACT currently say", which otherwise takes a dozen
+// separate `cast call`s.
 //
 // The three lines worth reading together are certified/target, accrued, and
 // earned. `target` is what the agent says is owed and `accrued` is what the
@@ -22,8 +21,8 @@ if (!address) {
   process.exit(1);
 }
 
-/// Checked against the generated ABI, so a typo fails the build rather than at
-/// runtime — see the 2026-08-05 `activatedAt` incident.
+/// Checked against the generated ABI, so a typo fails the build rather than
+/// silently reading nothing at runtime.
 type ReadFn = ContractFunctionName<typeof WORK_STREAM_ABI, 'view' | 'pure'>;
 
 const client = createPublicClient({ chain: arcTestnet, transport: http(process.env.ARC_RPC_URL) });

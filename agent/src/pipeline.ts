@@ -5,8 +5,9 @@
 import { appendFileSync } from 'node:fs';
 import { formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
+import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
-import { fetchDiff, type MergedPr } from './github';
+import { fetchDiff, fetchSourceFiles, type MergedPr } from './github';
 import { meterCertification } from './metering';
 import { buySecondOpinion } from './pay';
 import { resolveStreams, type StreamEntry } from './registry';
@@ -88,10 +89,9 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
         // Its `alreadyJudged` counts any row carrying this pr and stream, so a
         // row written by this catch used to mean the pull request could never be
         // retried — by the one mechanism built to recover from exactly these
-        // failures. On 2026-08-23 an LLM 404 and a read-only ledger each threw
-        // here, and every subsequent restart then skipped the pull request as
-        // already judged. Two of the three failures that day were config, and
-        // this is what turned them into a dead end.
+        // failures. An LLM 404 or a read-only ledger throws here, and every
+        // subsequent restart then skips the pull request as already judged —
+        // turning an ordinary config fault into a dead end.
         //
         // Deliberately narrow. `unlock_failed` also covers a send that reverted,
         // ran out of gas, or timed out — and those DID reach a verdict and paid
@@ -103,6 +103,27 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
     }
   }
   return outcomes;
+}
+
+/// Fetch what the correctness check needs and run it. Never throws.
+///
+/// TWO SNAPSHOTS OF THE REPOSITORY, and the second one is what makes the check
+/// usable. Generated tests over-specify — they assert requirements the milestone
+/// never stated — so a failure means nothing until it is measured against code
+/// already known to be acceptable. That reference is the branch as it stood
+/// BEFORE this merge: the work the employer already has, and already certified.
+async function correctnessOf(pr: MergedPr, repo: string, milestone: string): Promise<CorrectnessResult> {
+  if (!env.correctnessCheck) {
+    return { outcome: 'unavailable', kept: [], discarded: [], filtered: false, passed: 0, total: 0, costUsd: 0, reason: 'the correctness check is switched off' };
+  }
+
+  const merged = await fetchSourceFiles(repo, pr.commitSha);
+  // Missing on an event we could not fully read. Its absence costs the filter,
+  // not the check: failures are then reported as unadjudicated rather than
+  // being treated as defects.
+  const reference = pr.baseSha ? await fetchSourceFiles(repo, pr.baseSha) : undefined;
+
+  return checkCorrectness({ milestone, merged, reference });
 }
 
 /// One PR, one stream. Every gate below is about THIS stream's terms.
@@ -152,7 +173,24 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   }
 
   const diff = await fetchDiff(want.repo, pr.number);
-  const { verdict, costUsd, model } = await judge(pr, stream.milestone, diff);
+
+  // DOES THE CODE DO WHAT THE MILESTONE ASKED, not merely contain something
+  // that looks like it? The judgment below reads the code; this runs it. See
+  // correctness.ts for why a failing test is evidence handed to the judge
+  // rather than a payout gate of its own.
+  //
+  // IT RUNS BEFORE THE GATES THAT COULD REFUSE, and that costs money. Its
+  // result is an input to the judgment, and the cheap gates below all need a
+  // verdict before they can decide — so a redelivered webhook on a stream that
+  // is already fully certified still pays for a check nothing will use. That is
+  // a known cost, not an oversight; `alreadyJudged` is what bounds it on the
+  // reconcile path.
+  //
+  // It never throws and it is never required: with the check off, or
+  // unavailable, `judge` receives nothing and behaves exactly as it always has.
+  const correctness = await correctnessOf(pr, want.repo, stream.milestone);
+
+  const { verdict, costUsd, model } = await judge(pr, stream.milestone, diff, correctness);
 
   const base = {
     // Which contract this judgment was made against. Without it, a redeploy —
@@ -166,6 +204,11 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     milestone: stream.milestone,
     model,
     inferenceCostUsd: costUsd,
+    // Logged whenever it ran, INCLUDING when it concluded nothing. A check that
+    // only appears in the ledger when it worked would make it look far more
+    // reliable than it is, and "how often is this actually conclusive" is the
+    // number we will want first.
+    correctness: correctness.outcome === 'unavailable' ? undefined : correctness,
     verdict,
   };
 
@@ -330,12 +373,11 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
 
   // COULD THE POLICY HAVE REFUSED THIS, OR DID WE NEVER GET AS FAR AS ASKING?
   //
-  // `unlock_failed` covers both, and the dashboard was asserting the first: "THE
-  // CONTRACT REFUSED THIS RELEASE ... because it would have exceeded the
-  // on-chain limits". During the townhall on 2026-08-18 it said exactly that
-  // about a release the contract never saw. The identical certification — 20% of
-  // the budget, 20 USDC added, the same caps — succeeded 44 minutes later
-  // untouched, so the policy was never the thing standing in the way.
+  // `unlock_failed` covers both, and asserting the first — "THE CONTRACT
+  // REFUSED THIS RELEASE ... because it would have exceeded the on-chain
+  // limits" — is a claim about a release the contract may never have seen. The
+  // identical certification, same percentage and same caps, can succeed
+  // untouched minutes later, so the policy was never what stood in the way.
   //
   // We can tell the difference, because the agent already read the caps. It
   // METERS to `maxTranche`, so a per-certification violation is impossible by

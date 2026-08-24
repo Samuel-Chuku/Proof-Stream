@@ -1,7 +1,7 @@
 /// Which repository, and which branch, a stream's work has to land on.
 ///
-/// WHY A BRANCH AT ALL. Until 2026-08-07 the agent judged any merged pull
-/// request in the repository, whatever it was merged INTO. That is a hole: a
+/// WHY A BRANCH AT ALL. Judging any merged pull request in the repository,
+/// whatever it was merged INTO, is a hole: a
 /// contributor could open a pull request from one throwaway branch into
 /// another, merge it themselves — non-default branches are not protected and
 /// need nobody's approval — and be judged and paid without the employer ever

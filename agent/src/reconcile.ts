@@ -9,9 +9,8 @@
 // THIS SPENDS MONEY WITHOUT BEING ASKED, so it is bounded on four axes:
 //
 //   1. only PRs merged AFTER the milestone activated — earlier work was not
-//      done against this milestone and must not be judged by it. THIS WAS
-//      DOCUMENTED BUT NOT IMPLEMENTED until 2026-08-05, and it cost a full
-//      budget; see the note at the check itself;
+//      done against this milestone and must not be judged by it — see the note
+//      at the check itself for what its absence releases;
 //   2. only within a lookback window (RECONCILE_LOOKBACK_HOURS, default 24);
 //   3. at most RECONCILE_MAX_PRS per stream per run (default 5);
 //   4. only PRs with no verdict already recorded for that stream.
@@ -35,9 +34,8 @@ type Logger = (entry: Record<string, unknown>) => void;
 /// `judged: false` marks a row where the judgment never happened at all — the
 /// LLM call threw, the ledger was read-only, the diff could not be fetched. Such
 /// a row must NOT count, or the pull request can never be retried by the very
-/// mechanism that exists to recover from those failures. It cost a live run on
-/// 2026-08-23: an LLM 404 wrote one of these, and every restart afterwards
-/// skipped the pull request as already judged.
+/// mechanism that exists to recover from those failures: an LLM 404 writes one
+/// of these, and every restart afterwards skips the pull request as judged.
 ///
 /// Everything else counts, including a certification that reached the chain and
 /// reverted. Those bought a second opinion and produced a verdict; re-judging
@@ -123,15 +121,13 @@ export async function reconcile(
 
   for (const entry of knownStreams()) {
     try {
-      // Bound (1), and it was MISSING until 2026-08-05 — documented above but
-      // never implemented, because the only filter was the lookback window.
+      // Bound (1), and the lookback window alone does NOT provide it.
       //
-      // What that cost: a stream funded at 19:51 reconciled a pull request
-      // merged at 12:19 the SAME DAY — seven and a half hours before its
-      // milestone existed — and certified it at 100%, releasing the entire
-      // budget for work that was never done against it. Nothing on chain was
-      // wrong; the agent simply judged history. Any agent restart within the
-      // lookback window could do this to a freshly funded stream.
+      // Without this check a freshly funded stream reconciles pull requests
+      // merged before its milestone existed and certifies them at 100%,
+      // releasing the entire budget for work never done against it. Nothing on
+      // chain is wrong; the agent is simply judging history. Any restart inside
+      // the lookback window can do it.
       //
       // A milestone that has not activated has `activatedAt == 0`, which would
       // make every past merge eligible — so an unfunded stream reconciles

@@ -156,7 +156,7 @@ several pull requests and an incremental diff cannot answer a cumulative questio
 trivial merge **will** be judged against the finished work already in the branch, and can
 raise certification toward what that work is genuinely worth.
 
-We tested this rather than assuming it:
+Both cases behave as follows:
 
 | Merge | Verdict |
 | --- | --- |
@@ -197,8 +197,8 @@ wallet it signs attestations and sends transactions from, with no plaintext key 
   construction — its own wallet, own process, own model vendor, and it gathers its own
   evidence rather than trusting what the buyer sends — but it is not independently
   operated. Production would source verifiers from an open market.
-- **Verification fees are batched, not per-transaction.** Stated above, and repeated
-  because it is the easiest property to misread.
+- **Verification fees are batched, not per-transaction.** See the section above; a fee
+  is not one Arc transaction each.
 - **The model that actually ran cannot be proven.** The verifier is paid for a specific
   model, and nothing today forces it to have used one. A signed receipt carrying the provider's
   generation record would make a lie *attributable*, not impossible. Real proof needs TEE
@@ -221,7 +221,7 @@ wallet it signs attestations and sends transactions from, with no plaintext key 
   repository at any time, including mid-milestone. The dashboard hides the control once the
   agent has certified anything, but that guard is in the interface, not the contract, so a
   direct call is unaffected. It cannot un-certify past work; it redirects what is judged
-  next. A one-line contract change fixes it and we did not redeploy for it before submission.
+  next. A one-line contract change fixes it, and it is queued behind the next deployment.
 - **The judgment is only as good as the model.** An LLM reading a diff can be wrong, and
   can be fooled by a sufficiently deceptive PR. Below the confidence threshold the agent
   releases nothing, which bounds the failure without removing it.
@@ -352,9 +352,8 @@ never a replacement.
 
 ## Roadmap
 
-- **Per-call pricing by model.** The verifier currently charges $0.005 while its own
-  inference costs ~$0.018 — it runs at a loss. Buyers should choose how many models review
-  their work, and the price should follow.
+- **Per-call pricing by model.** Buyers should be able to choose how many models review
+  their work, and how thoroughly, with the price following that choice.
 - **Model-provenance receipts**, signed by the verifier against the provider's generation
   record, so a false claim about which model ran is at least attributable.
 - **A verifier marketplace**, so the second opinion comes from an independent operator.

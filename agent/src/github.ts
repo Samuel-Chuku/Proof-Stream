@@ -44,6 +44,11 @@ export type MergedPr = {
    *  employer accepted. Undefined means we could not read it, which fails
    *  closed rather than open. */
   baseBranch?: string;
+  /** The commit the branch was at BEFORE this merge — the repository as it
+   *  stood when the last certification was made. The correctness check uses it
+   *  as its reference: it is the code the employer has already accepted, so its
+   *  arbitrary choices are the ones a fair test must not punish. */
+  baseSha?: string;
 };
 
 /// Extracts what we need from a `pull_request` event, or null if it is not a
@@ -59,6 +64,7 @@ export function parseMergedPr(payload: any): MergedPr | null {
     author: pr.user?.login ?? 'unknown',
     repo: payload?.repository?.full_name,
     baseBranch: pr.base?.ref,
+    baseSha: pr.base?.sha,
   };
 }
 
@@ -143,11 +149,10 @@ export async function fetchDiff(spec: string, prNumber: number): Promise<string>
   //
   // Context used to be the diff's own files. That makes "judged on the final
   // state" true only when the milestone's work happens to live in the files
-  // this particular pull request edited. It bit on PR #8: a one-line comment on
-  // `src/ledger.test.ts` meant the agent was shown the tests and NOT
-  // `src/ledger.ts`, so it saw tests calling a function it could not see and
-  // declined the milestone at confidence 1.0 — while the function had been
-  // merged three pull requests earlier and was sitting right there.
+  // this particular pull request edited. A one-line comment on a test file
+  // shows the agent the tests and NOT the implementation, so it sees tests
+  // calling a function it cannot find and declines the milestone at full
+  // confidence — while the function sits in the branch, merged earlier.
   //
   // The milestone is cumulative, so the evidence has to be the repository, not
   // the changeset. Touched files come first so the diff's own subjects are
@@ -203,4 +208,64 @@ export async function fetchDiff(spec: string, prNumber: number): Promise<string>
         `work delivered by EARLIER pull requests appears here even though it is absent from the diff ` +
         `above. A small diff on top of finished work is finished work.\n${context}`
     : diff;
+}
+
+/// Only what a runtime could actually load. `fetchDiff` shows a judge prose and
+/// Solidity and markdown too, which is right for reading and useless for
+/// running: the correctness check EXECUTES these files, so anything the Node
+/// runtime cannot import is a wasted API call and a bigger sandbox upload.
+const EXECUTABLE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i;
+
+/// Bounds on one execution snapshot. Two of these are fetched per judgment —
+/// the merged state and the state before it — so the cost is doubled.
+const MAX_EXEC_FILES = 40;
+const MAX_EXEC_CHARS = 400_000;
+
+/// The repository's source at one commit, as files rather than as prose.
+///
+/// `fetchDiff` returns one string for a model to read. The correctness check
+/// needs the same content as separate paths, because it writes them into a
+/// sandbox and runs them, and a module cannot import a paragraph.
+///
+/// Returns an EMPTY ARRAY rather than throwing when GitHub will not answer.
+/// This feeds a check that is allowed to be unavailable; it is not allowed to
+/// take a judgment down with it, because a contributor would then go unpaid
+/// over an API blip.
+export async function fetchSourceFiles(spec: string, ref: string): Promise<{ path: string; contents: string }[]> {
+  const repo = parseRepoSpec(spec).repo;
+  const files: { path: string; contents: string }[] = [];
+
+  try {
+    // `?recursive=1` pins the read to one commit. Reading `/contents` without a
+    // ref serves the DEFAULT branch instead, which for a stream that names its
+    // own branch is a different repository state entirely — the mistake that
+    // once had a merge into `testrun/1` judged against `main`.
+    const treeRes = await gh(`/repos/${repo}/git/trees/${ref}?recursive=1`);
+    if (!treeRes.ok) return [];
+    const tree = (await treeRes.json()) as { tree?: { path: string; type: string }[] };
+
+    const paths = (tree.tree ?? [])
+      .filter((n) => n.type === 'blob' && EXECUTABLE.test(n.path) && !IGNORED.test(n.path))
+      .map((n) => n.path)
+      .sort()
+      .slice(0, MAX_EXEC_FILES);
+
+    let total = 0;
+    for (const path of paths) {
+      if (total >= MAX_EXEC_CHARS) break;
+      const raw = await gh(`/repos/${repo}/contents/${encodeURI(path)}?ref=${ref}`, 'application/vnd.github.raw');
+      if (!raw.ok) continue;
+      const contents = await raw.text();
+      // NEVER TRUNCATED, unlike the prose context. Half a source file is not a
+      // smaller source file, it is a syntax error, and it would be reported as
+      // the suite failing to load rather than as our own cap.
+      if (contents.length > MAX_FILE_CHARS) continue;
+      files.push({ path, contents });
+      total += contents.length;
+    }
+  } catch {
+    return [];
+  }
+
+  return files;
 }

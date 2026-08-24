@@ -12,12 +12,11 @@ import { arcTestnet } from 'viem/chains';
 
 /// The names below are checked against the GENERATED ABI at compile time.
 ///
-/// This used to take a bare `string`, and `readContract` is called with
-/// `functionName as never`, so tsc could not see a name the contract does not
-/// have. That is exactly how `activatedAt` was read with no matching ABI entry
-/// on 2026-08-05: it compiled, the agent started, discovered zero streams, and
-/// looked like a registry fault. Now that the ABI is generated `as const`, viem
-/// can name every readable function and a typo fails the build instead.
+/// `readContract` is called with `functionName as never` when this takes a bare
+/// `string`, so tsc cannot see a name the contract does not have: reading a
+/// function with no matching ABI entry compiles, the agent starts, discovers
+/// zero streams, and looks like a registry fault. With the ABI generated
+/// `as const`, viem can name every readable function and a typo fails the build.
 type ReadFn = ContractFunctionName<typeof WORK_STREAM_ABI, 'view' | 'pure'>;
 
 

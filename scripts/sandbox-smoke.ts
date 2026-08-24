@@ -52,19 +52,26 @@ found.length === 0 ? pass('no agent secrets in the sandbox environment') : fail(
 console.log(`        (sandbox saw: ${leak.stdout.trim().split('\n').map((l) => l.split('=')[0]).join(', ') || 'nothing'})`);
 
 console.log('\n3. egress is actually blocked, not just requested');
-// Deliberately NOT matched on an error string. An earlier version looked for
-// the word BLOCKED and found it echoed back inside curl's own complaint about
-// arguments it could not parse — a pass that proved nothing. This prints a
-// sentinel ONLY on success, so reaching the network is the only way to see it.
-const net = await runInSandbox(
-  [],
-  'if curl -sS --max-time 8 -o /dev/null https://api.github.com; then echo REACHED_THE_INTERNET; else echo refused; fi',
-  { seconds: 60 },
-  { trusted: false },
-);
+// PROBED WITH NODE, NOT CURL, AND THE REASON IS A NEAR MISS.
+//
+// The image is pinned to node:22-slim and slim images carry no curl. The old
+// probe was `if curl ...; then echo REACHED; else echo refused; fi`, so a
+// MISSING curl took the else branch and printed `refused` — reporting the
+// security control as holding without ever attempting a connection. It would
+// have passed identically with egress wide open.
+//
+// So probe with the runtime we know is there, which is also the one a
+// contributor's code would actually use to exfiltrate. A sentinel is printed
+// ONLY on success, and the failure branch names the error, so "the probe never
+// ran" cannot be mistaken for "the network refused".
+const PROBE =
+  `node -e 'fetch("https://api.github.com",{signal:AbortSignal.timeout(8000)})` +
+  `.then(function(r){console.log("REACHED_THE_INTERNET",r.status)})` +
+  `.catch(function(e){console.log("refused:"+((e.cause&&e.cause.code)||e.name))})'`;
+const net = await runInSandbox([], PROBE, { seconds: 60 }, { trusted: false });
 const out = net.stdout + net.stderr;
-!/REACHED_THE_INTERNET/.test(out) && /refused/.test(out)
-  ? pass('outbound network refused')
+!/REACHED_THE_INTERNET/.test(out) && /refused:/.test(out)
+  ? pass(`outbound network refused (${out.match(/refused:(\S+)/)?.[1] ?? 'no reason given'})`)
   : fail(`egress got through, or the probe did not run — ${JSON.stringify(out.slice(0, 200))}`);
 
 console.log('\n4. a hang is killed at our deadline, not left to run');
@@ -74,4 +81,33 @@ const took = Math.round((Date.now() - started) / 1000);
 hung.timedOut ? pass(`reported as a timeout after ~${took}s`) : fail(`not reported as a timeout (exit ${hung.exitCode})`);
 took < 90 ? pass('killed near the deadline rather than at Beam\'s') : fail(`took ${took}s for a 20s limit`);
 
-console.log(process.exitCode ? '\nSOMETHING IS NOT AS CLAIMED — read the FAILs above.\n' : '\nAll four controls hold.\n');
+console.log('\n5. the image can actually run a generated suite, and a failure looks like one');
+// The controls above are about safety. This one is about the check being able
+// to do its job at all: the correctness oracle writes a TypeScript suite and
+// runs it with no install step and no network, which only works because Node 22
+// strips types natively and ships its own test runner.
+//
+// A PASSING TEST ALONE WOULD PROVE NOTHING. Six measurements in this project
+// were broken by a check that could only come out green, so the suite below
+// contains one test that must pass and one that must fail, and BOTH are
+// asserted. If the runtime were missing we would see neither.
+const suite = [
+  { path: 'src/mod.ts', contents: 'export function two(): number {\n  return 2;\n}\n' },
+  {
+    path: 'oracle.test.ts',
+    contents:
+      'import test from "node:test";\n' +
+      'import assert from "node:assert/strict";\n' +
+      'import { two } from "./src/mod.ts";\n' +
+      'test("this one must pass", () => assert.equal(two(), 2));\n' +
+      'test("this one must fail", () => assert.equal(two(), 3));\n',
+  },
+];
+const ran = await runInSandbox(suite, 'node --test oracle.test.ts', { seconds: 120 }, { trusted: false });
+const tap = ran.stdout + ran.stderr;
+/^# pass 1$/m.test(tap) ? pass('type-annotated TypeScript ran with no install step') : fail(`no passing test in the TAP — ${JSON.stringify(tap.slice(0, 300))}`);
+/^# fail 1$/m.test(tap) && /not ok \d+ - this one must fail/.test(tap)
+  ? pass('a failing test is reported as failing, by name')
+  : fail('the deliberately broken test did not come back as a failure — this check could only ever go green');
+
+console.log(process.exitCode ? '\nSOMETHING IS NOT AS CLAIMED — read the FAILs above.\n' : '\nAll four controls hold, and the runtime can run a suite.\n');

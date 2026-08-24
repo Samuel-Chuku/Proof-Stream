@@ -227,8 +227,8 @@ async function callLlm(body: unknown, key: string): Promise<any> {
         // A WELL-FORMED 200 CARRYING NO ANSWER. The model spends its budget
         // reasoning and emits nothing, so `content` is ''. That is not a bad
         // prompt and not a bad model — it is a blip, and treating it as fatal
-        // blocked a payout on PR #9 with the message "Verdict was not valid
-        // JSON:" and nothing after the colon. Retry it like any other blip.
+        // treating it as fatal blocks a payout with the message "Verdict was
+        // not valid JSON:" and nothing after the colon. Retry it as a blip.
         const answered = (parsedBody?.choices?.[0]?.message?.content ?? '').trim();
         if (!answered && attempt < 3) {
           await new Promise((r) => setTimeout(r, 2_000 * 2 ** attempt));
@@ -276,11 +276,10 @@ async function callLlm(body: unknown, key: string): Promise<any> {
     }
     // THE MODEL CANNOT SERVE US, WHICH IS EXACTLY WHAT THE FALLBACK LIST IS FOR.
     //
-    // Until 2026-08-23 only 429 reached the fallbacks, so a model that was
-    // merely BUSY was survivable while one that had been WITHDRAWN was fatal.
-    // That is backwards, and it cost a live run: the provider retired the
-    // primary's `:free` slug, both fallbacks had been retired too, and this
-    // threw on the first call without trying anything else.
+    // If only 429 reaches the fallbacks, a model that is merely BUSY is
+    // survivable while one that has been WITHDRAWN is fatal. That is backwards:
+    // providers retire `:free` slugs without notice, and a retired primary then
+    // throws on the first call without anything else being tried.
     //
     // Matched on STATUS, never on the provider's error prose. Any
     // OpenAI-compatible endpoint can be configured here — Ollama, Together,
