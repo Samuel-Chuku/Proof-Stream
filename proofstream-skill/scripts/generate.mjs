@@ -12,6 +12,7 @@ const GENERATED = join(PACKAGE_ROOT, 'generated');
 const COMMIT = 'ce754c1a6c56ad65657b9482ffca9aa96ee8cfad';
 
 async function json(path) { return JSON.parse(await readFile(path, 'utf8')); }
+function normalizeText(value) { return value.replaceAll('\r\n', '\n'); }
 async function put(path, value) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
@@ -151,7 +152,7 @@ async function main() {
       if (JSON.stringify(expected) !== JSON.stringify(actual)) throw new Error(`Generated file set differs. Expected ${expected.join(', ')}; found ${actual.join(', ')}`);
       for (const rel of expected) {
         const [want, have] = await Promise.all([readFile(join(temp, rel), 'utf8'), readFile(join(GENERATED, rel), 'utf8')]);
-        if (want !== have) throw new Error(`Generated output is stale: generated/${rel}`);
+        if (normalizeText(want) !== normalizeText(have)) throw new Error(`Generated output is stale: generated/${rel}`);
       }
       console.log('ProofStream skill generated references are up to date.');
     } finally { await rm(temp, { recursive: true, force: true }); }
