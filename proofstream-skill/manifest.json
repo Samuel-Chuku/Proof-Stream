@@ -2,7 +2,7 @@
   "schemaVersion": "1.0.0",
   "name": "proofstream-integration",
   "displayName": "ProofStream Integration",
-  "skillVersion": "0.1.0",
+  "skillVersion": "0.1.1",
   "cli": "proofstream-skill",
   "proofstream": {
     "repository": "https://github.com/Samuel-Chuku/Proof-Stream",

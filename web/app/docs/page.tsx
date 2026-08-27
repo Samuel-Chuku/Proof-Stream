@@ -204,15 +204,15 @@ export default function Docs() {
       <div className="ps-doc-install-grid">
         <section className="ps-doc-install-card">
           <p className="ps-label">NPM / NPX</p>
-          <h2 className="ps-display-l">Install when published</h2>
+          <h2 className="ps-display-l">Install from npm</h2>
           <p className="ps-body">
             The package is configured as <code>proofstream-integration-skill</code>, with the
-            <code>proofstream-skill</code> binary. It is not published to npm yet, so this command is
-            the release target, not a currently available network install.
+            <code>proofstream-skill</code> binary. Version <code>0.1.0</code> is published and can be
+            installed directly with npx.
           </p>
           <pre className="ps-code-block"><code>{`npx proofstream-integration-skill init --agent codex
 npx proofstream-integration-skill doctor`}</code></pre>
-          <p className="ps-caption">NO NPM PUBLISH HAS BEEN PERFORMED AT THIS RELEASE</p>
+          <p className="ps-caption">NPM RELEASE 0.1.1 · PINNED TO PROOFSTREAM COMMIT CE754C1</p>
         </section>
 
         <section className="ps-doc-install-card">

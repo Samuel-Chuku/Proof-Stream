@@ -4,7 +4,7 @@ An installable, offline-capable skill for developers and coding agents integrati
 
 ## Status
 
-Version `0.1.0` is an experimental package pinned to ProofStream commit `ce754c1a6c56ad65657b9482ffca9aa96ee8cfad`. It is not currently published to npm. The repository is the source of truth; generated references are checked for drift.
+Version `0.1.1` is an experimental package pinned to ProofStream commit `ce754c1a6c56ad65657b9482ffca9aa96ee8cfad`. It is published to npm as `proofstream-integration-skill@0.1.1`. The repository is the source of truth; generated references are checked for drift.
 
 ## Install locally
 
@@ -21,7 +21,7 @@ The installer is idempotent, offline by default, and refuses to replace an unrel
 
 ## Distribution paths
 
-- **npx:** not currently published. After package ownership and licensing are approved, the intended command is `npx proofstream-integration-skill init`.
+- **npx:** published as `proofstream-integration-skill@0.1.1`; run `npx proofstream-integration-skill init` for a network install.
 - **GitHub Release ZIP:** release automation will produce a versioned ZIP, SHA-256 checksum, compatibility metadata, and npm tarball.
 - **Git clone:** clone a release tag, run `pnpm install --frozen-lockfile`, generate references, then use the local CLI.
 - **Offline agent:** install into `.agents/skills/proofstream-integration`, `.codex/skills/proofstream-integration`, or `.claude/skills/proofstream-integration` and point the coding agent at `SKILL.md`.

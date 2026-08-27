@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 - patch
+
+- Synchronized published npm documentation and release metadata after the 0.1.0 publication.
+
 ## 0.1.0 - experimental
 
 - Added the ProofStream integration skill entrypoint and routed references.

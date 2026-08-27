@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "skillVersion": "0.1.0",
+  "skillVersion": "0.1.1",
   "proofstreamRepository": "https://github.com/Samuel-Chuku/Proof-Stream",
   "proofstreamCommit": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
   "releaseStatus": "experimental",
