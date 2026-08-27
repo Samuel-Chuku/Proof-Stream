@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0.0",
+  "proofstreamCommit": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
+  "generatedAt": "RUN_TIME",
+  "status": "requires-fresh-verification",
+  "notes": [
+    "This file records what must be rerun; it is not a substitute for the audit protocol in skillBuild.md."
+  ]
+}

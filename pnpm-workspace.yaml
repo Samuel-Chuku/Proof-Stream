@@ -2,6 +2,7 @@ packages:
   - config
   - agent
   - web
+  - proofstream-skill
 allowBuilds:
   bufferutil: true
   esbuild: true

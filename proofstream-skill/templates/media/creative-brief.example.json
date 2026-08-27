@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "1.0",
+  "id": "arc-workstream-flyer-example",
+  "medium": "flyer",
+  "objective": "Explain how an employer can fund a work stream and follow evidence through certification.",
+  "audience": "Developers evaluating an Arc testnet integration",
+  "format": {
+    "width": 210,
+    "height": 297,
+    "unit": "mm",
+    "orientation": "portrait",
+    "dpi": 300,
+    "bleed": 3,
+    "safeArea": "Keep all copy 8 mm inside trim; reserve the lower-right corner for a QR code."
+  },
+  "copy": {
+    "headline": "Evidence in. Certification on-chain.",
+    "subhead": "ProofStream connects external work evidence to a USDC work stream.",
+    "body": "An off-chain attestor evaluates evidence, obtains an independent verifier opinion, and submits a signed attestation. The WorkStream contract enforces its configured payee, nonce, expiry, and policy limits.",
+    "cta": "Read the integration guide",
+    "disclaimers": ["AI judgment is an off-chain trust assumption; certification is only final after a successful on-chain receipt."],
+    "sourceClaims": [
+      { "claim": "ProofStream is an Arc-based USDC work-stream system.", "status": "verified", "source": "README.md; generated/compatibility.json" },
+      { "claim": "The attestor obtains an independent verifier opinion and submits a signed attestation.", "status": "verified", "source": "references/agents-and-verification.md; contracts/src/WorkStream.sol" }
+    ]
+  },
+  "visual": {
+    "markUse": "text-only",
+    "typography": "Departure Mono for state labels and identifiers; readable proportional fallback for explanatory copy.",
+    "palette": {
+      "paper": "#EFEDE3",
+      "surface": "#F0F0F0",
+      "sunk": "#E3E1D7",
+      "ink": "#333333",
+      "dark": "#1A1917",
+      "rule": "#333333",
+      "green": "#00FF00",
+      "greenUsage": "released-usdc-only"
+    },
+    "safeArea": "Use a 4 px rhythm and hard down-right shadow; keep all copy clear of trim and QR code.",
+    "negativePrompts": ["crypto-blue gradient", "glassmorphism", "fake metrics", "fake wallet addresses", "decorative particles", "illegible microtext"],
+    "altText": "A ProofStream flyer showing the path from external evidence to on-chain certification and contributor withdrawal."
+  },
+  "compliance": {
+    "approvedClaims": ["Verified evidence", "On-chain certification", "Independent review"],
+    "forbiddenClaims": ["trustless AI", "guaranteed payout", "fraud-proof", "risk-free", "fully autonomous"],
+    "assetRights": "not-required",
+    "accessibility": {
+      "contrastChecked": true,
+      "altText": "A ProofStream flyer showing the path from external evidence to on-chain certification and contributor withdrawal.",
+      "captions": false,
+      "transcript": false
+    }
+  },
+  "provenance": {
+    "sourceCommit": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
+    "briefOwner": "ProofStream integration team",
+    "notes": "Example brief. Replace sourceCommit only after re-auditing the repository."
+  },
+  "outputs": [
+    { "filename": "proofstream-flyer-arc-testnet-v1.pdf", "type": "pdf", "path": "dist/media/" },
+    { "filename": "proofstream-flyer-arc-testnet-v1.png", "type": "png", "path": "dist/media/" }
+  ]
+}

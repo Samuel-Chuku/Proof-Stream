@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedFrom": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
+  "categories": [
+    "on-chain",
+    "off-chain",
+    "agent",
+    "web-ui",
+    "cli"
+  ],
+  "onChain": [
+    "WorkStream",
+    "StreamRegistry",
+    "USDC",
+    "EIP-712 attestation",
+    "contract events"
+  ],
+  "offChain": [
+    "GitHub webhook and diff evidence",
+    "JSONL agent logs",
+    "Circle Gateway and x402 payment"
+  ],
+  "agent": [
+    "attestor pipeline",
+    "independent verifier review",
+    "metering",
+    "reconciliation"
+  ],
+  "webUi": [
+    "Next.js App Router pages",
+    "viem readers and writers",
+    "wallet and passkey paths"
+  ],
+  "cli": [
+    "agent:dev",
+    "check:chain",
+    "circle:setup",
+    "evidence",
+    "gateway:deposit",
+    "logs:pull",
+    "preflight:agent",
+    "preflight:deploy",
+    "preflight:drain",
+    "preflight:register",
+    "preflight:verifier",
+    "preflight:withdraw",
+    "review:test",
+    "seed",
+    "skill:check",
+    "skill:creative-check",
+    "skill:generate",
+    "skill:install-test",
+    "skill:pack",
+    "skill:release-dry-run",
+    "skill:test",
+    "stream:status",
+    "sweep",
+    "sync:artifacts",
+    "test:amounts",
+    "test:caps",
+    "test:create-stream",
+    "test:failover",
+    "test:json",
+    "test:metering",
+    "test:poll",
+    "test:reconcile",
+    "test:repo",
+    "test:serialize",
+    "verdict:test",
+    "verifier:dev",
+    "verify:once",
+    "watch",
+    "web:build",
+    "web:dev",
+    "webhook:secret",
+    "withdraw"
+  ],
+  "absent": [
+    "public SDK",
+    "stable REST API",
+    "hosted webhook delivery service",
+    "MCP server"
+  ]
+}

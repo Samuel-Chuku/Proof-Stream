@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schemaVersion", "generatedFrom", "categories", "onChain", "offChain", "agent", "webUi", "cli", "absent"],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "generatedFrom": { "type": "string" },
+    "categories": { "type": "array", "items": { "type": "string" } },
+    "onChain": { "type": "array", "items": { "type": "string" } },
+    "offChain": { "type": "array", "items": { "type": "string" } },
+    "agent": { "type": "array", "items": { "type": "string" } },
+    "webUi": { "type": "array", "items": { "type": "string" } },
+    "cli": { "type": "array", "items": { "type": "string" } },
+    "absent": { "type": "array", "items": { "type": "string" } }
+  }
+}

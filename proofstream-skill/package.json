@@ -1,0 +1,41 @@
+{
+  "name": "proofstream-integration-skill",
+  "version": "0.1.0",
+  "description": "Installable, offline-capable ProofStream integration skill and documentation.",
+  "type": "module",
+  "private": false,
+  "bin": {
+    "proofstream-skill": "bin/proofstream-skill.mjs"
+  },
+  "files": [
+    "SKILL.md",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "manifest.json",
+    "agents",
+    "assets",
+    "bin",
+    "src",
+    "references",
+    "generated",
+    "examples",
+    "templates",
+    "schemas"
+  ],
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "generate:check": "node scripts/generate.mjs --check",
+    "test": "node --test test/*.test.mjs",
+    "examples:typecheck": "pnpm exec tsc -p examples/tsconfig.json --noEmit",
+    "pack:release": "node scripts/package-release.mjs",
+    "repro:check": "node scripts/verify-reproducible.mjs",
+    "creative-check": "node bin/proofstream-skill.mjs creative-check templates/media/creative-brief.example.json"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

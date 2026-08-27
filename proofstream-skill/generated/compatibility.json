@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0.0",
+  "skillVersion": "0.1.0",
+  "proofstreamRepository": "https://github.com/Samuel-Chuku/Proof-Stream",
+  "proofstreamCommit": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
+  "releaseStatus": "experimental",
+  "chain": {
+    "name": "Arc Testnet",
+    "chainId": 5042002,
+    "rpc": "https://rpc.testnet.arc.network",
+    "explorer": "https://testnet.arcscan.app",
+    "source": ".env.example and web/lib/chain.ts"
+  },
+  "addresses": [
+    {
+      "contract": "USDC",
+      "address": "0x3600000000000000000000000000000000000000",
+      "chainId": 5042002,
+      "status": "verified-source",
+      "purpose": "web chain constant",
+      "source": "web/lib/chain.ts"
+    },
+    {
+      "contract": "StreamRegistry",
+      "address": "0x528B36beF91B338166F08aA41676e9f1f1BF019f",
+      "chainId": 5042002,
+      "status": "verified-source",
+      "purpose": "README deployment table",
+      "source": "README.md"
+    },
+    {
+      "contract": "WorkStream",
+      "address": "0xF6362b807915FD998a03FaEc73361166333F4Ac9",
+      "chainId": 5042002,
+      "status": "conflicted",
+      "purpose": "README deployment table",
+      "source": "README.md"
+    },
+    {
+      "contract": "WorkStream",
+      "address": "0xA84746722727e04eba331fB3AFD7D0940B815161",
+      "chainId": 5042002,
+      "status": "conflicted",
+      "purpose": "EVIDENCE current contract",
+      "source": "EVIDENCE.md"
+    },
+    {
+      "contract": "GatewayWallet",
+      "address": "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
+      "chainId": 5042002,
+      "status": "verified-source",
+      "purpose": "README deployment table",
+      "source": "README.md"
+    }
+  ],
+  "bytecode": {
+    "WorkStreamSha256": "baddc86a7b9605e73c5010d7fe6c6e6391afc21238654a2cd10a3b093eed25ed",
+    "StreamRegistrySha256": "c1e3a345383cf9e365ded38713d779f6ad01903c6db338e79edecfa163ce9269"
+  },
+  "packageVersions": {
+    "proofstream": "workspace",
+    "@proofstream/config": "workspace",
+    "@proofstream/agent": "workspace",
+    "@proofstream/web": "workspace"
+  },
+  "generatedAt": "SOURCE_DATE_EPOCH_OR_COMMIT_TIME",
+  "sources": [
+    "contracts/out/WorkStream.sol/WorkStream.json",
+    "contracts/out/StreamRegistry.sol/StreamRegistry.json",
+    "README.md",
+    "EVIDENCE.md",
+    ".env.example",
+    "web/lib/chain.ts"
+  ],
+  "warnings": [
+    "Chain ID must be reverified against source."
+  ]
+}
