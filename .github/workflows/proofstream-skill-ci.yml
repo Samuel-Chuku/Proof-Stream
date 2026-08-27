@@ -65,6 +65,8 @@ jobs:
           node-version: "22.13.1"
           cache: pnpm
       - run: pnpm --version
+      - uses: foundry-rs/foundry-toolchain@v1
       - run: pnpm install --frozen-lockfile
+      - run: forge build --root contracts
       - run: pnpm --filter proofstream-integration-skill generate:check
       - run: pnpm --filter proofstream-integration-skill test
