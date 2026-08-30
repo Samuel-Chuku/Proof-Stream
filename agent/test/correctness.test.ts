@@ -201,3 +201,45 @@ test('parseTap calls a suite that asserted nothing void, not passing', () => {
   assert.equal(r.void, true);
   assert.match(r.reason ?? '', /asserted nothing/);
 });
+
+// --- did the work improve, or was the question just asked again? ------------
+
+import { evidenceImproved, type Evidence } from '../src/adjudicate';
+
+const ev = (passed: number, total = 12, suiteId = 'suite-a'): Evidence => ({ passed, total, suiteId });
+
+test('THE COMMENT-ONLY MERGE: identical evidence cannot raise certification', () => {
+  // The live bug. A comment cannot make more tests pass, so it must not be able
+  // to move the number.
+  assert.equal(evidenceImproved(ev(9), ev(9)), false);
+});
+
+test('more tests passing is a real improvement', () => {
+  assert.equal(evidenceImproved(ev(9), ev(12)), true);
+});
+
+test('fewer tests passing is not an improvement', () => {
+  assert.equal(evidenceImproved(ev(12), ev(9)), false);
+});
+
+test('the first judgment has nothing to compare against, so it proceeds', () => {
+  assert.equal(evidenceImproved(null, ev(9)), true);
+});
+
+test('COUNTS FROM DIFFERENT SUITES ARE NOT COMPARED', () => {
+  // A regenerated suite renames and renumbers everything, so 9 of 12 against
+  // 11 of 14 is two different rulers. Holding on that would be arbitrary.
+  assert.equal(evidenceImproved(ev(9, 12, 'suite-a'), ev(9, 14, 'suite-b')), true);
+});
+
+test('a missing suite id means we cannot compare, so we do not hold', () => {
+  assert.equal(evidenceImproved({ passed: 9, total: 12 }, ev(9)), true);
+  assert.equal(evidenceImproved(ev(9), { passed: 9, total: 12 }), true);
+});
+
+test('an inconclusive run on either side does not hold anything', () => {
+  // This gate withholds pay. The safe direction is to let a judgment proceed
+  // rather than hold it on a comparison we could not actually make.
+  assert.equal(evidenceImproved(ev(0, 0), ev(9)), true);
+  assert.equal(evidenceImproved(ev(9), ev(0, 0)), true);
+});

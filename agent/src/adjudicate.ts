@@ -177,3 +177,38 @@ export function parseTap(out: string): SuiteRun {
   // counts for how much of the suite a run got through.
   return { failed, passed, failedCount, total: passed + failedCount, void: false };
 }
+
+/// What a past certification proved, so a later one can be compared against it.
+export type Evidence = {
+  /// Which suite produced the counts. Two results are comparable ONLY when this
+  /// matches: a regenerated suite renames and renumbers everything.
+  suiteId?: string;
+  passed: number;
+  total: number;
+};
+
+/// DID THE WORK IMPROVE, OR WAS THE QUESTION SIMPLY ASKED AGAIN?
+///
+/// `certifiedBps` only ever rises, so low judgments are discarded and high ones
+/// stick. Repeated judgments therefore do not converge on the truth, they climb
+/// toward the highest number the agent ever produced. Observed live: a
+/// comment-only merge took a standing 95% to a full certification, because the
+/// second roll of the dice landed higher and monotonicity made it permanent.
+///
+/// The fix is to stop treating a re-ask as new information. Certification may
+/// rise when the EVIDENCE improves, not when the model is asked again.
+///
+/// Returns true whenever we cannot honestly say the evidence failed to improve,
+/// because this gate withholds pay and the safe direction is to let a judgment
+/// proceed rather than to hold it on a comparison we could not make:
+///
+///   - no previous evidence, so this is the first look
+///   - a different suite, so the two counts came from different rulers
+///   - either side inconclusive, so there is nothing to compare
+export function evidenceImproved(previous: Evidence | null, current: Evidence): boolean {
+  if (!previous) return true;
+  if (!previous.suiteId || !current.suiteId) return true;
+  if (previous.suiteId !== current.suiteId) return true;
+  if (previous.total === 0 || current.total === 0) return true;
+  return current.passed > previous.passed;
+}

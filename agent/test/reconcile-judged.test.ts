@@ -43,13 +43,25 @@ writeFileSync(
     // A send that failed AFTER a verdict. Re-judging would buy a second
     // opinion for work already judged, so this still counts.
     row({ event: 'unlock_failed', workStream: STREAM, pr: 4, reason: 'ESTIMATION_ERROR' }),
+    // --- evidence rows, for lastEvidence ---
+    // A conclusive check. This is the baseline a later judgment is measured on.
+    row({ event: 'unlocked', workStream: OTHER, pr: 10, correctness: { outcome: 'passes', suiteId: 'ruler-1', passed: 9, total: 12 } }),
+    // Inconclusive: it established nothing, so it must NOT become the baseline.
+    row({ event: 'escalated', workStream: OTHER, pr: 11, correctness: { outcome: 'inconclusive', suiteId: 'ruler-1', passed: 0, total: 0 } }),
+    // A later conclusive one. The newest conclusive row is what counts.
+    row({ event: 'unlocked', workStream: OTHER, pr: 12, correctness: { outcome: 'fails', suiteId: 'ruler-1', passed: 11, total: 12 } }),
+    // AND THEN AN INCONCLUSIVE ONE LAST. Deliberately last: if the filter were
+    // removed, this row would become the baseline and the test below would
+    // catch it. With the inconclusive row in the middle the test passed either
+    // way and proved nothing.
+    row({ event: 'escalated', workStream: OTHER, pr: 13, correctness: { outcome: 'inconclusive', suiteId: 'ruler-1', passed: 0, total: 0 } }),
     // Another stream's business entirely.
     row({ event: 'unlocked', workStream: OTHER, pr: 5, txHash: '0xdef' }),
     'not json at all',
   ].join('\n') + '\n',
 );
 
-const { alreadyJudged } = await import('../src/reconcile');
+const { alreadyJudged, lastEvidence } = await import('../src/reconcile');
 
 test('a certification counts as judged', () => {
   assert.equal(alreadyJudged(STREAM).has(1), true);
@@ -80,4 +92,36 @@ test('a corrupt line does not take the whole ledger down', () => {
 
 test('an unknown stream has judged nothing', () => {
   assert.equal(alreadyJudged('0x0000000000000000000000000000000000000009').size, 0);
+});
+
+// --- lastEvidence: the baseline a later judgment is measured against ---------
+
+test('the newest CONCLUSIVE check is the baseline', () => {
+  const e = lastEvidence(OTHER);
+  assert.equal(e?.passed, 11, 'the fails row at 11 of 12 is the most recent conclusive one');
+  assert.equal(e?.total, 12);
+  assert.equal(e?.suiteId, 'ruler-1');
+});
+
+test('AN INCONCLUSIVE RUN NEVER BECOMES THE BASELINE', () => {
+  // It established nothing. Treating it as a baseline would hold a later
+  // judgment against a measurement that never happened.
+  //
+  // The ledger's LAST row for this stream is inconclusive on purpose, so
+  // dropping the filter would make it the answer and this would fail.
+  const e = lastEvidence(OTHER);
+  assert.equal(e?.passed, 11, 'the inconclusive row must be skipped, not taken as newest');
+  assert.equal(e?.total, 12);
+});
+
+test('a stream with no correctness rows has no baseline', () => {
+  assert.equal(lastEvidence(STREAM), null);
+});
+
+test('an unknown stream has no baseline', () => {
+  assert.equal(lastEvidence('0x000000000000000000000000000000000000dEaD'), null);
+});
+
+test('the stream match is case-insensitive, as addresses are', () => {
+  assert.equal(lastEvidence(OTHER.toLowerCase())?.passed, 11);
 });

@@ -21,6 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { parseRepoSpec } from '@proofstream/config';
 import { env, ledgerPath } from './env';
+import type { Evidence } from './adjudicate';
 import type { MergedPr } from './github';
 import { knownStreams } from './registry';
 
@@ -60,6 +61,39 @@ export function alreadyJudged(streamAddress: string): Set<number> {
     // No log yet — nothing has been judged.
   }
   return judged;
+}
+
+/// What the last CONCLUSIVE correctness check said about this stream.
+///
+/// Read from the ledger rather than kept in memory, because the agent restarts
+/// and the comparison has to survive that. Only `passes` and `fails` count: an
+/// inconclusive or void run established nothing, so treating it as a baseline
+/// would hold a later judgment against a measurement that never happened.
+///
+/// Returns null on any failure. This feeds a gate that WITHHOLDS PAY, so an
+/// unreadable ledger must mean "no baseline" and let the judgment proceed.
+export function lastEvidence(streamAddress: string): Evidence | null {
+  try {
+    let latest: Evidence | null = null;
+    for (const line of readFileSync(LOG_PATH, 'utf8').split('\n')) {
+      if (!line) continue;
+      try {
+        const entry = JSON.parse(line) as {
+          workStream?: string;
+          correctness?: { outcome?: string; suiteId?: string; passed?: number; total?: number };
+        };
+        if (entry.workStream?.toLowerCase() !== streamAddress.toLowerCase()) continue;
+        const c = entry.correctness;
+        if (!c || (c.outcome !== 'passes' && c.outcome !== 'fails')) continue;
+        latest = { suiteId: c.suiteId, passed: c.passed ?? 0, total: c.total ?? 0 };
+      } catch {
+        // A truncated final line is normal while the pipeline is writing.
+      }
+    }
+    return latest;
+  } catch {
+    return null;
+  }
 }
 
 type GhPull = {

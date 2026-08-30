@@ -5,11 +5,13 @@
 import { appendFileSync } from 'node:fs';
 import { authorIsAllowed, coAuthorLogins, formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
+import { evidenceImproved } from './adjudicate';
 import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
 import { fetchCommitMessages, fetchDiff, fetchSourceFiles, type MergedPr } from './github';
 import { agentsDisagree, meterCertification, requiredConfidence } from './metering';
 import { buySecondOpinion } from './pay';
+import { lastEvidence } from './reconcile';
 import { resolveStreams, type StreamEntry } from './registry';
 import { serialize } from './serialize';
 import { judge } from './verdict';
@@ -296,6 +298,32 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
         `${Number(attestorBps) / 100}% of this milestone`,
     });
     return 'escalated';
+  }
+
+  // DID THE WORK IMPROVE, OR WAS THE QUESTION SIMPLY ASKED AGAIN?
+  //
+  // `certifiedBps` only rises, so low judgments are discarded and high ones
+  // stick: repeated judgments climb toward the highest number the model ever
+  // produced rather than converging on the truth. Observed live, a comment-only
+  // merge took a standing 95% to a full certification.
+  //
+  // So a re-ask is not new information. Certification may rise when the EVIDENCE
+  // improves. This can only ever hold a judgment back, never raise one, and it
+  // is skipped entirely unless the correctness check actually concluded
+  // something — see `evidenceImproved` for every way it declines to hold.
+  if (correctness.outcome === 'passes' || correctness.outcome === 'fails') {
+    const previous = lastEvidence(streamAddress);
+    const now = { suiteId: correctness.suiteId, passed: correctness.passed, total: correctness.total };
+    if (!evidenceImproved(previous, now)) {
+      log({
+        event: 'skipped',
+        ...base,
+        reason:
+          `the same ${now.passed} of ${now.total} generated tests pass as at the last certification, ` +
+          'so this merge did not improve the evidence and cannot raise what is owed',
+      });
+      return 'skipped';
+    }
   }
 
   // Cheapest gate that can refuse, and it has to come BEFORE the fee.
