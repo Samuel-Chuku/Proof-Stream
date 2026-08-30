@@ -234,64 +234,148 @@ contract WorkStreamTest is Test {
 
     // ============================================ THE ON-CHAIN POLICY (T1)
 
-    /// The cap is measured on the entitlement an attestation CREATES, not on the
-    /// cumulative total — otherwise the first certification would consume it.
-    function test_PolicyCapsTheEntitlementEachAttestationCreates() public {
-        WorkStream s = deploy(3_000e6, BUDGET);
+    // ---------------------------------------------------------- CT-1: caps
+    //
+    // The caps exist to bound a COMPROMISED AGENT KEY. The same mechanism is
+    // what stranded an honest contributor: a `maxTranche` below the budget meant
+    // the agent could never certify the whole milestone, the milestone ended,
+    // and the remainder refunded to the employer. It took 67 of 97 USDC from a
+    // real contributor.
+    //
+    // The rule that resolves it: THE CAPS MAY THROTTLE THE RATE, NEVER MAKE THE
+    // TOTAL UNREACHABLE.
+
+    function test_ConstructorRejectsAMaxTrancheBelowTheBudget() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.CapCannotStrandTheBudget.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            WorkStream.Policy({maxTranche: BUDGET - 1, dailyUnlockCap: BUDGET, payee: payee})
+        );
+    }
+
+    /// The daily cap is a RATE, so what matters is whether it can cover the
+    /// budget across the milestone's own lifetime, not whether it exceeds the
+    /// budget outright.
+    function test_ConstructorRejectsADailyCapThatCannotCoverTheBudgetInTime() public {
+        // DURATION is 100,000s, which rounds up to 2 days. 4,000 x 2 = 8,000,
+        // short of the 10,000 budget, so this stream could never pay in full.
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.CapCannotStrandTheBudget.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 4_000e6, payee: payee})
+        );
+    }
+
+    /// A throttle that still reaches the total is exactly what we want to keep
+    /// allowing: a stolen key takes at most one day's worth, and an honest
+    /// contributor still gets to 100%.
+    function test_ConstructorAllowsADailyThrottleThatStillReachesTheTotal() public {
+        vm.prank(employer);
+        WorkStream s = new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 5_000e6, payee: payee})
+        );
+        (, uint256 daily,) = s.policy();
+        assertEq(daily, 5_000e6, "half the budget per day over two days is reachable");
+    }
+
+    /// THE 67 USDC CASE, end to end. The configuration that caused it can no
+    /// longer be deployed, so the contributor reaches the full budget.
+    function test_TheStrandedBudgetConfigurationIsNowUndeployable() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.CapCannotStrandTheBudget.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            // 30% of the budget per attestation: the shape that took 67 of 97.
+            WorkStream.Policy({maxTranche: 3_000e6, dailyUnlockCap: BUDGET, payee: payee})
+        );
+    }
+
+    /// `OverMaxTranche` IS NOW UNREACHABLE, AND THAT IS THE POINT.
+    ///
+    /// The two tests that used to live here deployed `maxTranche` below the
+    /// budget and asserted the clip fired. CT-1 makes that configuration
+    /// undeployable, so the clip can never fire on a stream built from this
+    /// source: `added` never exceeds the budget, and `maxTranche` is never below
+    /// it. The check stays in `certify` because `raisePolicy` may only raise, so
+    /// the invariant holds forever.
+    ///
+    /// This asserts the property that replaced them: at the tightest cap the
+    /// constructor will accept, a single certification of the WHOLE milestone
+    /// still goes through.
+    function test_TheTightestLegalCapStillCertifiesTheWholeMilestone() public {
+        WorkStream s = deploy(BUDGET, BUDGET); // maxTranche == budget, the floor
         fundFully(s);
         vm.warp(block.timestamp + DURATION);
 
-        certifyOk(s, 2_500); // creates 2,500 — inside the 3,000 ceiling
-        assertEq(s.target(), 2_500e6);
-
-        certifyOk(s, 5_000); // creates another 2,500, not 5,000
-        assertEq(s.target(), 5_000e6, "cumulative total may exceed maxTranche");
+        certifyOk(s, 10_000);
+        assertEq(s.target(), BUDGET, "the tightest legal cap must not clip anything");
     }
 
-    function test_RevertOverMaxTranche() public {
-        WorkStream s = deploy(3_000e6, BUDGET);
-        fundFully(s);
-        vm.warp(block.timestamp + DURATION);
-
-        WorkStream.Attestation memory a = att(s, s.nonce(), 4_000); // creates 4,000
-        bytes memory sig = sign(s, a, agentPk);
-        vm.expectRevert(WorkStream.OverMaxTranche.selector);
-        s.certify(a, sig);
-    }
-
+    /// The daily cap is the throttle CT-1 deliberately keeps. 5,000 a day over a
+    /// two-day milestone reaches the 10,000 budget, so it is legal, and it still
+    /// bites within any single day. That is exactly the shape that bounds a
+    /// stolen key without stranding an honest contributor.
     function test_RevertDailyCapExhausted_ResetsNextDay() public {
-        WorkStream s = deploy(BUDGET, 3_000e6);
+        WorkStream s = deploy(BUDGET, 5_000e6);
         fundFully(s);
         vm.warp(block.timestamp + DURATION);
 
-        certifyOk(s, 3_000); // exactly the daily cap
-        assertEq(s.unlockedToday(), 3_000e6);
+        certifyOk(s, 5_000); // exactly the daily cap
+        assertEq(s.unlockedToday(), 5_000e6);
 
-        WorkStream.Attestation memory a = att(s, s.nonce(), 3_100); // one more unit
+        WorkStream.Attestation memory a = att(s, s.nonce(), 5_100); // one more unit
         bytes memory sig = sign(s, a, agentPk);
         vm.expectRevert(WorkStream.DailyCapExceeded.selector);
         s.certify(a, sig);
 
         vm.warp(block.timestamp + 1 days);
-        certifyOk(s, 6_000); // a new day, a fresh allowance
-        assertEq(s.target(), 6_000e6);
-        assertEq(s.unlockedToday(), 3_000e6, "day bucket reset");
+        certifyOk(s, 10_000); // a new day, a fresh allowance
+        assertEq(s.target(), BUDGET);
+        assertEq(s.unlockedToday(), 5_000e6, "day bucket reset");
     }
 
     /// The employer may loosen the mandate; nobody may tighten it, and the agent
     /// may not touch it at all.
     function test_RaisePolicy_OnlyUpwardsAndOnlyByTheEmployer() public {
-        WorkStream s = deploy(3_000e6, 5_000e6);
+        // Both caps start at the tightest values CT-1 will accept.
+        WorkStream s = deploy(BUDGET, 5_000e6);
 
         vm.prank(employer);
-        s.raisePolicy(6_000e6, 9_000e6);
+        s.raisePolicy(BUDGET + 1_000e6, 9_000e6);
         (uint256 maxT, uint256 daily,) = s.policy();
-        assertEq(maxT, 6_000e6);
+        assertEq(maxT, BUDGET + 1_000e6);
         assertEq(daily, 9_000e6);
 
         vm.prank(employer);
         vm.expectRevert(WorkStream.CapsMayOnlyRise.selector);
-        s.raisePolicy(5_999e6, 9_000e6);
+        s.raisePolicy(BUDGET + 999e6, 9_000e6);
 
         vm.prank(employer);
         vm.expectRevert(WorkStream.CapsMayOnlyRise.selector);
@@ -659,10 +743,51 @@ contract WorkStreamTest is Test {
         vm.stopPrank();
     }
 
+    /// After a redeploy, streams from BOTH bytecodes are live at once and behave
+    /// differently, because every employer deploys their own contract and old
+    /// ones keep their behaviour forever. The web app has to tell them apart to
+    /// know which actions to offer.
+    ///
+    /// Without this it would have to detect the version by calling a v2-only
+    /// function and treating a revert as "this is v1", which is detection by
+    /// exception and has to be reimplemented by every consumer. It cannot be
+    /// added to a stream that is already deployed, which is why it goes in now.
+    function test_VersionIdentifiesThisBytecode() public view {
+        assertEq(ws.version(), 2);
+    }
+
     function test_SetRepo_EmployerOnly() public {
         vm.prank(employer);
         ws.setRepo("acme/other");
         assertEq(ws.repo(), "acme/other");
+    }
+
+    /// CT-3. `setRepo` is employer-only and nothing else, so a stream could be
+    /// repointed at a different repository after work had been certified against
+    /// the original one. The dashboard hid the control once anything was
+    /// certified, but that guard lived in the interface, not here, so a direct
+    /// call ignored it.
+    ///
+    /// It never could un-certify past work. What it redirected was what the
+    /// agent judges NEXT, which is enough: the contributor keeps working on the
+    /// repository they agreed to and the agent starts judging a different one.
+    function test_SetRepoLocksOnceWorkIsCertified() public {
+        vm.warp(block.timestamp + DURATION);
+        certifyOk(ws, 5_000);
+
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.RepoLocked.selector);
+        ws.setRepo("acme/somewhere-else");
+
+        assertEq(ws.repo(), "acme/widgets", "the repo must be exactly what was agreed");
+    }
+
+    /// Before anything is certified the employer may still correct a typo, which
+    /// is the case the lock must not break.
+    function test_SetRepoStillWorksBeforeAnyCertification() public {
+        vm.prank(employer);
+        ws.setRepo("acme/widgets-renamed");
+        assertEq(ws.repo(), "acme/widgets-renamed");
     }
 
     function test_OpenMilestoneRejectsZeroBudgetOrDuration() public {

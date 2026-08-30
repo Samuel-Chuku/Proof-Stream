@@ -220,6 +220,8 @@ contract WorkStream {
     error NotAnIncrease();
     error BadCertification();
     error CapsMayOnlyRise();
+    error RepoLocked();
+    error CapCannotStrandTheBudget();
     error StreamIsPaused();
 
     constructor(
@@ -235,6 +237,37 @@ contract WorkStream {
         if (_contributor == address(0) || _agent == address(0) || _policy.payee == address(0)) {
             revert ZeroAddress();
         }
+
+        // THE CAPS MAY THROTTLE THE RATE, NEVER MAKE THE TOTAL UNREACHABLE.
+        //
+        // Both caps bound the entitlement one attestation creates, and they
+        // exist to bound a COMPROMISED AGENT KEY. The same mechanism is what
+        // stranded an honest contributor: a `maxTranche` below the budget meant
+        // the agent could never certify the milestone in full, the milestone
+        // ended, and everything uncertified refunded to the employer. It took
+        // 67 of 97 USDC from a real contributor, and no amount of interface
+        // warning could stop an employer setting it.
+        //
+        // `maxTranche` therefore may not bound the total at all. Note the
+        // consequence: because `added` can never exceed the budget, and
+        // `maxTranche` can never be below it, OverMaxTranche is now unreachable
+        // by construction on any stream deployed from this source. The check
+        // below stays because `raisePolicy` may only raise, so the invariant
+        // holds forever, and because removing a field is a larger change than
+        // this deploy is for. DO NOT relax this check to make the field
+        // "useful" again: that reintroduces the bug it exists to prevent.
+        //
+        // `dailyUnlockCap` still throttles, and still protects. It is a RATE, so
+        // what it must satisfy is that it can cover the budget across the
+        // milestone's own lifetime. An employer may set half the budget per day
+        // on a two-day milestone: a stolen key then takes at most half in any
+        // one day, while an honest contributor still reaches 100%.
+        //
+        // Days are rounded UP, so a milestone shorter than a day still gets a
+        // full day's allowance rather than zero.
+        if (_policy.maxTranche < _budget) revert CapCannotStrandTheBudget();
+        uint256 daysLong = (_duration + 1 days - 1) / 1 days;
+        if (_policy.dailyUnlockCap * daysLong < _budget) revert CapCannotStrandTheBudget();
 
         usdc = _usdc;
         employer = msg.sender;
@@ -257,6 +290,17 @@ contract WorkStream {
     }
 
     // ---------------------------------------------------------------- views
+
+    /// @notice Which generation of this contract this is.
+    /// @dev Streams from every past deployment stay live and keep their own
+    ///      behaviour forever, because each employer deploys their own copy.
+    ///      Consumers need to tell them apart to know which actions exist; the
+    ///      alternative is probing for a function and reading a revert as an
+    ///      answer. This cannot be added to an already-deployed stream, so a
+    ///      stream that does not answer is by definition version 1.
+    function version() external pure returns (uint256) {
+        return 2;
+    }
 
     /// @notice What the agent judges work against.
     function milestone() external view returns (string memory) {
@@ -540,8 +584,18 @@ contract WorkStream {
     }
 
     /// @notice Point the agent at a different repository for this job.
+    /// @dev LOCKED ONCE ANYTHING IS CERTIFIED. Without this an employer could
+    ///      point the stream at a different repository after the agent had
+    ///      already certified work against the original one. It cannot un-certify
+    ///      what was earned, but it redirects what the agent judges NEXT, which
+    ///      is enough: the contributor keeps working on the repository they
+    ///      agreed to while the agent starts judging somewhere else.
+    ///
+    ///      Before the first certification this stays open, so an employer can
+    ///      still correct a typo in a stream nobody has been paid against.
     function setRepo(string calldata newRepo) external {
         if (msg.sender != employer) revert NotEmployer();
+        if (cur.certifiedBps > 0) revert RepoLocked();
         repo = newRepo;
         emit RepoSet(newRepo);
     }
