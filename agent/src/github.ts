@@ -210,6 +210,27 @@ export async function fetchDiff(spec: string, prNumber: number): Promise<string>
     : diff;
 }
 
+/// The commit messages on a pull request, for their `Co-authored-by` trailers.
+///
+/// Called ONLY when a stream names authors and the pull request's own author is
+/// not one of them, so the common case pays nothing for it.
+///
+/// Returns an empty array rather than throwing when GitHub will not answer. A
+/// stream that names authors should not stop judging work because a list of
+/// commits could not be fetched; the pull request author check has already run
+/// and this can only ever widen the result.
+export async function fetchCommitMessages(spec: string, prNumber: number): Promise<string[]> {
+  try {
+    const repo = parseRepoSpec(spec).repo;
+    const res = await gh(`/repos/${repo}/pulls/${prNumber}/commits?per_page=100`);
+    if (!res.ok) return [];
+    const commits = (await res.json()) as { commit?: { message?: string } }[];
+    return commits.map((c) => c.commit?.message ?? '').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 /// Only what a runtime could actually load. `fetchDiff` shows a judge prose and
 /// Solidity and markdown too, which is right for reading and useless for
 /// running: the correctness check EXECUTES these files, so anything the Node

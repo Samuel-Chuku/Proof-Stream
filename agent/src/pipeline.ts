@@ -3,11 +3,11 @@
 // Duplicating these would let the demo and the product drift apart, and these
 // gates are the product.
 import { appendFileSync } from 'node:fs';
-import { formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
+import { authorIsAllowed, coAuthorLogins, formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
 import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
-import { fetchDiff, fetchSourceFiles, type MergedPr } from './github';
+import { fetchCommitMessages, fetchDiff, fetchSourceFiles, type MergedPr } from './github';
 import { agentsDisagree, meterCertification, requiredConfidence } from './metering';
 import { buySecondOpinion } from './pay';
 import { resolveStreams, type StreamEntry } from './registry';
@@ -180,6 +180,34 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
           : `merged into ${pr.baseBranch ?? 'an unreadable branch'} but this stream only pays for work merged into ${want.branch}`,
     });
     return 'skipped';
+  }
+
+  // WHOSE MERGES COUNT. One repository may carry several streams, and without
+  // this a merge by one contributor is judged against every stream watching that
+  // repo — certifying, and paying, somebody else's. The branch check cannot
+  // catch it because both streams name the same branch.
+  //
+  // Empty means any author, so every stream created before this existed is
+  // unaffected. An author we cannot read is treated as no match, failing closed
+  // in the same direction as the branch check.
+  //
+  // CO-AUTHORS COUNT, because pairing is normal and only one person can open a
+  // pull request. The commit messages are fetched only when the stream names
+  // authors AND the opener is not one of them, so the common path pays nothing
+  // for it.
+  if (!authorIsAllowed(stream.authors, pr.author)) {
+    const coAuthors = coAuthorLogins(await fetchCommitMessages(want.repo, pr.number));
+    if (!authorIsAllowed(stream.authors, pr.author, coAuthors)) {
+      log({
+        event: 'skipped',
+        pr: pr.number,
+        reason:
+          `merged by ${pr.author || 'an author we could not read'}` +
+          `${coAuthors.length ? ` with ${coAuthors.join(', ')}` : ''}, but this stream pays for work ` +
+          `by ${stream.authors.join(', ')}`,
+      });
+      return 'skipped';
+    }
   }
 
   const diff = await fetchDiff(want.repo, pr.number);

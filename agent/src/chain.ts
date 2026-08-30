@@ -35,6 +35,9 @@ export type StreamState = {
   /** The repo this stream is about, registered on-chain by the employer. The
    *  agent watches what the contract tells it to, not what its own env says. */
   repo: string;
+  /** GitHub logins whose merges count for this stream. EMPTY MEANS ANY AUTHOR,
+   *  which is how every stream created before this existed behaves. */
+  authors: string[];
   /** Deposited so far toward this milestone's budget. */
   funded: bigint;
   /** USDC committed to this milestone. */
@@ -113,6 +116,7 @@ export async function readIdentity(
 
   const agent = await read<`0x${string}`>('agent');
   const repo = await read<string>('repo');
+  const authors = await read<string[]>('authors');
   // When this milestone's clock started. Reconciliation needs it: work merged
   // BEFORE a milestone existed was not done against it and must never be judged
   // by it. 0 means the budget is not fully deposited yet.
@@ -141,6 +145,7 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
   const milestone = await read<string>('milestone');
   const milestoneHash = await read<`0x${string}`>('milestoneHash');
   const repo = await read<string>('repo');
+  const authors = await read<string[]>('authors');
   const funded = await read<bigint>('funded');
   const budget = await read<bigint>('budget');
   const fullyFunded = await read<boolean>('fullyFunded');
@@ -158,6 +163,7 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
     milestone,
     milestoneHash,
     repo,
+    authors,
     funded,
     budget,
     fullyFunded,

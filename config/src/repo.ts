@@ -55,3 +55,67 @@ export function matchesRepoSpec(spec: string, repo: string, baseBranch: string |
   if (repo.toLowerCase() !== want.repo.toLowerCase()) return false;
   return baseBranch !== undefined && baseBranch === want.branch;
 }
+
+/// WHOSE MERGES COUNT FOR A STREAM.
+///
+/// Several streams on one repository is a supported configuration, and nothing
+/// used to tie a pull request's AUTHOR to a stream's contributor. Two streams on
+/// the same repo and branch meant one person's merge was judged against both,
+/// and could certify and pay the other person's stream. The branch check does
+/// not help there: both name the same branch.
+///
+/// EMPTY MEANS ANY AUTHOR. Every stream created before this existed has an empty
+/// list, and they must keep working exactly as they did.
+///
+/// Case-insensitive, because GitHub logins are. `Ada` and `ada` are one account
+/// and refusing to pay over capitalisation would be absurd.
+///
+/// CO-AUTHORS COUNT, provided they are on the list. Pairing is normal and only
+/// one person can open the pull request, so judging solely by the opener would
+/// refuse to pay work the stream is plainly for.
+///
+/// The residual, and it is worth knowing: a `Co-authored-by` trailer is just
+/// text in a commit message, and anybody can write one. So somebody not on the
+/// list can get their merge judged against this stream by naming someone who is.
+/// Two things bound it. The merge still has to be approved into the branch the
+/// employer named, and the money still goes to the stream's single payee, so the
+/// writer of the trailer cannot pay themselves. It is a way to make someone
+/// ELSE be paid, not a way to be paid.
+///
+/// An author we cannot read is treated as no match, so this fails closed in the
+/// same direction as the branch check.
+export function authorIsAllowed(
+  authors: string[],
+  prAuthor: string | undefined,
+  coAuthors: string[] = [],
+): boolean {
+  if (authors.length === 0) return true;
+  const allowed = new Set(authors.map((a) => a.trim().toLowerCase()).filter(Boolean));
+  const candidates = [prAuthor, ...coAuthors].map((c) => c?.trim().toLowerCase()).filter(Boolean);
+  return candidates.some((c) => allowed.has(c as string));
+}
+
+/// The GitHub logins named in `Co-authored-by` trailers.
+///
+/// GitHub's own co-author trailers carry a noreply address that CONTAINS the
+/// login, either `12345+login@users.noreply.github.com` or
+/// `login@users.noreply.github.com`. That is the only form this trusts for an
+/// email, because an arbitrary address tells us nothing about which account it
+/// belongs to.
+///
+/// The display name is also offered, but only when it could be a login at all:
+/// no spaces, and within GitHub's own character rules. "Ada Lovelace" is not a
+/// login and matching it against one would be guessing.
+export function coAuthorLogins(commitMessages: string[]): string[] {
+  const found = new Set<string>();
+  const trailer = /^\s*co-authored-by:\s*(.*?)\s*<([^>]+)>\s*$/gim;
+
+  for (const message of commitMessages) {
+    for (const [, name, email] of message.matchAll(trailer)) {
+      const noreply = email.match(/^(?:\d+\+)?([A-Za-z0-9-]{1,39})@users\.noreply\.github\.com$/i);
+      if (noreply) found.add(noreply[1].toLowerCase());
+      else if (/^[A-Za-z0-9-]{1,39}$/.test(name)) found.add(name.toLowerCase());
+    }
+  }
+  return [...found];
+}
