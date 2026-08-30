@@ -80,6 +80,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: maxTranche_, dailyUnlockCap: dailyCap_, payee: payee})
         );
     }
@@ -258,6 +259,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: BUDGET - 1, dailyUnlockCap: BUDGET, payee: payee})
         );
     }
@@ -279,6 +281,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 4_000e6, payee: payee})
         );
     }
@@ -297,6 +300,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 5_000e6, payee: payee})
         );
         (, uint256 daily,) = s.policy();
@@ -317,6 +321,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             // 30% of the budget per attestation: the shape that took 67 of 97.
             WorkStream.Policy({maxTranche: 3_000e6, dailyUnlockCap: BUDGET, payee: payee})
         );
@@ -782,6 +787,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0)})
         );
     }
@@ -952,6 +958,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0)})
         );
     }
@@ -968,8 +975,97 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee})
         );
+    }
+
+
+    // ------------------------------------------------- CT-2: whose merges count
+    //
+    // Several streams on one repository is a SUPPORTED configuration, and
+    // nothing tied a pull request's author to a stream's contributor. Two
+    // streams on the same repo and branch meant one person's merge was judged
+    // against both, and could certify and pay the other person's stream. The
+    // branch check does not help: both name the same branch.
+    //
+    // The contract only stores the list. The agent is the thing that reads
+    // GitHub and compares, so this field is inert until GH-2 lands.
+
+    function oneAuthor(string memory login) internal pure returns (string[] memory a) {
+        a = new string[](1);
+        a[0] = login;
+    }
+
+    function test_AuthorsDefaultToAnyoneWhenLeftEmpty() public view {
+        // Every existing stream behaves this way, so an empty list has to keep
+        // meaning "any author" or the upgrade would silently stop paying them.
+        assertEq(ws.authors().length, 0);
+    }
+
+    function test_AuthorsAreStoredAndReadBackWhole() public {
+        vm.prank(employer);
+        ws.setAuthors(oneAuthor("ada"));
+
+        string[] memory got = ws.authors();
+        assertEq(got.length, 1);
+        assertEq(got[0], "ada");
+    }
+
+    /// An allowlist rather than a single login, because one person routinely has
+    /// a personal and a work account, and a stream should not stop paying
+    /// because they pushed from the wrong one.
+    function test_AuthorsHoldSeveralAccountsForOnePerson() public {
+        string[] memory both = new string[](2);
+        both[0] = "ada";
+        both[1] = "ada-at-work";
+
+        vm.prank(employer);
+        ws.setAuthors(both);
+
+        assertEq(ws.authors().length, 2);
+        assertEq(ws.authors()[1], "ada-at-work");
+    }
+
+    function test_SetAuthorsIsEmployerOnly() public {
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert(WorkStream.NotEmployer.selector);
+        ws.setAuthors(oneAuthor("mallory"));
+    }
+
+    /// Same lock as `setRepo`, and for the same reason. Before anything is
+    /// certified an employer may fix a typo in a handle. Afterwards, changing
+    /// who counts would let them stop paying someone they have already been
+    /// paying for work on this milestone.
+    function test_AuthorsLockOnceWorkIsCertified() public {
+        vm.prank(employer);
+        ws.setAuthors(oneAuthor("ada"));
+
+        vm.warp(block.timestamp + DURATION);
+        certifyOk(ws, 5_000);
+
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.RepoLocked.selector);
+        ws.setAuthors(oneAuthor("someone-else"));
+
+        assertEq(ws.authors()[0], "ada", "the list must be exactly what was agreed");
+    }
+
+    function test_AuthorsCanBeSetAtDeploy() public {
+        vm.prank(employer);
+        WorkStream s = new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            address(0),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            oneAuthor("ada"),
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee})
+        );
+        assertEq(s.authors()[0], "ada");
     }
 
     function test_VersionIdentifiesThisBytecode() public view {
@@ -1042,6 +1138,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: payee})
         );
     }
@@ -1059,6 +1156,7 @@ contract WorkStreamTest is Test {
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: address(0)})
         );
     }

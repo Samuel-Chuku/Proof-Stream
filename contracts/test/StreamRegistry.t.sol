@@ -37,6 +37,7 @@ contract StreamRegistryTest is Test {
             40e6,
             6 hours,
             repo,
+            new string[](0),
             // CT-1: `maxTranche` may not sit below the budget, or the agent could
             // never certify the milestone in full and the remainder would refund
             // to the employer. These are fixtures for registry behaviour, so the

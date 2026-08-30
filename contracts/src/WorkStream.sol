@@ -81,6 +81,21 @@ contract WorkStream {
     ///      construction, and `claim` is the only thing that can ever move this.
     address public contributor;
 
+    /// @notice The GitHub logins whose merges count for this stream. Empty
+    ///         means any author, which is how every stream behaved before this
+    ///         existed.
+    /// @dev THE CONTRACT NEVER READS THIS. It cannot: it has no view of GitHub.
+    ///      The agent compares it against a merged pull request's author, so the
+    ///      field is inert until that check exists.
+    ///
+    ///      An allowlist rather than one login, because a person routinely has a
+    ///      personal and a work account and a stream should not stop paying
+    ///      because they pushed from the wrong one.
+    ///
+    ///      Why this is not smuggled into `repo` the way the branch was: that
+    ///      encoding was justified once by a deadline, and twice is a smell.
+    string[] private _authors;
+
     /// @notice The one-time key that authorises a claim, or zero for a stream
     ///         whose contributor was named at deploy.
     /// @dev Only the ADDRESS lives here. The private key lives in the link the
@@ -169,6 +184,13 @@ contract WorkStream {
     ///      by mistake still cannot claim the wrong one.
     bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address claimer)");
 
+    /// @notice How many GitHub accounts one stream may name.
+    /// @dev Bounded because the AGENT reads this list on every judgment. An
+    ///      unbounded list would let an employer make their own stream expensive
+    ///      to serve. Sixteen is far more than the "personal plus work account"
+    ///      case this exists for.
+    uint256 public constant MAX_AUTHORS = 16;
+
     /// @notice How long after a milestone ends the employer must wait before
     ///         closing it. Judging a diff, buying a second opinion, signing and
     ///         landing a transaction all take real time, so work merged just
@@ -216,6 +238,7 @@ contract WorkStream {
     event RepoSet(string repo);
     event Claimed(address indexed contributor);
     event ClaimAuthoritySet(address indexed authority);
+    event AuthorsSet(string[] authors);
     event PolicyRaised(uint256 maxTranche, uint256 dailyUnlockCap);
 
     // ---------------------------------------------------------------- errors
@@ -245,6 +268,7 @@ contract WorkStream {
     error RepoLocked();
     error CapCannotStrandTheBudget();
     error AlreadyClaimed();
+    error TooManyAuthors();
     error BadClaimSignature();
     error NotClaimable();
     error StreamIsPaused();
@@ -258,6 +282,7 @@ contract WorkStream {
         uint256 _budget,
         uint256 _duration,
         string memory _repo,
+        string[] memory _authors_,
         Policy memory _policy
     ) {
         // EXACTLY ONE OF NAMED OR CLAIMABLE.
@@ -309,6 +334,7 @@ contract WorkStream {
         claimAuthority = _claimAuthority;
         agent = _agent;
         repo = _repo;
+        _replaceAuthors(_authors_);
         policy = _policy;
 
         DOMAIN_SEPARATOR = keccak256(
@@ -325,6 +351,14 @@ contract WorkStream {
     }
 
     // ---------------------------------------------------------------- views
+
+    /// @notice The GitHub logins whose merges count. Empty means any author.
+    /// @dev An explicit getter because Solidity's automatic one for a public
+    ///      array returns a single element by index, and every consumer wants
+    ///      the whole list.
+    function authors() external view returns (string[] memory) {
+        return _authors;
+    }
 
     /// @notice Which generation of this contract this is.
     /// @dev Streams from every past deployment stay live and keep their own
@@ -681,6 +715,29 @@ contract WorkStream {
         if (cur.certifiedBps > 0) revert RepoLocked();
         repo = newRepo;
         emit RepoSet(newRepo);
+    }
+
+    /// @notice Change whose merges count for this stream.
+    /// @dev Locked once anything is certified, exactly as `setRepo` is, and for
+    ///      the same reason. Before the first certification an employer may fix
+    ///      a mistyped handle. Afterwards, changing the list would be a way to
+    ///      stop paying someone they have already been paying for work on this
+    ///      milestone.
+    function setAuthors(string[] calldata newAuthors) external {
+        if (msg.sender != employer) revert NotEmployer();
+        if (cur.certifiedBps > 0) revert RepoLocked();
+        _replaceAuthors(newAuthors);
+        emit AuthorsSet(newAuthors);
+    }
+
+    /// @dev Element by element because Solidity cannot copy a nested dynamic
+    ///      array straight into storage.
+    function _replaceAuthors(string[] memory newAuthors) internal {
+        if (newAuthors.length > MAX_AUTHORS) revert TooManyAuthors();
+        delete _authors;
+        for (uint256 i = 0; i < newAuthors.length; i++) {
+            _authors.push(newAuthors[i]);
+        }
     }
 
     /// @notice Loosen the agent's mandate. Caps may only RISE and the payee can
