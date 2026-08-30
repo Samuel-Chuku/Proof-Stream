@@ -28,9 +28,10 @@
 // failure is never wired to the payout — it is handed to the judgment, which
 // decides whether the test was fair. "Unsure releases nothing" is unchanged.
 import { adjudicate, parseTap, type SuiteRun } from './adjudicate';
-import { env } from './env';
+import { env, ledgerPath } from './env';
 import { generateSuite, type SourceFile } from './oracle';
 import { runInSandbox } from './sandbox';
+import { dropSuite, loadSuite, noteUse, saveSuite, suiteId } from './suite-cache';
 
 /// Where the generated suite is written in the repository tree. At the root, so
 /// a module at `src/ledger.ts` is imported as `./src/ledger.ts` — the paths the
@@ -60,6 +61,10 @@ export type CorrectnessResult = {
   /** How many tests passed on the merged code, and how many ran. */
   passed: number;
   total: number;
+  /** Which suite produced those numbers. Two results are only comparable when
+   *  this matches: a regenerated suite renames and renumbers everything, so a
+   *  count that moved across a regeneration says nothing. */
+  suiteId?: string;
   reason?: string;
   costUsd: number;
   model?: string;
@@ -80,6 +85,12 @@ export type CorrectnessRequest = {
   milestone: string;
   /** The repository's source as it stands after the merge. */
   merged: SourceFile[];
+  /** Stable identity for this milestone, so one generated suite can serve
+   *  several judgments of it. Same key means the same ruler, which is what
+   *  makes "two more tests pass than last time" a true statement rather than a
+   *  comparison of two different suites. Omit it and every judgment generates
+   *  fresh, which is the old behaviour. */
+  suiteKey?: string;
   /** The repository as it stood BEFORE the merge, when we can read it.
    *
    *  This is the reference, and in production it is not an arbitrary choice: it
@@ -96,21 +107,60 @@ export async function checkCorrectness(req: CorrectnessRequest): Promise<Correct
   if (!env.correctnessCheck) return unavailable('the correctness check is switched off');
   if (req.merged.length === 0) return unavailable('no source files were read from the repository');
 
-  let suite: Awaited<ReturnType<typeof generateSuite>>;
-  try {
-    suite = await generateSuite(req.milestone, req.merged, SUITE_PATH);
-  } catch (err) {
-    return unavailable(`could not generate a suite: ${message(err)}`);
-  }
+  // REUSE THE MILESTONE'S SUITE WHEN THERE IS ONE.
+  //
+  // Not only to save a generation call. The evidence gate needs to compare
+  // "9 of 12" against "11 of 12", and that is only a comparison when both
+  // numbers came from the same suite.
+  const suiteDir = ledgerPath('suites');
+  const cached = req.suiteKey ? loadSuite(suiteDir, req.suiteKey) : null;
 
-  const cost = suite.costUsd;
-  const model = suite.model;
+  let tests: string;
+  let cost = 0;
+  let model: string | undefined;
+  if (cached) {
+    tests = cached.tests;
+  } else {
+    try {
+      const generated = await generateSuite(req.milestone, req.merged, SUITE_PATH);
+      tests = generated.tests;
+      cost = generated.costUsd;
+      model = generated.model;
+    } catch (err) {
+      return unavailable(`could not generate a suite: ${message(err)}`);
+    }
+  }
 
   let target: SuiteRun;
   try {
-    target = await runSuite(req.merged, suite.tests);
+    target = await runSuite(req.merged, tests);
   } catch (err) {
     return { ...unavailable(`the sandbox could not run the suite: ${message(err)}`), costUsd: cost, model };
+  }
+
+  // A CACHED SUITE THAT NO LONGER LOADS HAS BEEN OVERTAKEN BY THE CODE.
+  //
+  // The public interface moved and the old tests cannot resolve against it any
+  // more. That is not a verdict on the contributor's work, so drop the suite and
+  // generate once against what is actually there now.
+  if (cached && target.void && req.suiteKey) {
+    dropSuite(suiteDir, req.suiteKey);
+    try {
+      const regenerated = await generateSuite(req.milestone, req.merged, SUITE_PATH);
+      tests = regenerated.tests;
+      cost += regenerated.costUsd;
+      model = regenerated.model;
+      target = await runSuite(req.merged, tests);
+    } catch (err) {
+      return { ...unavailable(`could not regenerate a stale suite: ${message(err)}`), costUsd: cost, model };
+    }
+  }
+
+  // ONLY KEEP A SUITE WE HAVE SEEN RUN. One that did not load tells us nothing
+  // about the code and would poison every judgment that reused it.
+  if (req.suiteKey && !target.void) {
+    if (cached && suiteId(tests) === cached.id) noteUse(suiteDir, req.suiteKey);
+    else saveSuite(suiteDir, req.suiteKey, tests);
   }
 
   // A reference run is only worth paying for once the target has actually
@@ -119,13 +169,20 @@ export async function checkCorrectness(req: CorrectnessRequest): Promise<Correct
   let reference: SuiteRun | null = null;
   if (!target.void && target.failed.size > 0 && req.reference && req.reference.length > 0) {
     try {
-      reference = await runSuite(req.reference, suite.tests);
+      reference = await runSuite(req.reference, tests);
     } catch (err) {
       reference = { failed: new Set(), passed: 0, failedCount: 0, total: 0, void: true, reason: `the reference run failed: ${message(err)}` };
     }
   }
 
-  return { ...adjudicate(target, reference), passed: target.passed, total: target.total, costUsd: cost, model };
+  return {
+    ...adjudicate(target, reference),
+    passed: target.passed,
+    total: target.total,
+    suiteId: suiteId(tests),
+    costUsd: cost,
+    model,
+  };
 }
 
 // ---------------------------------------------------------------------------

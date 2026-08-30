@@ -107,12 +107,22 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
 
 /// Fetch what the correctness check needs and run it. Never throws.
 ///
+/// `suiteKey` is the stream plus its on-chain milestone hash, so one generated
+/// suite serves every judgment of that milestone and the evidence counts stay on
+/// one ruler. The hash already changes when the milestone does, which makes it a
+/// free and correct invalidation key.
+///
 /// TWO SNAPSHOTS OF THE REPOSITORY, and the second one is what makes the check
 /// usable. Generated tests over-specify — they assert requirements the milestone
 /// never stated — so a failure means nothing until it is measured against code
 /// already known to be acceptable. That reference is the branch as it stood
 /// BEFORE this merge: the work the employer already has, and already certified.
-async function correctnessOf(pr: MergedPr, repo: string, milestone: string): Promise<CorrectnessResult> {
+async function correctnessOf(
+  pr: MergedPr,
+  repo: string,
+  milestone: string,
+  suiteKey: string,
+): Promise<CorrectnessResult> {
   if (!env.correctnessCheck) {
     return { outcome: 'unavailable', kept: [], discarded: [], filtered: false, passed: 0, total: 0, costUsd: 0, reason: 'the correctness check is switched off' };
   }
@@ -123,7 +133,7 @@ async function correctnessOf(pr: MergedPr, repo: string, milestone: string): Pro
   // being treated as defects.
   const reference = pr.baseSha ? await fetchSourceFiles(repo, pr.baseSha) : undefined;
 
-  return checkCorrectness({ milestone, merged, reference });
+  return checkCorrectness({ milestone, merged, reference, suiteKey });
 }
 
 /// One PR, one stream. Every gate below is about THIS stream's terms.
@@ -188,7 +198,7 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   //
   // It never throws and it is never required: with the check off, or
   // unavailable, `judge` receives nothing and behaves exactly as it always has.
-  const correctness = await correctnessOf(pr, want.repo, stream.milestone);
+  const correctness = await correctnessOf(pr, want.repo, stream.milestone, `${streamAddress}:${stream.milestoneHash}`);
 
   const { verdict, costUsd, model } = await judge(pr, stream.milestone, diff, correctness);
 
