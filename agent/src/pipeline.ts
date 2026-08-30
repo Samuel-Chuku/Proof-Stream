@@ -8,7 +8,7 @@ import { readStream, sendCertification, signAttestation, type Attestation } from
 import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
 import { fetchDiff, fetchSourceFiles, type MergedPr } from './github';
-import { meterCertification } from './metering';
+import { agentsDisagree, meterCertification, requiredConfidence } from './metering';
 import { buySecondOpinion } from './pay';
 import { resolveStreams, type StreamEntry } from './registry';
 import { serialize } from './serialize';
@@ -241,11 +241,21 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
       reason: `attestor scored ${verdict.tranche_fraction} while answering satisfies_milestone=false — proceeding on the fraction`,
     });
   }
-  if (verdict.confidence < env.confidenceThreshold) {
+  // HOW BIG A CLAIM IS THIS, AND IS THE AGENT SURE ENOUGH TO MAKE IT?
+  //
+  // A flat bar treats "60% to 65%" and "0% to 95%" as the same assertion. The
+  // second claims far more and is where a wrong answer costs most, so it has to
+  // be more certain. See `requiredConfidence` for why the monotonic ratchet
+  // makes this necessary rather than merely tidy.
+  const attestorBps = BigInt(Math.round(verdict.tranche_fraction * 10_000));
+  const attestorBar = requiredConfidence(env.confidenceThreshold, attestorBps);
+  if (verdict.confidence < attestorBar) {
     log({
       event: 'escalated',
       ...base,
-      reason: `confidence ${verdict.confidence} below threshold ${env.confidenceThreshold}`,
+      reason:
+        `confidence ${verdict.confidence} below ${attestorBar.toFixed(2)}, the bar for claiming ` +
+        `${Number(attestorBps) / 100}% of this milestone`,
     });
     return 'escalated';
   }
@@ -258,7 +268,6 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // down runs after `buySecondOpinion`, so every redelivered webhook and every
   // reconcile pass over already-judged work spent $0.005 of the agent's money to
   // be told what the number on chain already said.
-  const attestorBps = BigInt(Math.round(verdict.tranche_fraction * 10_000));
   if (attestorBps <= stream.certifiedBps) {
     log({
       event: 'skipped',
@@ -296,12 +305,36 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     log({ event: 'vetoed', ...base, ...verification, reason: 'verifier values this work at nothing' });
     return 'vetoed';
   }
-  if (opinion.confidence < env.confidenceThreshold) {
+  // THE TWO AGENTS DISAGREEING ABOUT WHAT THE WORK IS.
+  //
+  // `min()` below already makes a wide split safe on AMOUNT, by paying the
+  // lower figure. It is silent on MEANING: a gap this wide says neither agent
+  // has a reliable read of this repository, and quietly discounting it throws
+  // that signal away. Hold instead, and let a later judgment settle it.
+  if (agentsDisagree(verdict.tranche_fraction, opinion.tranche_fraction)) {
     log({
       event: 'escalated',
       ...base,
       ...verification,
-      reason: `verifier confidence ${opinion.confidence} below threshold ${env.confidenceThreshold}`,
+      reason:
+        `the agents disagree too widely to act on — attestor ${verdict.tranche_fraction}, ` +
+        `verifier ${opinion.tranche_fraction}`,
+    });
+    return 'escalated';
+  }
+
+  // The verifier is held to the bar for what would ACTUALLY be certified, which
+  // is the lower of the two fractions, not its own reading.
+  const agreedBps = BigInt(Math.round(Math.min(verdict.tranche_fraction, opinion.tranche_fraction) * 10_000));
+  const verifierBar = requiredConfidence(env.confidenceThreshold, agreedBps);
+  if (opinion.confidence < verifierBar) {
+    log({
+      event: 'escalated',
+      ...base,
+      ...verification,
+      reason:
+        `verifier confidence ${opinion.confidence} below ${verifierBar.toFixed(2)}, the bar for ` +
+        `certifying ${Number(agreedBps) / 100}% of this milestone`,
     });
     return 'escalated';
   }
