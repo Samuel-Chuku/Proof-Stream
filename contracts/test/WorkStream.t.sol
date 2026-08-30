@@ -74,6 +74,7 @@ contract WorkStreamTest is Test {
         s = new WorkStream(
             IERC20(address(usdc)),
             contributor,
+            address(0), // named at deploy, so no claim link
             agentAddr,
             M1,
             BUDGET,
@@ -251,6 +252,7 @@ contract WorkStreamTest is Test {
         new WorkStream(
             IERC20(address(usdc)),
             contributor,
+            address(0),
             agentAddr,
             M1,
             BUDGET,
@@ -271,6 +273,7 @@ contract WorkStreamTest is Test {
         new WorkStream(
             IERC20(address(usdc)),
             contributor,
+            address(0),
             agentAddr,
             M1,
             BUDGET,
@@ -288,6 +291,7 @@ contract WorkStreamTest is Test {
         WorkStream s = new WorkStream(
             IERC20(address(usdc)),
             contributor,
+            address(0),
             agentAddr,
             M1,
             BUDGET,
@@ -307,6 +311,7 @@ contract WorkStreamTest is Test {
         new WorkStream(
             IERC20(address(usdc)),
             contributor,
+            address(0),
             agentAddr,
             M1,
             BUDGET,
@@ -752,6 +757,221 @@ contract WorkStreamTest is Test {
     /// function and treating a revert as "this is v1", which is detection by
     /// exception and has to be reimplemented by every consumer. It cannot be
     /// added to a stream that is already deployed, which is why it goes in now.
+
+    // ------------------------------------------------------ the claim path
+    //
+    // An employer who knows someone's email but not their wallet cannot name a
+    // contributor at deploy. The stream is created unclaimed, with a one-time
+    // key held only in the link, and the recipient binds their own address.
+    //
+    // THE ATTACK THIS DESIGN EXISTS TO STOP. The obvious version stores a secret
+    // hash and has the claimant reveal it. That is front-runnable: the secret is
+    // visible in the claim transaction, so a watcher copies it and claims first.
+    // Signing the CLAIMER'S OWN ADDRESS makes a stolen signature worthless.
+
+    uint256 claimPk = 0xC1A1;
+
+    function deployClaimable() internal returns (WorkStream s) {
+        vm.prank(employer);
+        s = new WorkStream(
+            IERC20(address(usdc)),
+            address(0), // nobody named yet
+            vm.addr(claimPk), // the key that lives in the link
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0)})
+        );
+    }
+
+    /// NOTE FOR ANYONE EDITING THESE TESTS: build the signature BEFORE any
+    /// `vm.prank` or `vm.expectRevert`. This helper reads DOMAIN_SEPARATOR and
+    /// CLAIM_TYPEHASH from the contract, and those calls would otherwise consume
+    /// the cheatcode, so `claim` runs unpranked and the expectation lands on a
+    /// view that never reverts.
+    function signClaim(WorkStream s, address claimer, uint256 pk) internal view returns (bytes memory) {
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                s.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(s.CLAIM_TYPEHASH(), claimer))
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 ss) = vm.sign(pk, digest);
+        return abi.encodePacked(r, ss, v);
+    }
+
+    function test_ClaimBindsTheCallerAndStartsTheClock() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+        assertEq(s.activatedAt(), 0, "an unclaimed stream must not start accruing");
+
+        address alice = makeAddr("alice");
+        bytes memory sig = signClaim(s, alice, claimPk);
+        vm.prank(alice);
+        s.claim(sig);
+
+        assertEq(s.contributor(), alice);
+        (,, address paidTo) = s.policy();
+        assertEq(paidTo, alice, "the claimant is the payee");
+        assertTrue(s.activatedAt() != 0, "the clock starts at claim");
+    }
+
+    /// THE FRONT-RUNNING CASE. A watcher sees Alice's claim in the mempool and
+    /// copies the signature. It authorises Alice's address and nobody else's, so
+    /// replaying it buys the attacker nothing.
+    function test_ClaimSignatureIsUselessToAnyoneElse() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+
+        address alice = makeAddr("alice");
+        address mallory = makeAddr("mallory");
+        bytes memory alicesSignature = signClaim(s, alice, claimPk);
+
+        vm.prank(mallory);
+        vm.expectRevert(WorkStream.BadClaimSignature.selector);
+        s.claim(alicesSignature);
+
+        assertEq(s.contributor(), address(0), "nothing was bound");
+    }
+
+    function test_ClaimRejectsASignatureFromTheWrongKey() public {
+        WorkStream s = deployClaimable();
+        address alice = makeAddr("alice");
+        bytes memory wrongKey = signClaim(s, alice, 0xBAD);
+        vm.prank(alice);
+        vm.expectRevert(WorkStream.BadClaimSignature.selector);
+        s.claim(wrongKey);
+    }
+
+    function test_AStreamCanOnlyBeClaimedOnce() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+
+        address alice = makeAddr("alice");
+        address bob = makeAddr("bob");
+        bytes memory aliceSig = signClaim(s, alice, claimPk);
+        bytes memory bobSig = signClaim(s, bob, claimPk);
+
+        vm.prank(alice);
+        s.claim(aliceSig);
+
+        vm.prank(bob);
+        vm.expectRevert(WorkStream.AlreadyClaimed.selector);
+        s.claim(bobSig);
+
+        assertEq(s.contributor(), alice, "the first claim stands");
+    }
+
+    function test_ANamedStreamCannotBeClaimed() public {
+        address alice = makeAddr("alice");
+        bytes memory sig = signClaim(ws, alice, claimPk);
+        vm.prank(alice);
+        vm.expectRevert(WorkStream.AlreadyClaimed.selector);
+        ws.claim(sig);
+    }
+
+    /// The employer may reissue a lost link, but only while nobody has claimed.
+    function test_SetClaimAuthorityWorksUntilClaimed() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+
+        uint256 reissued = 0xC1A2;
+        address alice = makeAddr("alice");
+        bytes memory oldLink = signClaim(s, alice, claimPk);
+        bytes memory newLink = signClaim(s, alice, reissued);
+
+        vm.prank(employer);
+        s.setClaimAuthority(vm.addr(reissued));
+
+        vm.prank(alice);
+        vm.expectRevert(WorkStream.BadClaimSignature.selector);
+        s.claim(oldLink); // the old link is dead
+
+        vm.prank(alice);
+        s.claim(newLink);
+        assertEq(s.contributor(), alice);
+
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.AlreadyClaimed.selector);
+        s.setClaimAuthority(vm.addr(0xC1A3));
+    }
+
+    function test_SetClaimAuthorityIsEmployerOnly() public {
+        WorkStream s = deployClaimable();
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert(WorkStream.NotEmployer.selector);
+        s.setClaimAuthority(makeAddr("anyone"));
+    }
+
+    /// An unclaimed stream never activated, so the employer may close it at any
+    /// time and the whole budget comes back. That is why no expiry field exists:
+    /// the existing close path already is one.
+    function test_AnUnclaimedStreamAccruesNothingAndRefundsInFull() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+        vm.warp(block.timestamp + DURATION * 10);
+
+        assertEq(s.accrued(), 0, "a dormant stream must not accrue");
+        assertEq(s.withdrawable(), 0);
+
+        uint256 before = usdc.balanceOf(employer);
+        vm.prank(employer);
+        s.closeMilestone();
+        assertEq(usdc.balanceOf(employer) - before, BUDGET, "the whole budget returns");
+    }
+
+    /// Once claimed the normal protection applies again: the employer is back
+    /// under duration plus CLOSE_GRACE and cannot pull the stream out from under
+    /// someone who has started work.
+    function test_AClaimedStreamCannotBeClosedEarly() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+
+        address alice = makeAddr("alice");
+        bytes memory sig = signClaim(s, alice, claimPk);
+        vm.prank(alice);
+        s.claim(sig);
+
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.MilestoneStillRunning.selector);
+        s.closeMilestone();
+    }
+
+    function test_ConstructorRejectsAStreamThatIsNeitherNamedNorClaimable() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.ZeroAddress.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            address(0),
+            address(0),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0)})
+        );
+    }
+
+    function test_ConstructorRejectsAStreamThatIsBothNamedAndClaimable() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.ZeroAddress.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            vm.addr(claimPk),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee})
+        );
+    }
+
     function test_VersionIdentifiesThisBytecode() public view {
         assertEq(ws.version(), 2);
     }
@@ -807,23 +1027,33 @@ contract WorkStreamTest is Test {
         ws.openMilestone("too soon", BUDGET, DURATION);
     }
 
-    function test_ConstructorRejectsZeroAddresses() public {
-        vm.startPrank(employer);
+    /// The agent is required either way. The named-versus-claimable rules have
+    /// their own tests above, because "contributor is zero" stopped being
+    /// invalid on its own once a stream could be claimed.
+    function test_ConstructorRejectsAZeroAgent() public {
+        vm.prank(employer);
         vm.expectRevert(WorkStream.ZeroAddress.selector);
         new WorkStream(
             IERC20(address(usdc)),
+            contributor,
             address(0),
-            agentAddr,
+            address(0), // no agent
             M1,
             BUDGET,
             DURATION,
             "acme/widgets",
             WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: payee})
         );
+    }
+
+    /// A named stream must name its payee too, or nobody could ever withdraw.
+    function test_ConstructorRejectsANamedStreamWithNoPayee() public {
+        vm.prank(employer);
         vm.expectRevert(WorkStream.ZeroAddress.selector);
         new WorkStream(
             IERC20(address(usdc)),
             contributor,
+            address(0),
             agentAddr,
             M1,
             BUDGET,
@@ -831,6 +1061,5 @@ contract WorkStreamTest is Test {
             "acme/widgets",
             WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: address(0)})
         );
-        vm.stopPrank();
     }
 }

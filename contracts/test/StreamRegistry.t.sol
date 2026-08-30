@@ -31,6 +31,7 @@ contract StreamRegistryTest is Test {
         return new WorkStream(
             USDC,
             contributor,
+            address(0),
             whichAgent,
             "Milestone 1: ship the ledger module",
             40e6,

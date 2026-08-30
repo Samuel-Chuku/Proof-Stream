@@ -76,6 +76,10 @@ contract Deploy is Script {
         WorkStream ws = new WorkStream(
             USDC,
             contributor,
+            // Named at deploy, so no claim link. The terminal path always names
+            // a contributor; the claim path exists for the web flow, where an
+            // employer may know an email but not a wallet.
+            address(0),
             agent,
             milestone,
             budget,

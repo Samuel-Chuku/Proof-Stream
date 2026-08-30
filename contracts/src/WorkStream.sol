@@ -73,7 +73,19 @@ contract WorkStream {
     // ---------------------------------------------------------------- actors
     IERC20 public immutable usdc;
     address public immutable employer;
-    address public immutable contributor;
+    /// @notice Who the work is for. Set at construction for a named stream, or
+    ///         bound once by `claim` for a stream shared as a link.
+    /// @dev NO LONGER IMMUTABLE. An employer who knows someone's email but not
+    ///      their wallet cannot name them at deploy, so the address is bound
+    ///      later. Exactly one of `contributor` and `claimAuthority` is set at
+    ///      construction, and `claim` is the only thing that can ever move this.
+    address public contributor;
+
+    /// @notice The one-time key that authorises a claim, or zero for a stream
+    ///         whose contributor was named at deploy.
+    /// @dev Only the ADDRESS lives here. The private key lives in the link the
+    ///      employer sends and nowhere else.
+    address public claimAuthority;
     address public immutable agent; // attestor key that signs certifications
 
     // ------------------------------------------------------------- milestone
@@ -149,6 +161,14 @@ contract WorkStream {
     // contributor's.
     uint256 public constant ATTESTATION_TTL = 15 minutes;
 
+    /// @notice What a claim signature commits to.
+    /// @dev The claimer's own address, and nothing else. That is the whole
+    ///      defence: a signature lifted from the mempool authorises the person
+    ///      it was made for and is worthless to anyone else. The domain
+    ///      separator already binds the stream, so a key reused across streams
+    ///      by mistake still cannot claim the wrong one.
+    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address claimer)");
+
     /// @notice How long after a milestone ends the employer must wait before
     ///         closing it. Judging a diff, buying a second opinion, signing and
     ///         landing a transaction all take real time, so work merged just
@@ -194,6 +214,8 @@ contract WorkStream {
     event StreamResumed(uint64 at);
     event Reclaimed(uint256 amount);
     event RepoSet(string repo);
+    event Claimed(address indexed contributor);
+    event ClaimAuthoritySet(address indexed authority);
     event PolicyRaised(uint256 maxTranche, uint256 dailyUnlockCap);
 
     // ---------------------------------------------------------------- errors
@@ -222,11 +244,15 @@ contract WorkStream {
     error CapsMayOnlyRise();
     error RepoLocked();
     error CapCannotStrandTheBudget();
+    error AlreadyClaimed();
+    error BadClaimSignature();
+    error NotClaimable();
     error StreamIsPaused();
 
     constructor(
         IERC20 _usdc,
         address _contributor,
+        address _claimAuthority,
         address _agent,
         string memory _milestone,
         uint256 _budget,
@@ -234,9 +260,17 @@ contract WorkStream {
         string memory _repo,
         Policy memory _policy
     ) {
-        if (_contributor == address(0) || _agent == address(0) || _policy.payee == address(0)) {
-            revert ZeroAddress();
-        }
+        // EXACTLY ONE OF NAMED OR CLAIMABLE.
+        //
+        // A named stream knows its contributor and its payee at deploy. A
+        // claimable one knows neither, and binds both when someone presents a
+        // link. Allowing both would leave two answers to "who gets paid";
+        // allowing neither would leave a funded stream nobody could ever
+        // withdraw from.
+        bool named = _contributor != address(0);
+        if (named == (_claimAuthority != address(0))) revert ZeroAddress();
+        if (_agent == address(0)) revert ZeroAddress();
+        if (named != (_policy.payee != address(0))) revert ZeroAddress();
 
         // THE CAPS MAY THROTTLE THE RATE, NEVER MAKE THE TOTAL UNREACHABLE.
         //
@@ -272,6 +306,7 @@ contract WorkStream {
         usdc = _usdc;
         employer = msg.sender;
         contributor = _contributor;
+        claimAuthority = _claimAuthority;
         agent = _agent;
         repo = _repo;
         policy = _policy;
@@ -431,11 +466,59 @@ contract WorkStream {
         cur.funded += amount;
         emit Funded(msg.sender, amount, cur.funded);
 
-        if (cur.activatedAt == 0 && fullyFunded()) {
-            cur.activatedAt = uint64(block.timestamp);
-            pausedSeconds = 0;
-            emit MilestoneActivated(milestoneIndex, cur.activatedAt, cur.budget);
-        }
+        _activateIfReady();
+    }
+
+    /// @dev THE CLOCK MUST NOT RUN BEFORE THERE IS SOMEONE TO PAY. An unclaimed
+    ///      stream sitting in an inbox for a week would otherwise cost the
+    ///      contributor a week of accrual for a delay they did not cause and
+    ///      could not see.
+    function _activateIfReady() internal {
+        if (cur.activatedAt != 0 || !fullyFunded() || contributor == address(0)) return;
+        cur.activatedAt = uint64(block.timestamp);
+        pausedSeconds = 0;
+        emit MilestoneActivated(milestoneIndex, cur.activatedAt, cur.budget);
+    }
+
+    /// @notice Bind yourself as the contributor of a stream shared as a link.
+    /// @dev The signature must be the claim authority's, over the CALLER'S OWN
+    ///      address. That is what makes this safe to broadcast: a watcher who
+    ///      copies the signature out of the mempool holds an authorisation for
+    ///      somebody else's address, which does nothing for them.
+    ///
+    ///      The obvious alternative, storing a secret hash and having the
+    ///      claimant reveal it, is front-runnable for exactly the reason this is
+    ///      not: the secret works for whoever submits it first.
+    function claim(bytes calldata signature) external {
+        if (contributor != address(0)) revert AlreadyClaimed();
+        if (claimAuthority == address(0)) revert NotClaimable();
+
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR,
+                keccak256(abi.encode(CLAIM_TYPEHASH, msg.sender))
+            )
+        );
+        // `recover` yields address(0) on a malformed signature, and
+        // `claimAuthority` is non-zero here, so a bad signature cannot match.
+        if (recover(digest, signature) != claimAuthority) revert BadClaimSignature();
+
+        contributor = msg.sender;
+        policy.payee = msg.sender;
+        emit Claimed(msg.sender);
+
+        _activateIfReady();
+    }
+
+    /// @notice Reissue or revoke an unclaimed link.
+    /// @dev Only while unclaimed. Afterwards the contributor is settled and this
+    ///      would be a way to hand their stream to somebody else.
+    function setClaimAuthority(address newAuthority) external {
+        if (msg.sender != employer) revert NotEmployer();
+        if (contributor != address(0)) revert AlreadyClaimed();
+        claimAuthority = newAuthority;
+        emit ClaimAuthoritySet(newAuthority);
     }
 
     /// @notice Open the next milestone with its own budget and duration. It
