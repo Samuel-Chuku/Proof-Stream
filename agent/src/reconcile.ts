@@ -80,12 +80,23 @@ export function lastEvidence(streamAddress: string): Evidence | null {
       try {
         const entry = JSON.parse(line) as {
           workStream?: string;
-          correctness?: { outcome?: string; suiteId?: string; passed?: number; total?: number };
+          correctness?: {
+            outcome?: string;
+            suiteId?: string;
+            passed?: number;
+            total?: number;
+            ownTests?: { passed?: number };
+          };
         };
         if (entry.workStream?.toLowerCase() !== streamAddress.toLowerCase()) continue;
         const c = entry.correctness;
         if (!c || (c.outcome !== 'passes' && c.outcome !== 'fails')) continue;
-        latest = { suiteId: c.suiteId, passed: c.passed ?? 0, total: c.total ?? 0 };
+        latest = {
+          suiteId: c.suiteId,
+          passed: c.passed ?? 0,
+          total: c.total ?? 0,
+          ownPassed: c.ownTests?.passed,
+        };
       } catch {
         // A truncated final line is normal while the pipeline is writing.
       }
@@ -96,7 +107,7 @@ export function lastEvidence(streamAddress: string): Evidence | null {
   }
 }
 
-type GhPull = {
+export type GhPull = {
   number: number;
   title: string;
   body: string | null;
@@ -105,6 +116,24 @@ type GhPull = {
   user: { login: string } | null;
   base: { ref: string } | null;
 };
+
+/// One GitHub pull request as the pipeline needs it.
+///
+/// Exported because a wrong answer here is SILENT: a field dropped in this
+/// mapping does not throw, it quietly gives the pipeline less to work with than
+/// a webhook would, and reconciliation stops being the same standard by a
+/// different door.
+export function toMergedPr(p: GhPull, repo: string): MergedPr {
+  return {
+    number: p.number,
+    title: p.title ?? '',
+    body: p.body ?? '',
+    commitSha: p.merge_commit_sha ?? '',
+    author: p.user?.login ?? 'unknown',
+    repo,
+    baseBranch: p.base?.ref,
+  };
+}
 
 async function recentlyMerged(repo: string, branch: string, sinceMs: number): Promise<MergedPr[]> {
   // `base` narrows the listing to the branch the employer nominated. The
@@ -126,15 +155,7 @@ async function recentlyMerged(repo: string, branch: string, sinceMs: number): Pr
   const pulls = (await res.json()) as GhPull[];
   return pulls
     .filter((p) => p.merged_at && Date.parse(p.merged_at) >= sinceMs)
-    .map((p) => ({
-      number: p.number,
-      title: p.title ?? '',
-      body: p.body ?? '',
-      commitSha: p.merge_commit_sha ?? '',
-      author: p.user?.login ?? 'unknown',
-      repo,
-      baseBranch: p.base?.ref,
-    }));
+    .map((p) => toMergedPr(p, repo));
 }
 
 /// Judge anything merged that has no verdict. `process` is injected rather than

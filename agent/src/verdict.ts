@@ -148,6 +148,20 @@ function correctnessEvidence(c: CorrectnessResult | undefined): string | null {
   const ran = c.total > 0 ? `\n${c.passed} of ${c.total} generated tests passed on the merged code.` : '';
   const why = c.reason ? `\nNote: ${c.reason}` : '';
 
+  // WHAT THE SUITE ACTUALLY CHECKED, always, not only when something broke.
+  //
+  // Without this the model receives a bare "9 of 9 passed" and has no way to
+  // know what was exercised — so when it needs to reason about coverage it
+  // invents. Observed live on a real judgment: it stated that none of the nine
+  // tests exercised the function the milestone named, when every one of them
+  // did. A count cannot distinguish a suite that probed the milestone hard from
+  // one that never touched it, and those must not read the same.
+  const checked = c.passedTests.length
+    ? `\n\nTHESE TESTS PASSED ON THE MERGED CODE:\n${c.passedTests.map((t) => `  - ${t}`).join('\n')}` +
+      '\nThis is the whole of what the suite verified. Judge its coverage from these names — do not ' +
+      'assert anything about what was or was not exercised beyond them.'
+    : '';
+
   const failing = c.kept.length
     ? `\n\nTHESE TESTS FAILED ON THE MERGED CODE:\n${c.kept.map((t) => `  - ${t}`).join('\n')}` +
       (c.filtered
@@ -163,7 +177,7 @@ function correctnessEvidence(c: CorrectnessResult | undefined): string | null {
       'this work.'
     : '';
 
-  return `${head}${ran}${why}${failing}${cleared}`;
+  return `${head}${ran}${why}${checked}${failing}${cleared}`;
 }
 
 export async function judge(

@@ -48,6 +48,15 @@ export type AgentEvent = {
     /** Failures the earlier version had too, so they say nothing about this
      *  work and were set aside. */
     discarded: string[];
+    /** What the suite actually checked and got right. A total on its own does
+     *  not say whether the milestone was probed at all, so the names are what
+     *  make this panel evidence rather than a score. Optional: verdicts
+     *  recorded before this was captured have no list, and must still render. */
+    passedTests?: string[];
+    /** The contributor's OWN test suite, run as a second ruler. A repository
+     *  with no tests reports a real zero; absent means the run concluded
+     *  nothing. */
+    ownTests?: { passed: number; total: number };
     /** Whether an earlier version of the repository actually adjudicated the
      *  failures, or they are reported unchecked. */
     filtered: boolean;

@@ -16,8 +16,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { adjudicate, parseTap, type SuiteRun } from '../src/adjudicate';
 
-const run = (failed: string[], passed: number): SuiteRun => ({
+const run = (failed: string[], passed: number, names: string[] = []): SuiteRun => ({
   failed: new Set(failed),
+  passedNames: new Set(names),
   passed,
   failedCount: failed.length,
   total: passed + failed.length,
@@ -26,6 +27,7 @@ const run = (failed: string[], passed: number): SuiteRun => ({
 
 const voided = (reason: string): SuiteRun => ({
   failed: new Set(),
+  passedNames: new Set(),
   passed: 0,
   failedCount: 0,
   total: 0,
@@ -124,6 +126,29 @@ test('a suite that would not load is void, not a failing suite', () => {
   assert.deepEqual(r.kept, []);
 });
 
+// --- what the suite actually checked ---------------------------------------
+//
+// A count cannot distinguish a suite that probed the milestone hard from one
+// that never touched it. Handed only "9 of 9 passed", the judgment invented a
+// claim about coverage that was flatly untrue of the suite that had just run.
+
+test('a clean run reports WHAT it checked, not just how many', () => {
+  const r = adjudicate(run([], 2, ['balanceAt nets sent and received', 'balanceAt excludes later transfers']), null);
+  assert.deepEqual(r.passedTests, ['balanceAt nets sent and received', 'balanceAt excludes later transfers']);
+});
+
+test('a failing run still reports what passed, so coverage can be weighed', () => {
+  const r = adjudicate(run(['rejects an overdraft'], 1, ['balanceAt credits incoming']), run([], 2));
+  assert.equal(r.outcome, 'fails');
+  assert.deepEqual(r.kept, ['rejects an overdraft']);
+  assert.deepEqual(r.passedTests, ['balanceAt credits incoming'], 'a failure elsewhere does not erase what was verified');
+});
+
+test('a void run claims nothing was checked', () => {
+  const r = adjudicate(voided('the suite did not load'), null);
+  assert.deepEqual(r.passedTests, [], 'a suite that never ran verified nothing');
+});
+
 // --- reading the runner's own report ---------------------------------------
 
 test('parseTap reads the failing test names, not the counts alone', () => {
@@ -180,6 +205,91 @@ test('parseTap ignores a group heading that only reports a failing subtest', () 
   const r = parseTap(tap);
   assert.deepEqual([...r.failed], ['blocks a self transfer'], 'only the leaf is a claim about the code');
   assert.equal(r.failedCount, 2, "the runner's own count still includes the heading, and is not rewritten");
+});
+
+test('parseTap names the tests that PASSED, not only the ones that failed', () => {
+  const tap = [
+    'TAP version 13',
+    '# Subtest: balanceAt credits incoming transfers',
+    'ok 1 - balanceAt credits incoming transfers',
+    '# Subtest: balanceAt debits outgoing transfers',
+    'not ok 2 - balanceAt debits outgoing transfers',
+    '1..2',
+    '# tests 2',
+    '# pass 1',
+    '# fail 1',
+  ].join('\n');
+  const r = parseTap(tap);
+  assert.deepEqual([...r.passedNames], ['balanceAt credits incoming transfers']);
+  assert.deepEqual([...r.failed], ['balanceAt debits outgoing transfers']);
+});
+
+test('A PASSING GROUP HEADING IS NOT A TEST THAT PASSED', () => {
+  // The failing case is marked `subtestsFailed` in its YAML block. The PASSING
+  // case has no marker at all — parent and leaf both report `type: 'test'` —
+  // so the only thing separating them is the child plan indented above the
+  // parent. Copied from the runner's real output.
+  const tap = [
+    'TAP version 13',
+    '# Subtest: a plain passing leaf',
+    'ok 1 - a plain passing leaf',
+    "  type: 'test'",
+    '# Subtest: a group',
+    '    # Subtest: passing child',
+    '    ok 1 - passing child',
+    "      type: 'test'",
+    '    1..1',
+    'ok 2 - a group',
+    "  type: 'test'",
+    '1..2',
+    '# tests 3',
+    '# pass 2',
+    '# fail 0',
+  ].join('\n');
+  const r = parseTap(tap);
+  assert.deepEqual([...r.passedNames].sort(), ['a plain passing leaf', 'passing child'],
+    'the heading "a group" is not a claim about the code');
+});
+
+test('A SUITE OF SKIPPED TESTS IS VOID, NOT A CLEAN PASS', () => {
+  // The runner counts SKIP and TODO in `# pass`, verified against it rather
+  // than assumed. So an oracle that emitted `test.skip(...)` throughout would
+  // report itself all-green having executed no assertion whatsoever — and the
+  // zero-count guard cannot see it, because the counts are not zero.
+  //
+  // Green is the direction that releases money, so this must not read as a pass.
+  const tap = [
+    'TAP version 13',
+    '# Subtest: a skipped test',
+    'ok 1 - a skipped test # SKIP',
+    '# Subtest: a todo test',
+    'ok 2 - a todo test # TODO',
+    '1..2',
+    '# tests 2',
+    '# pass 2',
+    '# fail 0',
+    '# skipped 1',
+    '# todo 1',
+  ].join('\n');
+  const r = parseTap(tap);
+  assert.equal(r.void, true, 'nothing asserted, so there is no verdict in either direction');
+  assert.equal(r.passedNames.size, 0);
+  assert.match(r.reason ?? '', /skipped or empty/);
+});
+
+test('a skipped test alongside real ones is excluded, not counted as verified', () => {
+  const tap = [
+    'TAP version 13',
+    'ok 1 - balanceAt credits incoming transfers',
+    'ok 2 - a skipped test # SKIP',
+    '1..2',
+    '# tests 2',
+    '# pass 2',
+    '# fail 0',
+  ].join('\n');
+  const r = parseTap(tap);
+  assert.equal(r.void, false);
+  assert.deepEqual([...r.passedNames], ['balanceAt credits incoming transfers']);
 });
 
 test('parseTap calls a suite that never loaded void, not failed', () => {
@@ -242,4 +352,59 @@ test('an inconclusive run on either side does not hold anything', () => {
   // rather than hold it on a comparison we could not actually make.
   assert.equal(evidenceImproved(ev(0, 0), ev(9)), true);
   assert.equal(evidenceImproved(ev(9), ev(0, 0)), true);
+});
+
+// --- the contributor's own tests, as a second ruler --------------------------
+//
+// THE INCOHERENCE THIS CLOSES. The oracle is never shown test files, so its
+// suite cannot observe whether the contributor wrote any. A milestone that asks
+// for tests therefore had a clause that could never move the evidence: the
+// agent docked pay for the tests being missing, then refused to restore it when
+// they arrived. Observed live on PR2 of a real run.
+
+const withOwn = (passed: number, ownPassed?: number): Evidence => ({
+  suiteId: 'suite-a',
+  passed,
+  total: 12,
+  ownPassed,
+});
+
+test("MORE OF THE CONTRIBUTOR'S OWN TESTS PASSING IS AN IMPROVEMENT", () => {
+  // The generated suite is unchanged at 9 of 12 — it cannot see test files at
+  // all — but five new passing tests appeared in the repository.
+  assert.equal(evidenceImproved(withOwn(9, 6), withOwn(9, 11)), true);
+});
+
+test('the same own tests passing is not an improvement', () => {
+  // The comment-only merge still has to be held. Nothing moved on either ruler.
+  assert.equal(evidenceImproved(withOwn(9, 11), withOwn(9, 11)), false);
+});
+
+test('deleting tests is not an improvement', () => {
+  assert.equal(evidenceImproved(withOwn(9, 11), withOwn(9, 6)), false);
+});
+
+test('a repository with no tests on either side falls back to the generated suite', () => {
+  assert.equal(evidenceImproved(withOwn(9, undefined), withOwn(9, undefined)), false);
+  assert.equal(evidenceImproved(withOwn(9, undefined), withOwn(11, undefined)), true);
+});
+
+test('THE FIRST TESTS SOMEBODY WRITES ARE AN IMPROVEMENT', () => {
+  // A repository with no tests measures a real zero, not an absence, so tests
+  // appearing where there were none is a rise like any other. This is the
+  // common shape of a milestone that asks for tests.
+  assert.equal(evidenceImproved(withOwn(9, 0), withOwn(9, 5)), true);
+});
+
+test('a run that concluded NOTHING is not read as tests being deleted', () => {
+  // A sandbox timeout must not look like the contributor removing every test.
+  // Undefined on either side means we cannot compare on this ruler, so it falls
+  // through to the generated suite rather than holding on a measurement we
+  // failed to take.
+  assert.equal(evidenceImproved(withOwn(9, 11), withOwn(9, undefined)), false, 'the generated suite still governs');
+  assert.equal(evidenceImproved(withOwn(9, 11), withOwn(12, undefined)), true, 'and it can still say yes');
+});
+
+test('the generated suite still counts when the own tests did not move', () => {
+  assert.equal(evidenceImproved(withOwn(9, 11), withOwn(12, 11)), true);
 });

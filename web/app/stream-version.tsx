@@ -6,38 +6,22 @@
 /// to tell that one of them cannot do what the other can.
 ///
 /// NOT GREEN, and not close to it. Green means USDC the agent released, and a
-/// contract version is not money. This is a chip in the same family as an
-/// address: quiet, factual, and easy to skip past once you have read it.
+/// contract version is not money.
+///
+/// Quiet on purpose: hairline border, dim ink, no fill. An earlier attempt gave
+/// it a dithered background, which at this size read as a rendering artefact
+/// rather than a label. A version is a footnote, not a status.
 export function StreamVersion({ version }: { version: number }) {
-  const current = version >= 2;
   return (
     <span
-      className={`ps-version${current ? '' : ' ps-version-old'}`}
+      className="ps-version"
       title={
-        current
+        version >= 2
           ? 'Deployed from the current contract.'
-          : 'An earlier contract. It keeps working, and it cannot do everything a current stream can.'
+          : 'An earlier contract. It keeps working, and cannot accept a claim link.'
       }
     >
       V{version}
     </span>
-  );
-}
-
-/// What an older stream cannot do, said once, where it matters.
-///
-/// Only the differences a person can act on. Nobody needs to read a changelog
-/// on a payroll page, and listing everything would bury the one line that
-/// changes what they should expect.
-export function OlderStreamNote({ version }: { version: number }) {
-  if (version >= 2) return null;
-  return (
-    <p className="ps-older-note">
-      <b>THIS IS AN EARLIER STREAM.</b> It keeps working: pay accrues, the agent
-      certifies, and withdrawing and closing are unaffected. What it cannot do is
-      accept a claim link, and its per-unlock cap was allowed to sit below the
-      budget, which can leave part of the work unpayable. Newer streams refuse
-      that at deployment.
-    </p>
   );
 }

@@ -8,7 +8,7 @@ import { readStream, sendCertification, signAttestation, type Attestation } from
 import { evidenceImproved } from './adjudicate';
 import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
-import { fetchCommitMessages, fetchDiff, fetchSourceFiles, type MergedPr } from './github';
+import { fetchCommitMessages, fetchDiff, fetchSourceFiles, mergeParentSha, type MergedPr } from './github';
 import { agentsDisagree, meterCertification, requiredConfidence } from './metering';
 import { buySecondOpinion } from './pay';
 import { lastEvidence } from './reconcile';
@@ -126,14 +126,17 @@ async function correctnessOf(
   suiteKey: string,
 ): Promise<CorrectnessResult> {
   if (!env.correctnessCheck) {
-    return { outcome: 'unavailable', kept: [], discarded: [], filtered: false, passed: 0, total: 0, costUsd: 0, reason: 'the correctness check is switched off' };
+    return { outcome: 'unavailable', kept: [], discarded: [], passedTests: [], filtered: false, passed: 0, total: 0, costUsd: 0, reason: 'the correctness check is switched off' };
   }
 
   const merged = await fetchSourceFiles(repo, pr.commitSha);
-  // Missing on an event we could not fully read. Its absence costs the filter,
-  // not the check: failures are then reported as unadjudicated rather than
-  // being treated as defects.
-  const reference = pr.baseSha ? await fetchSourceFiles(repo, pr.baseSha) : undefined;
+  // THE MERGE COMMIT'S PARENT, never the pull request's `base.sha` — that is
+  // frozen at the moment the pull request was opened and points at a repository
+  // that may predate several merges since. Undefined when it cannot be
+  // resolved, which costs the filter but not the check: failures are then
+  // reported as unadjudicated rather than being treated as defects.
+  const referenceSha = await mergeParentSha(repo, pr.commitSha);
+  const reference = referenceSha ? await fetchSourceFiles(repo, referenceSha) : undefined;
 
   return checkCorrectness({ milestone, merged, reference, suiteKey });
 }

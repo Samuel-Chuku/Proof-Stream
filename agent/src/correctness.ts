@@ -56,6 +56,23 @@ export type CorrectnessResult = {
   kept: string[];
   /** Failures the reference had too, so they say nothing about this work. */
   discarded: string[];
+  /** What the suite actually checked and got right. The judgment reads coverage
+   *  from these names; without them it has only a total, and a total says
+   *  nothing about whether the milestone was probed at all. */
+  passedTests: string[];
+  /** THE CONTRIBUTOR'S OWN TEST SUITE, run as a second and independent ruler.
+   *
+   *  The generated suite cannot see it — `interfacesOf` filters test files out
+   *  of what the oracle is shown — so a milestone clause asking the contributor
+   *  to WRITE tests is invisible to it and can never move the evidence. The
+   *  agent was docking pay for missing tests and then refusing to restore it
+   *  when the tests arrived.
+   *
+   *  A repository with no tests measures a real ZERO, not an absence — that is
+   *  what makes the first test somebody writes count as an improvement. Absent
+   *  is reserved for a run that established NOTHING (a timeout, a suite that
+   *  would not load), where the honest answer is that we cannot compare. */
+  ownTests?: { passed: number; total: number };
   /** Whether a usable reference actually adjudicated the failures. */
   filtered: boolean;
   /** How many tests passed on the merged code, and how many ran. */
@@ -74,6 +91,7 @@ const unavailable = (reason: string): CorrectnessResult => ({
   outcome: 'unavailable',
   kept: [],
   discarded: [],
+  passedTests: [],
   filtered: false,
   passed: 0,
   total: 0,
@@ -171,7 +189,7 @@ export async function checkCorrectness(req: CorrectnessRequest): Promise<Correct
     try {
       reference = await runSuite(req.reference, tests);
     } catch (err) {
-      reference = { failed: new Set(), passed: 0, failedCount: 0, total: 0, void: true, reason: `the reference run failed: ${message(err)}` };
+      reference = { failed: new Set(), passedNames: new Set(), passed: 0, failedCount: 0, total: 0, void: true, reason: `the reference run failed: ${message(err)}` };
     }
   }
 
@@ -180,6 +198,7 @@ export async function checkCorrectness(req: CorrectnessRequest): Promise<Correct
     passed: target.passed,
     total: target.total,
     suiteId: suiteId(tests),
+    ownTests: await runOwnTests(req.merged),
     costUsd: cost,
     model,
   };
@@ -201,6 +220,46 @@ export async function checkCorrectness(req: CorrectnessRequest): Promise<Correct
 /// fetched. A module that imports a third-party package cannot resolve it, the
 /// suite fails to load, and that is reported as `void` — never as a failure of
 /// the contributor's work.
+/// The repository's own test files, which are already fetched for the sandbox
+/// and were simply never executed.
+const OWN_TEST = /\.(test|spec)\.[mc]?[jt]sx?$/;
+
+/// Run the CONTRIBUTOR'S suite, not ours.
+///
+/// A second ruler, and the only one that can see a milestone clause about
+/// writing tests. Counted by name rather than by the runner's totals, so group
+/// headings and skipped tests cannot inflate it — a suite of `test.skip` must
+/// not read as work.
+///
+/// A repository with NO TEST FILES measures a real zero. That distinction is
+/// the whole point: it is what makes the first test a contributor writes count
+/// as an improvement, rather than being indistinguishable from a run we could
+/// not perform.
+///
+/// Undefined is reserved for exactly that second case — a timeout, or a suite
+/// that would not load. It means "cannot compare", which lets the judgment
+/// proceed: this feeds a gate that WITHHOLDS pay, so a measurement we failed to
+/// take must never be read as a regression.
+async function runOwnTests(files: SourceFile[]): Promise<{ passed: number; total: number } | undefined> {
+  const paths = files.filter((f) => OWN_TEST.test(f.path)).map((f) => f.path);
+  if (paths.length === 0) return { passed: 0, total: 0 };
+
+  try {
+    const run = await runInSandbox(
+      files,
+      `node --test ${paths.join(' ')}`,
+      { seconds: env.oracleTimeoutSeconds },
+      { trusted: false },
+    );
+    if (run.timedOut) return undefined;
+    const parsed = parseTap(run.stdout + run.stderr);
+    if (parsed.void) return undefined;
+    return { passed: parsed.passedNames.size, total: parsed.passedNames.size + parsed.failed.size };
+  } catch {
+    return undefined;
+  }
+}
+
 async function runSuite(files: SourceFile[], tests: string): Promise<SuiteRun> {
   const run = await runInSandbox(
     [...files, { path: SUITE_PATH, contents: tests }],
@@ -210,7 +269,7 @@ async function runSuite(files: SourceFile[], tests: string): Promise<SuiteRun> {
   );
 
   if (run.timedOut) {
-    return { failed: new Set(), passed: 0, failedCount: 0, total: 0, void: true, reason: 'the suite did not finish inside the time limit' };
+    return { failed: new Set(), passedNames: new Set(), passed: 0, failedCount: 0, total: 0, void: true, reason: 'the suite did not finish inside the time limit' };
   }
   return parseTap(run.stdout + run.stderr);
 }

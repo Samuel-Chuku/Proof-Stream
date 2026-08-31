@@ -35,42 +35,63 @@ contract Deploy is Script {
     string constant DEFAULT_MILESTONE =
         "Milestone 1: implement transfer() with balance and overdraft checks in src/ledger.ts";
 
+    /// The employer's terms, held in MEMORY rather than on the stack.
+    ///
+    /// Not tidiness. CT-2 and CT-6 gave the constructor two more arguments, and
+    /// with every term in its own local this function stopped compiling: "stack
+    /// too deep", from a script nobody builds because `forge test` compiles a
+    /// different target and passes. The mainnet deployment runs THIS file.
+    ///
+    /// `via_ir` would also fix it and is the wrong fix: it changes how the
+    /// CONTRACT is compiled too, so the bytecode we deploy would no longer be
+    /// the bytecode 70 tests were run against.
+    struct Terms {
+        uint256 budget;
+        uint256 duration;
+        uint256 maxTranche;
+        uint256 dailyUnlockCap;
+        string milestone;
+        address payee;
+        string repo;
+    }
+
     function run() external {
         address agent = vm.envAddress("AGENT_ADDRESS");
         address contributor = vm.envAddress("CONTRIBUTOR_ADDRESS");
 
         // The employer's terms. Set any of these in .env to deploy a stream on
         // your own numbers without touching this file.
-        uint256 budget = vm.envOr("STREAM_BUDGET", DEFAULT_BUDGET);
-        uint256 duration = vm.envOr("STREAM_DURATION_SECONDS", DEFAULT_DURATION);
+        Terms memory t;
+        t.budget = vm.envOr("STREAM_BUDGET", DEFAULT_BUDGET);
+        t.duration = vm.envOr("STREAM_DURATION_SECONDS", DEFAULT_DURATION);
         // Both default to the whole budget. Setting either below it does not make
         // a stream safer — it caps an honest contributor and refunds the rest to
         // the employer on close. What bounds a compromised agent is that money
         // still leaves only at the speed the stream accrues.
-        uint256 maxTranche = vm.envOr("POLICY_MAX_TRANCHE", budget);
-        uint256 dailyUnlockCap = vm.envOr("POLICY_DAILY_UNLOCK_CAP", budget);
-        string memory milestone = vm.envOr("STREAM_MILESTONE", DEFAULT_MILESTONE);
-        address payee = vm.envOr("POLICY_PAYEE", contributor);
+        t.maxTranche = vm.envOr("POLICY_MAX_TRANCHE", t.budget);
+        t.dailyUnlockCap = vm.envOr("POLICY_DAILY_UNLOCK_CAP", t.budget);
+        t.milestone = vm.envOr("STREAM_MILESTONE", DEFAULT_MILESTONE);
+        t.payee = vm.envOr("POLICY_PAYEE", contributor);
 
         // The repo this job is about. Registered on-chain, not in the agent:
         // every job brings its own repo, and the agent must be told what to
         // watch by the contract it is paid to enforce.
-        string memory repo = vm.envString("GITHUB_REPO");
+        t.repo = vm.envString("GITHUB_REPO");
 
-        require(budget > 0, "STREAM_BUDGET must be > 0");
-        require(duration > 0, "STREAM_DURATION_SECONDS must be > 0");
-        require(maxTranche > 0, "POLICY_MAX_TRANCHE must be > 0");
-        require(dailyUnlockCap >= maxTranche, "POLICY_DAILY_UNLOCK_CAP must be >= POLICY_MAX_TRANCHE");
-        require(maxTranche <= budget, "POLICY_MAX_TRANCHE must be <= STREAM_BUDGET");
-        require(bytes(repo).length > 0, "GITHUB_REPO must be set");
+        require(t.budget > 0, "STREAM_BUDGET must be > 0");
+        require(t.duration > 0, "STREAM_DURATION_SECONDS must be > 0");
+        require(t.maxTranche > 0, "POLICY_MAX_TRANCHE must be > 0");
+        require(t.dailyUnlockCap >= t.maxTranche, "POLICY_DAILY_UNLOCK_CAP must be >= POLICY_MAX_TRANCHE");
+        require(t.maxTranche <= t.budget, "POLICY_MAX_TRANCHE must be <= STREAM_BUDGET");
+        require(bytes(t.repo).length > 0, "GITHUB_REPO must be set");
 
         console.log("milestone 1 terms (employer-set):");
-        console.log("  budget (6dp)    ", budget);
-        console.log("  duration (s)    ", duration);
-        console.log("  maxTranche      ", maxTranche);
-        console.log("  dailyUnlockCap  ", dailyUnlockCap);
-        console.log("  payee           ", payee);
-        console.log("  repo            ", repo);
+        console.log("  budget (6dp)    ", t.budget);
+        console.log("  duration (s)    ", t.duration);
+        console.log("  maxTranche      ", t.maxTranche);
+        console.log("  dailyUnlockCap  ", t.dailyUnlockCap);
+        console.log("  payee           ", t.payee);
+        console.log("  repo            ", t.repo);
 
         vm.startBroadcast();
         WorkStream ws = new WorkStream(
@@ -81,14 +102,14 @@ contract Deploy is Script {
             // employer may know an email but not a wallet.
             address(0),
             agent,
-            milestone,
-            budget,
-            duration,
-            repo,
+            t.milestone,
+            t.budget,
+            t.duration,
+            t.repo,
             // No author allowlist from the terminal path: empty means any
             // author, which is how every stream behaved before CT-2.
             new string[](0),
-            WorkStream.Policy({maxTranche: maxTranche, dailyUnlockCap: dailyUnlockCap, payee: payee})
+            WorkStream.Policy({maxTranche: t.maxTranche, dailyUnlockCap: t.dailyUnlockCap, payee: t.payee})
         );
         vm.stopBroadcast();
 

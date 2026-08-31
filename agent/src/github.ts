@@ -44,11 +44,6 @@ export type MergedPr = {
    *  employer accepted. Undefined means we could not read it, which fails
    *  closed rather than open. */
   baseBranch?: string;
-  /** The commit the branch was at BEFORE this merge — the repository as it
-   *  stood when the last certification was made. The correctness check uses it
-   *  as its reference: it is the code the employer has already accepted, so its
-   *  arbitrary choices are the ones a fair test must not punish. */
-  baseSha?: string;
 };
 
 /// Extracts what we need from a `pull_request` event, or null if it is not a
@@ -64,7 +59,6 @@ export function parseMergedPr(payload: any): MergedPr | null {
     author: pr.user?.login ?? 'unknown',
     repo: payload?.repository?.full_name,
     baseBranch: pr.base?.ref,
-    baseSha: pr.base?.sha,
   };
 }
 
@@ -289,4 +283,38 @@ export async function fetchSourceFiles(spec: string, ref: string): Promise<{ pat
   }
 
   return files;
+}
+
+/// The commit the base branch was at IMMEDIATELY BEFORE this merge — the
+/// repository as the employer had already accepted it, which is what makes it
+/// the fair thing to measure a generated test's unfairness against.
+///
+/// Derived from the merge commit's first parent rather than read off the pull
+/// request, because `base.sha` is frozen at the moment the pull request was
+/// OPENED. Measured on a real repository: two pull requests merged an hour
+/// apart both reported a base.sha from before either of them landed, so the
+/// reference was a tree without the milestone's function in it at all. The
+/// suite could not even import against it, every failure came back
+/// unadjudicated, and the filter — the whole mechanism that separates an unfair
+/// test from a real defect — never ran once.
+///
+/// Returns undefined rather than throwing. A reference we cannot resolve costs
+/// the filter, not the check: failures are then reported as unadjudicated
+/// rather than being treated as defects.
+export async function mergeParentSha(repo: string, mergeCommitSha: string): Promise<string | undefined> {
+  if (!mergeCommitSha) return undefined;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/commits/${mergeCommitSha}`, {
+      headers: {
+        Authorization: `Bearer ${env.githubToken}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'proofstream-attestor',
+      },
+    });
+    if (!res.ok) return undefined;
+    const body = (await res.json()) as { parents?: { sha: string }[] };
+    return body.parents?.[0]?.sha;
+  } catch {
+    return undefined;
+  }
 }

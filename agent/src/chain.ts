@@ -116,7 +116,7 @@ export async function readIdentity(
 
   const agent = await read<`0x${string}`>('agent');
   const repo = await read<string>('repo');
-  const authors = await read<string[]>('authors');
+  const authors = await readAuthors(read);
   // When this milestone's clock started. Reconciliation needs it: work merged
   // BEFORE a milestone existed was not done against it and must never be judged
   // by it. 0 means the budget is not fully deposited yet.
@@ -129,6 +129,25 @@ export async function readIdentity(
   // run its course. 0 means the milestone has not started.
   const endsAt = await read<bigint>('milestoneEndsAt');
   return { agent, repo, closed, endsAt, activatedAt };
+}
+
+
+/// `authors()` DOES NOT EXIST ON AN OLDER STREAM, and reading a function a
+/// contract does not have reverts. Every employer deploys their own copy, so
+/// streams predating this field stay live forever and the agent must keep
+/// serving them.
+///
+/// An empty list is the honest answer for those: it is exactly what the field
+/// means on a stream that never set one, and it is how every stream behaved
+/// before the field existed. Getting this wrong is not a cosmetic bug — the
+/// revert would take the whole `readStream` with it, and the agent would report
+/// that it could not judge any pre-existing stream at all.
+async function readAuthors(read: <T>(fn: ReadFn) => Promise<T>): Promise<string[]> {
+  try {
+    return await read<string[]>('authors');
+  } catch {
+    return [];
+  }
 }
 
 export async function readStream(streamAddress: `0x${string}`): Promise<StreamState> {
@@ -145,7 +164,7 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
   const milestone = await read<string>('milestone');
   const milestoneHash = await read<`0x${string}`>('milestoneHash');
   const repo = await read<string>('repo');
-  const authors = await read<string[]>('authors');
+  const authors = await readAuthors(read);
   const funded = await read<bigint>('funded');
   const budget = await read<bigint>('budget');
   const fullyFunded = await read<boolean>('fullyFunded');

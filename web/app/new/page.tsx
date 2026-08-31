@@ -457,7 +457,8 @@ export default function NewStream() {
       </details>
 
       <Field
-        label="ACCEPTANCE CRITERIA"
+        lead
+        label="ACCEPTANCE CRITERIA (THE MILESTONE)"
         caption="The agent reads this verbatim when deciding whether a merged pull request satisfies the milestone. This field is the product — be specific."
       >
         <textarea
@@ -566,14 +567,18 @@ function Field({
   label,
   caption,
   children,
+  lead,
 }: {
   label: string;
   caption?: string;
   children: React.ReactNode;
+  /** The one field on this form that IS the product. Set on the milestone so it
+   *  reads as the thing being written rather than as one setting among nine. */
+  lead?: boolean;
 }) {
   return (
     <div className="ps-field">
-      <label className="ps-label">{label}</label>
+      <label className={`ps-label${lead ? ' ps-label-lead' : ''}`}>{label}</label>
       {children}
       {caption && <span className="ps-caption">{caption}</span>}
     </div>

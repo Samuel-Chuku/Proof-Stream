@@ -2371,49 +2371,25 @@ input[type='range'].ps-range:disabled {
 
 /* ---- Contract generation.
  *
- * A version is not money, so nothing here is green. Same chip family as an
- * address: quiet, factual, easy to skip once read. */
+ * A version is not money, so nothing here is green. It is also not a status, so
+ * it gets no fill: a dithered background at this size read as a rendering
+ * artefact rather than a label. Hairline border, dim ink, and out of the way. */
 .ps-version {
   display: inline-flex;
   align-items: center;
   font-family: inherit;
-  font-size: var(--ps-size-label);
+  font-size: var(--ps-size-caption);
   letter-spacing: var(--ps-track-label);
-  padding: var(--ps-1) var(--ps-2);
+  padding: 0 var(--ps-1);
   border: var(--ps-bw-hair) solid var(--ps-border);
   border-radius: var(--ps-r-1);
-  color: var(--ps-ink-dim);
+  color: var(--ps-ink-faint);
 }
 
-/* An older stream is stated, not warned about. It still pays; it simply cannot
- * do everything a current one can. The dither says "not current" without
- * borrowing the invert panel, which is reserved for something going wrong. */
-.ps-version-old {
-  background: var(--ps-dither-25);
-  border-color: var(--ps-rule);
-  color: var(--ps-ink);
-}
-
-.ps-older-note {
-  margin: var(--ps-3) 0 0;
-  padding: var(--ps-3);
-  border: var(--ps-bw-hair) solid var(--ps-border);
-  border-left: var(--ps-bw-struct) solid var(--ps-ink-faint);
-  background: var(--ps-sunk);
-  font-size: var(--ps-size-body);
-  line-height: var(--ps-lh-body);
-  color: var(--ps-ink-dim);
-}
-
-.ps-older-note b {
-  color: var(--ps-ink);
-  letter-spacing: var(--ps-track-label);
-}
-
-/* A version chip inside a caption sits on the same baseline as the text it
- * follows, and never widens the row. */
+/* Inline with the caption it follows, so a list row never gains a second line
+ * just to hold a footnote. */
 .ps-caption .ps-version {
-  margin-left: var(--ps-2);
+  margin-left: var(--ps-1);
   vertical-align: baseline;
 }
 
@@ -2430,14 +2406,6 @@ input[type='range'].ps-range:disabled {
   background: var(--ps-sunk);
 }
 
-.ps-sandbox-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--ps-2);
-  justify-content: space-between;
-}
-
 /* Tabular figures, because this is a count and a count should not jitter. */
 .ps-sandbox-score {
   font-size: var(--ps-size-data-m);
@@ -2450,6 +2418,79 @@ input[type='range'].ps-range:disabled {
   font-size: var(--ps-size-body);
   line-height: var(--ps-lh-body);
   color: var(--ps-ink-dim);
+}
+
+/* THE WHOLE PANEL IS ONE LINE UNTIL ASKED.
+ *
+ * The headline is the entire claim for a reader skimming a page of verdicts:
+ * code ran somewhere isolated, and here is the score. Everything under it
+ * answers a doubt, and the reader who has one is the reader willing to click.
+ *
+ * The summary row stays on the 4px grid and keeps the score right-aligned, so a
+ * column of these reads as a column whether open or shut. */
+.ps-sandbox summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ps-sandbox summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The score sits hard right, and the caret after it states which way it moves. */
+.ps-sandbox-score {
+  margin-left: auto;
+}
+
+.ps-sandbox summary::after {
+  content: '\25B8';
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox[open] summary::after {
+  content: '\25BE';
+}
+
+.ps-sandbox-mark {
+  flex: none;
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox-body {
+  margin-top: var(--ps-3);
+  padding-top: var(--ps-3);
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+}
+
+/* WHAT THE SUITE CHECKED. A total cannot tell a suite that probed the milestone
+ * from one that never touched it, so the names are what make this evidence
+ * rather than a score. NOT GREEN: tests passing is not money released. */
+.ps-sandbox-checked {
+  margin-top: var(--ps-3);
+}
+
+.ps-sandbox-checked ul {
+  margin: var(--ps-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-sandbox-checked li {
+  padding: var(--ps-1) 0 var(--ps-1) var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+  position: relative;
+}
+
+.ps-sandbox-checked li::before {
+  content: '\2713';
+  position: absolute;
+  left: 0;
+  color: var(--ps-ink-faint);
 }
 
 .ps-sandbox-failures {
@@ -2483,4 +2524,13 @@ input[type='range'].ps-range:disabled {
 
 .ps-sandbox .ps-caption {
   margin: var(--ps-2) 0 0;
+}
+
+/* The milestone field is not one setting among nine: it is the text the agent
+ * judges every merge against, and the only field on the form a contributor's
+ * pay depends on. Given weight so it reads as the thing being written. */
+.ps-label-lead {
+  font-size: var(--ps-size-label);
+  color: var(--ps-ink);
+  font-weight: 700;
 }

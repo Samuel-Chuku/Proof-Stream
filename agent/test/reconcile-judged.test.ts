@@ -61,7 +61,8 @@ writeFileSync(
   ].join('\n') + '\n',
 );
 
-const { alreadyJudged, lastEvidence } = await import('../src/reconcile');
+const { alreadyJudged, lastEvidence, toMergedPr } = await import('../src/reconcile');
+type GhPull = Parameters<typeof toMergedPr>[0];
 
 test('a certification counts as judged', () => {
   assert.equal(alreadyJudged(STREAM).has(1), true);
@@ -124,4 +125,33 @@ test('an unknown stream has no baseline', () => {
 
 test('the stream match is case-insensitive, as addresses are', () => {
   assert.equal(lastEvidence(OTHER.toLowerCase())?.passed, 11);
+});
+
+// --- reconciliation must not be a weaker standard than the webhook -----------
+
+const pull = (over: Partial<GhPull> = {}): GhPull => ({
+  number: 2,
+  title: '2. tests for balanceAt',
+  body: '',
+  merged_at: '2026-08-31T17:15:41Z',
+  merge_commit_sha: '31b6bd039c',
+  user: { login: 'Samuel-Chuku' },
+  base: { ref: 'main' },
+  ...over,
+});
+
+test('a reconciled pull request carries the branch it was merged into', () => {
+  assert.equal(toMergedPr(pull(), 'owner/repo').baseBranch, 'main');
+});
+
+test('a pull request with no base at all does not throw', () => {
+  // Fails closed further down: no branch means the merge is not accepted.
+  assert.equal(toMergedPr(pull({ base: null }), 'owner/repo').baseBranch, undefined);
+});
+
+test('THE MERGE COMMIT IS CARRIED, because the reference is derived from it', () => {
+  // `mergeParentSha` resolves the earlier version from this, and nothing else
+  // can: the pull request's own `base.sha` is frozen at the moment it was
+  // opened and points at a repository that may predate several merges since.
+  assert.equal(toMergedPr(pull(), 'owner/repo').commitSha, '31b6bd039c');
 });
