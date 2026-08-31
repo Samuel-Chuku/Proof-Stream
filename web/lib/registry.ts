@@ -46,6 +46,9 @@ export type StreamSummary = {
   earned: string;
   /** Actually paid out, all milestones. */
   withdrawn: string;
+  /** Which generation of the contract. A stream that cannot answer is version 1
+   *  by definition: the view did not exist yet. */
+  version: number;
   /** What the agent certified is owed. The gap to `earned` is certified work
    *  the stream has not delivered yet. */
   target: string;
@@ -169,6 +172,14 @@ export async function listStreams(): Promise<StreamSummary[]> {
           read<bigint>('withdrawn'),
         ]);
 
+      // SEPARATE FROM THE BATCH ABOVE. `version()` does not exist on a v1
+      // stream, so it reverts, and inside a multicall that revert takes every
+      // other read with it — turning one older stream into an empty list.
+      const version = await rpc
+        .readContract({ address: stream, abi: WORK_STREAM_ABI, functionName: 'version' as never })
+        .then((v) => Number(v))
+        .catch(() => 1);
+
       const now = BigInt(Math.floor(Date.now() / 1000));
       const state: StreamSummary['state'] = closed
         ? 'settled'
@@ -183,6 +194,7 @@ export async function listStreams(): Promise<StreamSummary[]> {
       return {
         address: stream,
         employer,
+        version,
         repo,
         milestone,
         budget: budget.toString(),

@@ -16,6 +16,7 @@ import { LockedFigure } from '../../stream-bar';
 import { Reveal } from '../../reveal';
 import { TxDecision } from '../../tx-decision';
 import { VerdictBody } from '../../verdict-body';
+import { OlderStreamNote, StreamVersion } from '../../stream-version';
 
 // The chain and the agent logs both move while the page is open.
 export const dynamic = 'force-dynamic';
@@ -109,6 +110,7 @@ export default async function StreamPage({
                 <AddressChip address={stream.address} href={`${EXPLORER_URL}/address/${stream.address}`} />
                 <span>ARC TESTNET · 5042002</span>
                 <span>MILESTONE {stream.milestoneIndex}</span>
+                <StreamVersion version={stream.version} />
               </>
             ) : (
               <span>ARC TESTNET · 5042002</span>
@@ -127,6 +129,7 @@ export default async function StreamPage({
         </section>
       ) : (
         <>
+          <OlderStreamNote version={stream.version} />
           {(() => {
             // What closeMilestone would refund, computed the same way the
             // contract does: everything held that is not already owed.

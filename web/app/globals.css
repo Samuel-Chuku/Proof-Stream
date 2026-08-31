@@ -2368,3 +2368,119 @@ input[type='range'].ps-range:disabled {
 @media (prefers-reduced-motion: reduce) {
   .ps-scan i { animation: none; background: var(--ps-green); }
 }
+
+/* ---- Contract generation.
+ *
+ * A version is not money, so nothing here is green. Same chip family as an
+ * address: quiet, factual, easy to skip once read. */
+.ps-version {
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  padding: var(--ps-1) var(--ps-2);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+  color: var(--ps-ink-dim);
+}
+
+/* An older stream is stated, not warned about. It still pays; it simply cannot
+ * do everything a current one can. The dither says "not current" without
+ * borrowing the invert panel, which is reserved for something going wrong. */
+.ps-version-old {
+  background: var(--ps-dither-25);
+  border-color: var(--ps-rule);
+  color: var(--ps-ink);
+}
+
+.ps-older-note {
+  margin: var(--ps-3) 0 0;
+  padding: var(--ps-3);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink-faint);
+  background: var(--ps-sunk);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+.ps-older-note b {
+  color: var(--ps-ink);
+  letter-spacing: var(--ps-track-label);
+}
+
+/* A version chip inside a caption sits on the same baseline as the text it
+ * follows, and never widens the row. */
+.ps-caption .ps-version {
+  margin-left: var(--ps-2);
+  vertical-align: baseline;
+}
+
+/* ---- Sandbox evidence.
+ *
+ * The one panel on the page reporting something EXECUTED rather than judged.
+ * Deliberately quiet: it sits inside a verdict, it is not a second showpiece,
+ * and nothing in it is green because tests passing is not money moving. */
+.ps-sandbox {
+  margin-top: var(--ps-3);
+  padding: var(--ps-3);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink-dim);
+  background: var(--ps-sunk);
+}
+
+.ps-sandbox-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ps-2);
+  justify-content: space-between;
+}
+
+/* Tabular figures, because this is a count and a count should not jitter. */
+.ps-sandbox-score {
+  font-size: var(--ps-size-data-m);
+  font-variant-numeric: tabular-nums;
+  color: var(--ps-ink);
+}
+
+.ps-sandbox-what {
+  margin: var(--ps-2) 0 0;
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox-failures {
+  margin-top: var(--ps-3);
+  padding-top: var(--ps-3);
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+}
+
+/* A failing test name is the most useful thing on this page for a contributor:
+ * a concrete case to reproduce rather than a score to argue with. Given room. */
+.ps-sandbox-failures ul {
+  margin: var(--ps-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-sandbox-failures li {
+  padding: var(--ps-1) 0 var(--ps-1) var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink);
+  position: relative;
+}
+
+.ps-sandbox-failures li::before {
+  content: '×';
+  position: absolute;
+  left: 0;
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox .ps-caption {
+  margin: var(--ps-2) 0 0;
+}

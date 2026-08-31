@@ -32,6 +32,12 @@ export type Stream = {
   activatedAt: number;
   fullyFunded: boolean;
   milestoneIndex: number;
+  /** Which generation of the contract this stream is.
+   *
+   *  Every employer deploys their own copy, so streams from every past
+   *  deployment stay live and keep their own behaviour forever. A stream that
+   *  cannot answer is by definition version 1: the view did not exist yet. */
+  version: number;
   /** The agent's standing verdict on this milestone, 0-10_000. Monotonic. */
   certifiedBps: number;
   /** What the agent certified is owed: budget × certifiedBps. The clock never
@@ -141,6 +147,15 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       ]),
     );
 
+    // DELIBERATELY NOT IN THE BATCH ABOVE. `version()` does not exist on a v1
+    // stream, so the call reverts — and inside a multicall that revert takes
+    // every other read down with it, turning "this is an older stream" into
+    // "this page is broken". Asked separately, a revert is the answer.
+    const version = await client
+      .readContract({ address, abi: WORK_STREAM_ABI, functionName: 'version' as never })
+      .then((v) => Number(v))
+      .catch(() => 1);
+
     const [maxTranche, dailyUnlockCap, payee] = policy;
 
     return {
@@ -153,6 +168,7 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       activatedAt: Number(activatedAt),
       fullyFunded,
       milestoneIndex: Number(milestoneIndex),
+      version,
       certifiedBps: Number(certifiedBps),
       target: target.toString(),
       earned: earned.toString(),
