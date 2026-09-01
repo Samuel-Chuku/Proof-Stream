@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { AuthorAllowlist } from './author-allowlist';
 import { useAccount, useConfig, useDeployContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { AGENT_ADDRESS, EXPLORER } from '../../lib/chain';
@@ -68,6 +69,7 @@ export default function NewStream() {
     durationSeconds: 1800,
     repo: '',
     branch: '',
+    authors: [],
     ...suggestedCaps(INITIAL_BUDGET),
     payee: '' as `0x${string}`,
   });
@@ -361,6 +363,16 @@ export default function NewStream() {
             value={terms.contributor}
             placeholder="[ 0x… ]"
             onChange={(e) => setContributor(e.target.value as `0x${string}`)}
+          />
+        </Field>
+
+        <Field
+          label="WHOSE MERGES COUNT"
+          caption="Optional. Empty means any author's merges are judged."
+        >
+          <AuthorAllowlist
+            authors={terms.authors ?? []}
+            onChange={(authors) => setTerms((t) => ({ ...t, authors }))}
           />
         </Field>
 

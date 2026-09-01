@@ -37,6 +37,7 @@
     "test:poll": "tsx --test agent/test/poll.test.ts",
     "test:caps": "tsx --test web/test/caps.test.ts",
     "test:metering": "tsx --test agent/test/metering.test.ts",
+    "test:allowlist": "tsx --test web/test/author-allowlist.test.ts",
     "test:create-stream": "tsx --test web/test/create-stream.test.ts",
     "test:sandbox": "tsx --test agent/test/sandbox.test.ts",
     "test:correctness": "tsx --test agent/test/correctness.test.ts",
