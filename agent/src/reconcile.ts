@@ -9,9 +9,8 @@
 // THIS SPENDS MONEY WITHOUT BEING ASKED, so it is bounded on four axes:
 //
 //   1. only PRs merged AFTER the milestone activated — earlier work was not
-//      done against this milestone and must not be judged by it. THIS WAS
-//      DOCUMENTED BUT NOT IMPLEMENTED until 2026-08-05, and it cost a full
-//      budget; see the note at the check itself;
+//      done against this milestone and must not be judged by it — see the note
+//      at the check itself for what its absence releases;
 //   2. only within a lookback window (RECONCILE_LOOKBACK_HOURS, default 24);
 //   3. at most RECONCILE_MAX_PRS per stream per run (default 5);
 //   4. only PRs with no verdict already recorded for that stream.
@@ -22,6 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { parseRepoSpec } from '@proofstream/config';
 import { env, ledgerPath } from './env';
+import type { Evidence } from './adjudicate';
 import type { MergedPr } from './github';
 import { knownStreams } from './registry';
 
@@ -35,9 +35,8 @@ type Logger = (entry: Record<string, unknown>) => void;
 /// `judged: false` marks a row where the judgment never happened at all — the
 /// LLM call threw, the ledger was read-only, the diff could not be fetched. Such
 /// a row must NOT count, or the pull request can never be retried by the very
-/// mechanism that exists to recover from those failures. It cost a live run on
-/// 2026-08-23: an LLM 404 wrote one of these, and every restart afterwards
-/// skipped the pull request as already judged.
+/// mechanism that exists to recover from those failures: an LLM 404 writes one
+/// of these, and every restart afterwards skips the pull request as judged.
 ///
 /// Everything else counts, including a certification that reached the chain and
 /// reverted. Those bought a second opinion and produced a verdict; re-judging
@@ -64,7 +63,51 @@ export function alreadyJudged(streamAddress: string): Set<number> {
   return judged;
 }
 
-type GhPull = {
+/// What the last CONCLUSIVE correctness check said about this stream.
+///
+/// Read from the ledger rather than kept in memory, because the agent restarts
+/// and the comparison has to survive that. Only `passes` and `fails` count: an
+/// inconclusive or void run established nothing, so treating it as a baseline
+/// would hold a later judgment against a measurement that never happened.
+///
+/// Returns null on any failure. This feeds a gate that WITHHOLDS PAY, so an
+/// unreadable ledger must mean "no baseline" and let the judgment proceed.
+export function lastEvidence(streamAddress: string): Evidence | null {
+  try {
+    let latest: Evidence | null = null;
+    for (const line of readFileSync(LOG_PATH, 'utf8').split('\n')) {
+      if (!line) continue;
+      try {
+        const entry = JSON.parse(line) as {
+          workStream?: string;
+          correctness?: {
+            outcome?: string;
+            suiteId?: string;
+            passed?: number;
+            total?: number;
+            ownTests?: { passed?: number };
+          };
+        };
+        if (entry.workStream?.toLowerCase() !== streamAddress.toLowerCase()) continue;
+        const c = entry.correctness;
+        if (!c || (c.outcome !== 'passes' && c.outcome !== 'fails')) continue;
+        latest = {
+          suiteId: c.suiteId,
+          passed: c.passed ?? 0,
+          total: c.total ?? 0,
+          ownPassed: c.ownTests?.passed,
+        };
+      } catch {
+        // A truncated final line is normal while the pipeline is writing.
+      }
+    }
+    return latest;
+  } catch {
+    return null;
+  }
+}
+
+export type GhPull = {
   number: number;
   title: string;
   body: string | null;
@@ -73,6 +116,24 @@ type GhPull = {
   user: { login: string } | null;
   base: { ref: string } | null;
 };
+
+/// One GitHub pull request as the pipeline needs it.
+///
+/// Exported because a wrong answer here is SILENT: a field dropped in this
+/// mapping does not throw, it quietly gives the pipeline less to work with than
+/// a webhook would, and reconciliation stops being the same standard by a
+/// different door.
+export function toMergedPr(p: GhPull, repo: string): MergedPr {
+  return {
+    number: p.number,
+    title: p.title ?? '',
+    body: p.body ?? '',
+    commitSha: p.merge_commit_sha ?? '',
+    author: p.user?.login ?? 'unknown',
+    repo,
+    baseBranch: p.base?.ref,
+  };
+}
 
 async function recentlyMerged(repo: string, branch: string, sinceMs: number): Promise<MergedPr[]> {
   // `base` narrows the listing to the branch the employer nominated. The
@@ -94,15 +155,7 @@ async function recentlyMerged(repo: string, branch: string, sinceMs: number): Pr
   const pulls = (await res.json()) as GhPull[];
   return pulls
     .filter((p) => p.merged_at && Date.parse(p.merged_at) >= sinceMs)
-    .map((p) => ({
-      number: p.number,
-      title: p.title ?? '',
-      body: p.body ?? '',
-      commitSha: p.merge_commit_sha ?? '',
-      author: p.user?.login ?? 'unknown',
-      repo,
-      baseBranch: p.base?.ref,
-    }));
+    .map((p) => toMergedPr(p, repo));
 }
 
 /// Judge anything merged that has no verdict. `process` is injected rather than
@@ -123,15 +176,13 @@ export async function reconcile(
 
   for (const entry of knownStreams()) {
     try {
-      // Bound (1), and it was MISSING until 2026-08-05 — documented above but
-      // never implemented, because the only filter was the lookback window.
+      // Bound (1), and the lookback window alone does NOT provide it.
       //
-      // What that cost: a stream funded at 19:51 reconciled a pull request
-      // merged at 12:19 the SAME DAY — seven and a half hours before its
-      // milestone existed — and certified it at 100%, releasing the entire
-      // budget for work that was never done against it. Nothing on chain was
-      // wrong; the agent simply judged history. Any agent restart within the
-      // lookback window could do this to a freshly funded stream.
+      // Without this check a freshly funded stream reconciles pull requests
+      // merged before its milestone existed and certifies them at 100%,
+      // releasing the entire budget for work never done against it. Nothing on
+      // chain is wrong; the agent is simply judging history. Any restart inside
+      // the lookback window can do it.
       //
       // A milestone that has not activated has `activatedAt == 0`, which would
       // make every past merge eligible — so an unfunded stream reconciles

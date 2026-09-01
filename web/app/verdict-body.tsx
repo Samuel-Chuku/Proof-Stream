@@ -9,6 +9,7 @@ import { EXPLORER_URL } from '@proofstream/config';
 import type { AgentEvent } from '../lib/events';
 import { AddressChip } from './address-chip';
 import { AgentMark } from './agent-mark';
+import { SandboxEvidence } from './sandbox-evidence';
 import { X402Receipt } from './x402-receipt';
 
 const pct = (n: number | undefined) => (n === undefined ? '—' : n.toFixed(2));
@@ -126,6 +127,12 @@ export function VerdictBody({ event, blocked = false }: { event: AgentEvent; blo
           </>
         )}
       </dl>
+
+      {/* BEFORE the agents' reasoning, deliberately. This is the only thing on
+          the page that was executed rather than judged, and the reasoning below
+          weighed it — so a reader meets the evidence before the opinion formed
+          from it. */}
+      <SandboxEvidence event={event} />
 
       <div className="ps-verdict-voice">
         <p className="ps-label ps-verdict-voice-head">

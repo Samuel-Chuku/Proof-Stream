@@ -28,3 +28,9 @@ todo.md
 # outside the checkout on any deployed host — that is the actual fix.
 # `pnpm logs:pull` copies them down for evidence generation.
 agent/*.jsonl
+
+# Cached oracle suites. Runtime state for the same reason the ledgers above are:
+# written by the running agent, one file per milestone, and regenerated on
+# demand. Nothing here is source, and a deploy overwriting it would silently
+# reset the ruler every evidence comparison depends on.
+agent/suites/

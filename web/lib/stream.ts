@@ -7,12 +7,11 @@ import { arcTestnet } from 'viem/chains';
 
 /// The names below are checked against the GENERATED ABI at compile time.
 ///
-/// This used to take a bare `string`, and `readContract` is called with
-/// `functionName as never`, so tsc could not see a name the contract does not
-/// have. That is exactly how `activatedAt` was read with no matching ABI entry
-/// on 2026-08-05: it compiled, the agent started, discovered zero streams, and
-/// looked like a registry fault. Now that the ABI is generated `as const`, viem
-/// can name every readable function and a typo fails the build instead.
+/// `readContract` is called with `functionName as never` when this takes a bare
+/// `string`, so tsc cannot see a name the contract does not have: reading a
+/// function with no matching ABI entry compiles, the agent starts, discovers
+/// zero streams, and looks like a registry fault. With the ABI generated
+/// `as const`, viem can name every readable function and a typo fails the build.
 type ReadFn = ContractFunctionName<typeof WORK_STREAM_ABI, 'view' | 'pure'>;
 
 
@@ -33,6 +32,12 @@ export type Stream = {
   activatedAt: number;
   fullyFunded: boolean;
   milestoneIndex: number;
+  /** Which generation of the contract this stream is.
+   *
+   *  Every employer deploys their own copy, so streams from every past
+   *  deployment stay live and keep their own behaviour forever. A stream that
+   *  cannot answer is by definition version 1: the view did not exist yet. */
+  version: number;
   /** The agent's standing verdict on this milestone, 0-10_000. Monotonic. */
   certifiedBps: number;
   /** What the agent certified is owed: budget × certifiedBps. The clock never
@@ -142,6 +147,15 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       ]),
     );
 
+    // DELIBERATELY NOT IN THE BATCH ABOVE. `version()` does not exist on a v1
+    // stream, so the call reverts — and inside a multicall that revert takes
+    // every other read down with it, turning "this is an older stream" into
+    // "this page is broken". Asked separately, a revert is the answer.
+    const version = await client
+      .readContract({ address, abi: WORK_STREAM_ABI, functionName: 'version' as never })
+      .then((v) => Number(v))
+      .catch(() => 1);
+
     const [maxTranche, dailyUnlockCap, payee] = policy;
 
     return {
@@ -154,6 +168,7 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       activatedAt: Number(activatedAt),
       fullyFunded,
       milestoneIndex: Number(milestoneIndex),
+      version,
       certifiedBps: Number(certifiedBps),
       target: target.toString(),
       earned: earned.toString(),

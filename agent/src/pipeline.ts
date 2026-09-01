@@ -3,12 +3,15 @@
 // Duplicating these would let the demo and the product drift apart, and these
 // gates are the product.
 import { appendFileSync } from 'node:fs';
-import { formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
+import { authorIsAllowed, coAuthorLogins, formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
+import { evidenceImproved } from './adjudicate';
+import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
-import { fetchDiff, type MergedPr } from './github';
-import { meterCertification } from './metering';
+import { fetchCommitMessages, fetchDiff, fetchSourceFiles, mergeParentSha, type MergedPr } from './github';
+import { agentsDisagree, meterCertification, requiredConfidence } from './metering';
 import { buySecondOpinion } from './pay';
+import { lastEvidence } from './reconcile';
 import { resolveStreams, type StreamEntry } from './registry';
 import { serialize } from './serialize';
 import { judge } from './verdict';
@@ -88,10 +91,9 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
         // Its `alreadyJudged` counts any row carrying this pr and stream, so a
         // row written by this catch used to mean the pull request could never be
         // retried — by the one mechanism built to recover from exactly these
-        // failures. On 2026-08-23 an LLM 404 and a read-only ledger each threw
-        // here, and every subsequent restart then skipped the pull request as
-        // already judged. Two of the three failures that day were config, and
-        // this is what turned them into a dead end.
+        // failures. An LLM 404 or a read-only ledger throws here, and every
+        // subsequent restart then skips the pull request as already judged —
+        // turning an ordinary config fault into a dead end.
         //
         // Deliberately narrow. `unlock_failed` also covers a send that reverted,
         // ran out of gas, or timed out — and those DID reach a verdict and paid
@@ -103,6 +105,40 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
     }
   }
   return outcomes;
+}
+
+/// Fetch what the correctness check needs and run it. Never throws.
+///
+/// `suiteKey` is the stream plus its on-chain milestone hash, so one generated
+/// suite serves every judgment of that milestone and the evidence counts stay on
+/// one ruler. The hash already changes when the milestone does, which makes it a
+/// free and correct invalidation key.
+///
+/// TWO SNAPSHOTS OF THE REPOSITORY, and the second one is what makes the check
+/// usable. Generated tests over-specify — they assert requirements the milestone
+/// never stated — so a failure means nothing until it is measured against code
+/// already known to be acceptable. That reference is the branch as it stood
+/// BEFORE this merge: the work the employer already has, and already certified.
+async function correctnessOf(
+  pr: MergedPr,
+  repo: string,
+  milestone: string,
+  suiteKey: string,
+): Promise<CorrectnessResult> {
+  if (!env.correctnessCheck) {
+    return { outcome: 'unavailable', kept: [], discarded: [], passedTests: [], filtered: false, passed: 0, total: 0, costUsd: 0, reason: 'the correctness check is switched off' };
+  }
+
+  const merged = await fetchSourceFiles(repo, pr.commitSha);
+  // THE MERGE COMMIT'S PARENT, never the pull request's `base.sha` — that is
+  // frozen at the moment the pull request was opened and points at a repository
+  // that may predate several merges since. Undefined when it cannot be
+  // resolved, which costs the filter but not the check: failures are then
+  // reported as unadjudicated rather than being treated as defects.
+  const referenceSha = await mergeParentSha(repo, pr.commitSha);
+  const reference = referenceSha ? await fetchSourceFiles(repo, referenceSha) : undefined;
+
+  return checkCorrectness({ milestone, merged, reference, suiteKey });
 }
 
 /// One PR, one stream. Every gate below is about THIS stream's terms.
@@ -151,8 +187,53 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     return 'skipped';
   }
 
+  // WHOSE MERGES COUNT. One repository may carry several streams, and without
+  // this a merge by one contributor is judged against every stream watching that
+  // repo — certifying, and paying, somebody else's. The branch check cannot
+  // catch it because both streams name the same branch.
+  //
+  // Empty means any author, so every stream created before this existed is
+  // unaffected. An author we cannot read is treated as no match, failing closed
+  // in the same direction as the branch check.
+  //
+  // CO-AUTHORS COUNT, because pairing is normal and only one person can open a
+  // pull request. The commit messages are fetched only when the stream names
+  // authors AND the opener is not one of them, so the common path pays nothing
+  // for it.
+  if (!authorIsAllowed(stream.authors, pr.author)) {
+    const coAuthors = coAuthorLogins(await fetchCommitMessages(want.repo, pr.number));
+    if (!authorIsAllowed(stream.authors, pr.author, coAuthors)) {
+      log({
+        event: 'skipped',
+        pr: pr.number,
+        reason:
+          `merged by ${pr.author || 'an author we could not read'}` +
+          `${coAuthors.length ? ` with ${coAuthors.join(', ')}` : ''}, but this stream pays for work ` +
+          `by ${stream.authors.join(', ')}`,
+      });
+      return 'skipped';
+    }
+  }
+
   const diff = await fetchDiff(want.repo, pr.number);
-  const { verdict, costUsd, model } = await judge(pr, stream.milestone, diff);
+
+  // DOES THE CODE DO WHAT THE MILESTONE ASKED, not merely contain something
+  // that looks like it? The judgment below reads the code; this runs it. See
+  // correctness.ts for why a failing test is evidence handed to the judge
+  // rather than a payout gate of its own.
+  //
+  // IT RUNS BEFORE THE GATES THAT COULD REFUSE, and that costs money. Its
+  // result is an input to the judgment, and the cheap gates below all need a
+  // verdict before they can decide — so a redelivered webhook on a stream that
+  // is already fully certified still pays for a check nothing will use. That is
+  // a known cost, not an oversight; `alreadyJudged` is what bounds it on the
+  // reconcile path.
+  //
+  // It never throws and it is never required: with the check off, or
+  // unavailable, `judge` receives nothing and behaves exactly as it always has.
+  const correctness = await correctnessOf(pr, want.repo, stream.milestone, `${streamAddress}:${stream.milestoneHash}`);
+
+  const { verdict, costUsd, model } = await judge(pr, stream.milestone, diff, correctness);
 
   const base = {
     // Which contract this judgment was made against. Without it, a redeploy —
@@ -166,6 +247,11 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     milestone: stream.milestone,
     model,
     inferenceCostUsd: costUsd,
+    // Logged whenever it ran, INCLUDING when it concluded nothing. A check that
+    // only appears in the ledger when it worked would make it look far more
+    // reliable than it is, and "how often is this actually conclusive" is the
+    // number we will want first.
+    correctness: correctness.outcome === 'unavailable' ? undefined : correctness,
     verdict,
   };
 
@@ -198,13 +284,49 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
       reason: `attestor scored ${verdict.tranche_fraction} while answering satisfies_milestone=false — proceeding on the fraction`,
     });
   }
-  if (verdict.confidence < env.confidenceThreshold) {
+  // HOW BIG A CLAIM IS THIS, AND IS THE AGENT SURE ENOUGH TO MAKE IT?
+  //
+  // A flat bar treats "60% to 65%" and "0% to 95%" as the same assertion. The
+  // second claims far more and is where a wrong answer costs most, so it has to
+  // be more certain. See `requiredConfidence` for why the monotonic ratchet
+  // makes this necessary rather than merely tidy.
+  const attestorBps = BigInt(Math.round(verdict.tranche_fraction * 10_000));
+  const attestorBar = requiredConfidence(env.confidenceThreshold, attestorBps);
+  if (verdict.confidence < attestorBar) {
     log({
       event: 'escalated',
       ...base,
-      reason: `confidence ${verdict.confidence} below threshold ${env.confidenceThreshold}`,
+      reason:
+        `confidence ${verdict.confidence} below ${attestorBar.toFixed(2)}, the bar for claiming ` +
+        `${Number(attestorBps) / 100}% of this milestone`,
     });
     return 'escalated';
+  }
+
+  // DID THE WORK IMPROVE, OR WAS THE QUESTION SIMPLY ASKED AGAIN?
+  //
+  // `certifiedBps` only rises, so low judgments are discarded and high ones
+  // stick: repeated judgments climb toward the highest number the model ever
+  // produced rather than converging on the truth. Observed live, a comment-only
+  // merge took a standing 95% to a full certification.
+  //
+  // So a re-ask is not new information. Certification may rise when the EVIDENCE
+  // improves. This can only ever hold a judgment back, never raise one, and it
+  // is skipped entirely unless the correctness check actually concluded
+  // something — see `evidenceImproved` for every way it declines to hold.
+  if (correctness.outcome === 'passes' || correctness.outcome === 'fails') {
+    const previous = lastEvidence(streamAddress);
+    const now = { suiteId: correctness.suiteId, passed: correctness.passed, total: correctness.total };
+    if (!evidenceImproved(previous, now)) {
+      log({
+        event: 'skipped',
+        ...base,
+        reason:
+          `the same ${now.passed} of ${now.total} generated tests pass as at the last certification, ` +
+          'so this merge did not improve the evidence and cannot raise what is owed',
+      });
+      return 'skipped';
+    }
   }
 
   // Cheapest gate that can refuse, and it has to come BEFORE the fee.
@@ -215,7 +337,6 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // down runs after `buySecondOpinion`, so every redelivered webhook and every
   // reconcile pass over already-judged work spent $0.005 of the agent's money to
   // be told what the number on chain already said.
-  const attestorBps = BigInt(Math.round(verdict.tranche_fraction * 10_000));
   if (attestorBps <= stream.certifiedBps) {
     log({
       event: 'skipped',
@@ -253,12 +374,36 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     log({ event: 'vetoed', ...base, ...verification, reason: 'verifier values this work at nothing' });
     return 'vetoed';
   }
-  if (opinion.confidence < env.confidenceThreshold) {
+  // THE TWO AGENTS DISAGREEING ABOUT WHAT THE WORK IS.
+  //
+  // `min()` below already makes a wide split safe on AMOUNT, by paying the
+  // lower figure. It is silent on MEANING: a gap this wide says neither agent
+  // has a reliable read of this repository, and quietly discounting it throws
+  // that signal away. Hold instead, and let a later judgment settle it.
+  if (agentsDisagree(verdict.tranche_fraction, opinion.tranche_fraction)) {
     log({
       event: 'escalated',
       ...base,
       ...verification,
-      reason: `verifier confidence ${opinion.confidence} below threshold ${env.confidenceThreshold}`,
+      reason:
+        `the agents disagree too widely to act on — attestor ${verdict.tranche_fraction}, ` +
+        `verifier ${opinion.tranche_fraction}`,
+    });
+    return 'escalated';
+  }
+
+  // The verifier is held to the bar for what would ACTUALLY be certified, which
+  // is the lower of the two fractions, not its own reading.
+  const agreedBps = BigInt(Math.round(Math.min(verdict.tranche_fraction, opinion.tranche_fraction) * 10_000));
+  const verifierBar = requiredConfidence(env.confidenceThreshold, agreedBps);
+  if (opinion.confidence < verifierBar) {
+    log({
+      event: 'escalated',
+      ...base,
+      ...verification,
+      reason:
+        `verifier confidence ${opinion.confidence} below ${verifierBar.toFixed(2)}, the bar for ` +
+        `certifying ${Number(agreedBps) / 100}% of this milestone`,
     });
     return 'escalated';
   }
@@ -330,12 +475,11 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
 
   // COULD THE POLICY HAVE REFUSED THIS, OR DID WE NEVER GET AS FAR AS ASKING?
   //
-  // `unlock_failed` covers both, and the dashboard was asserting the first: "THE
-  // CONTRACT REFUSED THIS RELEASE ... because it would have exceeded the
-  // on-chain limits". During the townhall on 2026-08-18 it said exactly that
-  // about a release the contract never saw. The identical certification — 20% of
-  // the budget, 20 USDC added, the same caps — succeeded 44 minutes later
-  // untouched, so the policy was never the thing standing in the way.
+  // `unlock_failed` covers both, and asserting the first — "THE CONTRACT
+  // REFUSED THIS RELEASE ... because it would have exceeded the on-chain
+  // limits" — is a claim about a release the contract may never have seen. The
+  // identical certification, same percentage and same caps, can succeed
+  // untouched minutes later, so the policy was never what stood in the way.
   //
   // We can tell the difference, because the agent already read the caps. It
   // METERS to `maxTranche`, so a per-certification violation is impossible by

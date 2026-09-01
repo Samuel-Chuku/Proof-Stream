@@ -180,10 +180,10 @@ export default function Docs() {
 
       <Rule>RUNNING IT YOURSELF</Rule>
       <p className="ps-body">
-        Nothing here is tied to one vendor. Both judges call{' '}
-        <code>POST {'{LLM_BASE_URL}'}/chat/completions</code>, so any OpenAI-compatible endpoint
-        works — Ollama, Groq, Together, or a local model, in which case no inference leaves your
-        machine. The defaults are free models. Clone the repository and run{' '}
+        Nothing here is tied to one vendor, and this project does not pick one for you. Both
+        judges call <code>POST {'{LLM_BASE_URL}'}/chat/completions</code>, so any endpoint serving
+        that shape works, including a model on your own machine, in which case no inference
+        leaves it. Clone the repository and run{' '}
         <code>forge test</code> to check every guarantee above with no API key, no wallet and no
         cost.
       </p>

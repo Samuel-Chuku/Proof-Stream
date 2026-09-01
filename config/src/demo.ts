@@ -34,11 +34,10 @@ export const VERIFICATION_FEE = '$0.005' as const;
  *  what the running seller reports and catch a stale process before a paid call
  *  discovers it.
  *
- *  Raised 8000 -> 24000 on 2026-08-04 and it did NOT fix what it was raised
- *  for. `cohere/north-mini-code:free` spent 9511 reasoning tokens against the
- *  8000 ceiling, then 27476 against the 24000 one — it expands its reasoning to
- *  consume whatever budget it is given, so no ceiling is high enough and each
- *  raise only makes the failure slower and dearer.
+ *  Raising this ceiling does NOT fix a model that reasons unboundedly. Such a
+ *  model expands its reasoning to consume whatever budget it is given — 9511
+ *  tokens against an 8000 ceiling, 27476 against a 24000 one — so no ceiling is
+ *  high enough and each raise only makes the failure slower and dearer.
  *
  *  **A ceiling is not the lever for a model that reasons unboundedly; the model
  *  choice is.** VERIFIER_MODEL was moved to a non-reasoning model, verified on
@@ -52,14 +51,13 @@ export const VERIFICATION_FEE = '$0.005' as const;
  *  returns nothing. */
 export const VERIFIER_MAX_TOKENS = 24000;
 
-/** Sent as OpenRouter's `reasoning` parameter on every call: thinking OFF.
+/** Sent as the provider's `reasoning` parameter on every call: thinking OFF.
  *
- *  Not a cap. A cap was tried and does not hold — OpenRouter accepted
- *  `reasoning: { max_tokens: 4000 }`, the verifier logged the cap at startup,
- *  and the backend it routed to spent 24000 tokens reasoning anyway and wrote
- *  nothing. OpenRouter picks among providers per request and they do not all
- *  honour it, so the same model and the same code succeeded locally and failed
- *  on the server minutes apart.
+ *  Not a cap. A cap was tried and does not hold: the request was accepted,
+ *  the verifier logged the cap at startup, and the backend it routed to spent
+ *  the full budget reasoning anyway and wrote nothing. A router picks among
+ *  backends per request and they do not all honour it, so the same model and
+ *  the same code succeeded locally and failed on the server minutes apart.
  *
  *  `enabled: false` is a instruction to omit reasoning rather than a budget to
  *  spend, so a provider that ignores it degrades to "reasons anyway" instead of
@@ -70,14 +68,14 @@ export const VERIFIER_MAX_TOKENS = 24000;
  *  This is a latency fix as much as a correctness one: 24000 reasoning tokens
  *  take minutes, and the agent looked slow for exactly as long as it was
  *  producing nothing. */
-/*  RETIRED 2026-08-08, kept as `undefined` so the key is omitted from the
- *  payload entirely rather than sent and refused.
+/*  RETIRED, kept as `undefined` so the key is omitted from the payload
+ *  entirely rather than sent and refused.
  *
- *  `openai/gpt-oss-20b:free` answers **400 "Reasoning is mandatory for this
- *  endpoint and cannot be disabled"** to every single request carrying it. The
+ *  Some endpoints answer **400 "Reasoning is mandatory for this endpoint and
+ *  cannot be disabled"** to every single request carrying it. The
  *  agent's fallback drops the field and retries, so it worked — at the cost of
- *  two round trips per judgment and a second chance to fail. On PR #9 that
- *  retry came back 200 with an EMPTY completion, which surfaced as
+ *  two round trips per judgment and a second chance to fail. That retry can
+ *  come back 200 with an EMPTY completion, which surfaces as
  *  "Verdict was not valid JSON:" with nothing after the colon and blocked a
  *  payout.
  *

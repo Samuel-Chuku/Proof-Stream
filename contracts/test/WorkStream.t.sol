@@ -74,11 +74,13 @@ contract WorkStreamTest is Test {
         s = new WorkStream(
             IERC20(address(usdc)),
             contributor,
+            address(0), // named at deploy, so no claim link
             agentAddr,
             M1,
             BUDGET,
             DURATION,
             "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: maxTranche_, dailyUnlockCap: dailyCap_, payee: payee})
         );
     }
@@ -234,64 +236,156 @@ contract WorkStreamTest is Test {
 
     // ============================================ THE ON-CHAIN POLICY (T1)
 
-    /// The cap is measured on the entitlement an attestation CREATES, not on the
-    /// cumulative total — otherwise the first certification would consume it.
-    function test_PolicyCapsTheEntitlementEachAttestationCreates() public {
-        WorkStream s = deploy(3_000e6, BUDGET);
+    // ---------------------------------------------------------- CT-1: caps
+    //
+    // The caps exist to bound a COMPROMISED AGENT KEY. The same mechanism is
+    // what stranded an honest contributor: a `maxTranche` below the budget meant
+    // the agent could never certify the whole milestone, the milestone ended,
+    // and the remainder refunded to the employer. It took 67 of 97 USDC from a
+    // real contributor.
+    //
+    // The rule that resolves it: THE CAPS MAY THROTTLE THE RATE, NEVER MAKE THE
+    // TOTAL UNREACHABLE.
+
+    function test_ConstructorRejectsAMaxTrancheBelowTheBudget() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.CapCannotStrandTheBudget.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            address(0),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            new string[](0),
+            WorkStream.Policy({maxTranche: BUDGET - 1, dailyUnlockCap: BUDGET, payee: payee})
+        );
+    }
+
+    /// The daily cap is a RATE, so what matters is whether it can cover the
+    /// budget across the milestone's own lifetime, not whether it exceeds the
+    /// budget outright.
+    function test_ConstructorRejectsADailyCapThatCannotCoverTheBudgetInTime() public {
+        // DURATION is 100,000s, which rounds up to 2 days. 4,000 x 2 = 8,000,
+        // short of the 10,000 budget, so this stream could never pay in full.
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.CapCannotStrandTheBudget.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            address(0),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            new string[](0),
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 4_000e6, payee: payee})
+        );
+    }
+
+    /// A throttle that still reaches the total is exactly what we want to keep
+    /// allowing: a stolen key takes at most one day's worth, and an honest
+    /// contributor still gets to 100%.
+    function test_ConstructorAllowsADailyThrottleThatStillReachesTheTotal() public {
+        vm.prank(employer);
+        WorkStream s = new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            address(0),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            new string[](0),
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 5_000e6, payee: payee})
+        );
+        (, uint256 daily,) = s.policy();
+        assertEq(daily, 5_000e6, "half the budget per day over two days is reachable");
+    }
+
+    /// THE 67 USDC CASE, end to end. The configuration that caused it can no
+    /// longer be deployed, so the contributor reaches the full budget.
+    function test_TheStrandedBudgetConfigurationIsNowUndeployable() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.CapCannotStrandTheBudget.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            address(0),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            new string[](0),
+            // 30% of the budget per attestation: the shape that took 67 of 97.
+            WorkStream.Policy({maxTranche: 3_000e6, dailyUnlockCap: BUDGET, payee: payee})
+        );
+    }
+
+    /// `OverMaxTranche` IS NOW UNREACHABLE, AND THAT IS THE POINT.
+    ///
+    /// The two tests that used to live here deployed `maxTranche` below the
+    /// budget and asserted the clip fired. CT-1 makes that configuration
+    /// undeployable, so the clip can never fire on a stream built from this
+    /// source: `added` never exceeds the budget, and `maxTranche` is never below
+    /// it. The check stays in `certify` because `raisePolicy` may only raise, so
+    /// the invariant holds forever.
+    ///
+    /// This asserts the property that replaced them: at the tightest cap the
+    /// constructor will accept, a single certification of the WHOLE milestone
+    /// still goes through.
+    function test_TheTightestLegalCapStillCertifiesTheWholeMilestone() public {
+        WorkStream s = deploy(BUDGET, BUDGET); // maxTranche == budget, the floor
         fundFully(s);
         vm.warp(block.timestamp + DURATION);
 
-        certifyOk(s, 2_500); // creates 2,500 — inside the 3,000 ceiling
-        assertEq(s.target(), 2_500e6);
-
-        certifyOk(s, 5_000); // creates another 2,500, not 5,000
-        assertEq(s.target(), 5_000e6, "cumulative total may exceed maxTranche");
+        certifyOk(s, 10_000);
+        assertEq(s.target(), BUDGET, "the tightest legal cap must not clip anything");
     }
 
-    function test_RevertOverMaxTranche() public {
-        WorkStream s = deploy(3_000e6, BUDGET);
-        fundFully(s);
-        vm.warp(block.timestamp + DURATION);
-
-        WorkStream.Attestation memory a = att(s, s.nonce(), 4_000); // creates 4,000
-        bytes memory sig = sign(s, a, agentPk);
-        vm.expectRevert(WorkStream.OverMaxTranche.selector);
-        s.certify(a, sig);
-    }
-
+    /// The daily cap is the throttle CT-1 deliberately keeps. 5,000 a day over a
+    /// two-day milestone reaches the 10,000 budget, so it is legal, and it still
+    /// bites within any single day. That is exactly the shape that bounds a
+    /// stolen key without stranding an honest contributor.
     function test_RevertDailyCapExhausted_ResetsNextDay() public {
-        WorkStream s = deploy(BUDGET, 3_000e6);
+        WorkStream s = deploy(BUDGET, 5_000e6);
         fundFully(s);
         vm.warp(block.timestamp + DURATION);
 
-        certifyOk(s, 3_000); // exactly the daily cap
-        assertEq(s.unlockedToday(), 3_000e6);
+        certifyOk(s, 5_000); // exactly the daily cap
+        assertEq(s.unlockedToday(), 5_000e6);
 
-        WorkStream.Attestation memory a = att(s, s.nonce(), 3_100); // one more unit
+        WorkStream.Attestation memory a = att(s, s.nonce(), 5_100); // one more unit
         bytes memory sig = sign(s, a, agentPk);
         vm.expectRevert(WorkStream.DailyCapExceeded.selector);
         s.certify(a, sig);
 
         vm.warp(block.timestamp + 1 days);
-        certifyOk(s, 6_000); // a new day, a fresh allowance
-        assertEq(s.target(), 6_000e6);
-        assertEq(s.unlockedToday(), 3_000e6, "day bucket reset");
+        certifyOk(s, 10_000); // a new day, a fresh allowance
+        assertEq(s.target(), BUDGET);
+        assertEq(s.unlockedToday(), 5_000e6, "day bucket reset");
     }
 
     /// The employer may loosen the mandate; nobody may tighten it, and the agent
     /// may not touch it at all.
     function test_RaisePolicy_OnlyUpwardsAndOnlyByTheEmployer() public {
-        WorkStream s = deploy(3_000e6, 5_000e6);
+        // Both caps start at the tightest values CT-1 will accept.
+        WorkStream s = deploy(BUDGET, 5_000e6);
 
         vm.prank(employer);
-        s.raisePolicy(6_000e6, 9_000e6);
+        s.raisePolicy(BUDGET + 1_000e6, 9_000e6);
         (uint256 maxT, uint256 daily,) = s.policy();
-        assertEq(maxT, 6_000e6);
+        assertEq(maxT, BUDGET + 1_000e6);
         assertEq(daily, 9_000e6);
 
         vm.prank(employer);
         vm.expectRevert(WorkStream.CapsMayOnlyRise.selector);
-        s.raisePolicy(5_999e6, 9_000e6);
+        s.raisePolicy(BUDGET + 999e6, 9_000e6);
 
         vm.prank(employer);
         vm.expectRevert(WorkStream.CapsMayOnlyRise.selector);
@@ -659,10 +753,357 @@ contract WorkStreamTest is Test {
         vm.stopPrank();
     }
 
+    /// After a redeploy, streams from BOTH bytecodes are live at once and behave
+    /// differently, because every employer deploys their own contract and old
+    /// ones keep their behaviour forever. The web app has to tell them apart to
+    /// know which actions to offer.
+    ///
+    /// Without this it would have to detect the version by calling a v2-only
+    /// function and treating a revert as "this is v1", which is detection by
+    /// exception and has to be reimplemented by every consumer. It cannot be
+    /// added to a stream that is already deployed, which is why it goes in now.
+
+    // ------------------------------------------------------ the claim path
+    //
+    // An employer who knows someone's email but not their wallet cannot name a
+    // contributor at deploy. The stream is created unclaimed, with a one-time
+    // key held only in the link, and the recipient binds their own address.
+    //
+    // THE ATTACK THIS DESIGN EXISTS TO STOP. The obvious version stores a secret
+    // hash and has the claimant reveal it. That is front-runnable: the secret is
+    // visible in the claim transaction, so a watcher copies it and claims first.
+    // Signing the CLAIMER'S OWN ADDRESS makes a stolen signature worthless.
+
+    uint256 claimPk = 0xC1A1;
+
+    function deployClaimable() internal returns (WorkStream s) {
+        vm.prank(employer);
+        s = new WorkStream(
+            IERC20(address(usdc)),
+            address(0), // nobody named yet
+            vm.addr(claimPk), // the key that lives in the link
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            new string[](0),
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0)})
+        );
+    }
+
+    /// NOTE FOR ANYONE EDITING THESE TESTS: build the signature BEFORE any
+    /// `vm.prank` or `vm.expectRevert`. This helper reads DOMAIN_SEPARATOR and
+    /// CLAIM_TYPEHASH from the contract, and those calls would otherwise consume
+    /// the cheatcode, so `claim` runs unpranked and the expectation lands on a
+    /// view that never reverts.
+    function signClaim(WorkStream s, address claimer, uint256 pk) internal view returns (bytes memory) {
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                s.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(s.CLAIM_TYPEHASH(), claimer))
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 ss) = vm.sign(pk, digest);
+        return abi.encodePacked(r, ss, v);
+    }
+
+    function test_ClaimBindsTheCallerAndStartsTheClock() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+        assertEq(s.activatedAt(), 0, "an unclaimed stream must not start accruing");
+
+        address alice = makeAddr("alice");
+        bytes memory sig = signClaim(s, alice, claimPk);
+        vm.prank(alice);
+        s.claim(sig);
+
+        assertEq(s.contributor(), alice);
+        (,, address paidTo) = s.policy();
+        assertEq(paidTo, alice, "the claimant is the payee");
+        assertTrue(s.activatedAt() != 0, "the clock starts at claim");
+    }
+
+    /// THE FRONT-RUNNING CASE. A watcher sees Alice's claim in the mempool and
+    /// copies the signature. It authorises Alice's address and nobody else's, so
+    /// replaying it buys the attacker nothing.
+    function test_ClaimSignatureIsUselessToAnyoneElse() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+
+        address alice = makeAddr("alice");
+        address mallory = makeAddr("mallory");
+        bytes memory alicesSignature = signClaim(s, alice, claimPk);
+
+        vm.prank(mallory);
+        vm.expectRevert(WorkStream.BadClaimSignature.selector);
+        s.claim(alicesSignature);
+
+        assertEq(s.contributor(), address(0), "nothing was bound");
+    }
+
+    function test_ClaimRejectsASignatureFromTheWrongKey() public {
+        WorkStream s = deployClaimable();
+        address alice = makeAddr("alice");
+        bytes memory wrongKey = signClaim(s, alice, 0xBAD);
+        vm.prank(alice);
+        vm.expectRevert(WorkStream.BadClaimSignature.selector);
+        s.claim(wrongKey);
+    }
+
+    function test_AStreamCanOnlyBeClaimedOnce() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+
+        address alice = makeAddr("alice");
+        address bob = makeAddr("bob");
+        bytes memory aliceSig = signClaim(s, alice, claimPk);
+        bytes memory bobSig = signClaim(s, bob, claimPk);
+
+        vm.prank(alice);
+        s.claim(aliceSig);
+
+        vm.prank(bob);
+        vm.expectRevert(WorkStream.AlreadyClaimed.selector);
+        s.claim(bobSig);
+
+        assertEq(s.contributor(), alice, "the first claim stands");
+    }
+
+    function test_ANamedStreamCannotBeClaimed() public {
+        address alice = makeAddr("alice");
+        bytes memory sig = signClaim(ws, alice, claimPk);
+        vm.prank(alice);
+        vm.expectRevert(WorkStream.AlreadyClaimed.selector);
+        ws.claim(sig);
+    }
+
+    /// The employer may reissue a lost link, but only while nobody has claimed.
+    function test_SetClaimAuthorityWorksUntilClaimed() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+
+        uint256 reissued = 0xC1A2;
+        address alice = makeAddr("alice");
+        bytes memory oldLink = signClaim(s, alice, claimPk);
+        bytes memory newLink = signClaim(s, alice, reissued);
+
+        vm.prank(employer);
+        s.setClaimAuthority(vm.addr(reissued));
+
+        vm.prank(alice);
+        vm.expectRevert(WorkStream.BadClaimSignature.selector);
+        s.claim(oldLink); // the old link is dead
+
+        vm.prank(alice);
+        s.claim(newLink);
+        assertEq(s.contributor(), alice);
+
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.AlreadyClaimed.selector);
+        s.setClaimAuthority(vm.addr(0xC1A3));
+    }
+
+    function test_SetClaimAuthorityIsEmployerOnly() public {
+        WorkStream s = deployClaimable();
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert(WorkStream.NotEmployer.selector);
+        s.setClaimAuthority(makeAddr("anyone"));
+    }
+
+    /// An unclaimed stream never activated, so the employer may close it at any
+    /// time and the whole budget comes back. That is why no expiry field exists:
+    /// the existing close path already is one.
+    function test_AnUnclaimedStreamAccruesNothingAndRefundsInFull() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+        vm.warp(block.timestamp + DURATION * 10);
+
+        assertEq(s.accrued(), 0, "a dormant stream must not accrue");
+        assertEq(s.withdrawable(), 0);
+
+        uint256 before = usdc.balanceOf(employer);
+        vm.prank(employer);
+        s.closeMilestone();
+        assertEq(usdc.balanceOf(employer) - before, BUDGET, "the whole budget returns");
+    }
+
+    /// Once claimed the normal protection applies again: the employer is back
+    /// under duration plus CLOSE_GRACE and cannot pull the stream out from under
+    /// someone who has started work.
+    function test_AClaimedStreamCannotBeClosedEarly() public {
+        WorkStream s = deployClaimable();
+        fundFully(s);
+
+        address alice = makeAddr("alice");
+        bytes memory sig = signClaim(s, alice, claimPk);
+        vm.prank(alice);
+        s.claim(sig);
+
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.MilestoneStillRunning.selector);
+        s.closeMilestone();
+    }
+
+    function test_ConstructorRejectsAStreamThatIsNeitherNamedNorClaimable() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.ZeroAddress.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            address(0),
+            address(0),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            new string[](0),
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0)})
+        );
+    }
+
+    function test_ConstructorRejectsAStreamThatIsBothNamedAndClaimable() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.ZeroAddress.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            vm.addr(claimPk),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            new string[](0),
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee})
+        );
+    }
+
+
+    // ------------------------------------------------- CT-2: whose merges count
+    //
+    // Several streams on one repository is a SUPPORTED configuration, and
+    // nothing tied a pull request's author to a stream's contributor. Two
+    // streams on the same repo and branch meant one person's merge was judged
+    // against both, and could certify and pay the other person's stream. The
+    // branch check does not help: both name the same branch.
+    //
+    // The contract only stores the list. The agent is the thing that reads
+    // GitHub and compares, so this field is inert until GH-2 lands.
+
+    function oneAuthor(string memory login) internal pure returns (string[] memory a) {
+        a = new string[](1);
+        a[0] = login;
+    }
+
+    function test_AuthorsDefaultToAnyoneWhenLeftEmpty() public view {
+        // Every existing stream behaves this way, so an empty list has to keep
+        // meaning "any author" or the upgrade would silently stop paying them.
+        assertEq(ws.authors().length, 0);
+    }
+
+    function test_AuthorsAreStoredAndReadBackWhole() public {
+        vm.prank(employer);
+        ws.setAuthors(oneAuthor("ada"));
+
+        string[] memory got = ws.authors();
+        assertEq(got.length, 1);
+        assertEq(got[0], "ada");
+    }
+
+    /// An allowlist rather than a single login, because one person routinely has
+    /// a personal and a work account, and a stream should not stop paying
+    /// because they pushed from the wrong one.
+    function test_AuthorsHoldSeveralAccountsForOnePerson() public {
+        string[] memory both = new string[](2);
+        both[0] = "ada";
+        both[1] = "ada-at-work";
+
+        vm.prank(employer);
+        ws.setAuthors(both);
+
+        assertEq(ws.authors().length, 2);
+        assertEq(ws.authors()[1], "ada-at-work");
+    }
+
+    function test_SetAuthorsIsEmployerOnly() public {
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert(WorkStream.NotEmployer.selector);
+        ws.setAuthors(oneAuthor("mallory"));
+    }
+
+    /// Same lock as `setRepo`, and for the same reason. Before anything is
+    /// certified an employer may fix a typo in a handle. Afterwards, changing
+    /// who counts would let them stop paying someone they have already been
+    /// paying for work on this milestone.
+    function test_AuthorsLockOnceWorkIsCertified() public {
+        vm.prank(employer);
+        ws.setAuthors(oneAuthor("ada"));
+
+        vm.warp(block.timestamp + DURATION);
+        certifyOk(ws, 5_000);
+
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.RepoLocked.selector);
+        ws.setAuthors(oneAuthor("someone-else"));
+
+        assertEq(ws.authors()[0], "ada", "the list must be exactly what was agreed");
+    }
+
+    function test_AuthorsCanBeSetAtDeploy() public {
+        vm.prank(employer);
+        WorkStream s = new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
+            address(0),
+            agentAddr,
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            oneAuthor("ada"),
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee})
+        );
+        assertEq(s.authors()[0], "ada");
+    }
+
+    function test_VersionIdentifiesThisBytecode() public view {
+        assertEq(ws.version(), 2);
+    }
+
     function test_SetRepo_EmployerOnly() public {
         vm.prank(employer);
         ws.setRepo("acme/other");
         assertEq(ws.repo(), "acme/other");
+    }
+
+    /// CT-3. `setRepo` is employer-only and nothing else, so a stream could be
+    /// repointed at a different repository after work had been certified against
+    /// the original one. The dashboard hid the control once anything was
+    /// certified, but that guard lived in the interface, not here, so a direct
+    /// call ignored it.
+    ///
+    /// It never could un-certify past work. What it redirected was what the
+    /// agent judges NEXT, which is enough: the contributor keeps working on the
+    /// repository they agreed to and the agent starts judging a different one.
+    function test_SetRepoLocksOnceWorkIsCertified() public {
+        vm.warp(block.timestamp + DURATION);
+        certifyOk(ws, 5_000);
+
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.RepoLocked.selector);
+        ws.setRepo("acme/somewhere-else");
+
+        assertEq(ws.repo(), "acme/widgets", "the repo must be exactly what was agreed");
+    }
+
+    /// Before anything is certified the employer may still correct a typo, which
+    /// is the case the lock must not break.
+    function test_SetRepoStillWorksBeforeAnyCertification() public {
+        vm.prank(employer);
+        ws.setRepo("acme/widgets-renamed");
+        assertEq(ws.repo(), "acme/widgets-renamed");
     }
 
     function test_OpenMilestoneRejectsZeroBudgetOrDuration() public {
@@ -682,30 +1123,41 @@ contract WorkStreamTest is Test {
         ws.openMilestone("too soon", BUDGET, DURATION);
     }
 
-    function test_ConstructorRejectsZeroAddresses() public {
-        vm.startPrank(employer);
+    /// The agent is required either way. The named-versus-claimable rules have
+    /// their own tests above, because "contributor is zero" stopped being
+    /// invalid on its own once a stream could be claimed.
+    function test_ConstructorRejectsAZeroAgent() public {
+        vm.prank(employer);
         vm.expectRevert(WorkStream.ZeroAddress.selector);
         new WorkStream(
             IERC20(address(usdc)),
+            contributor,
+            address(0),
+            address(0), // no agent
+            M1,
+            BUDGET,
+            DURATION,
+            "acme/widgets",
+            new string[](0),
+            WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: payee})
+        );
+    }
+
+    /// A named stream must name its payee too, or nobody could ever withdraw.
+    function test_ConstructorRejectsANamedStreamWithNoPayee() public {
+        vm.prank(employer);
+        vm.expectRevert(WorkStream.ZeroAddress.selector);
+        new WorkStream(
+            IERC20(address(usdc)),
+            contributor,
             address(0),
             agentAddr,
             M1,
             BUDGET,
             DURATION,
             "acme/widgets",
-            WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: payee})
-        );
-        vm.expectRevert(WorkStream.ZeroAddress.selector);
-        new WorkStream(
-            IERC20(address(usdc)),
-            contributor,
-            agentAddr,
-            M1,
-            BUDGET,
-            DURATION,
-            "acme/widgets",
+            new string[](0),
             WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: address(0)})
         );
-        vm.stopPrank();
     }
 }

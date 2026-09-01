@@ -2368,3 +2368,169 @@ input[type='range'].ps-range:disabled {
 @media (prefers-reduced-motion: reduce) {
   .ps-scan i { animation: none; background: var(--ps-green); }
 }
+
+/* ---- Contract generation.
+ *
+ * A version is not money, so nothing here is green. It is also not a status, so
+ * it gets no fill: a dithered background at this size read as a rendering
+ * artefact rather than a label. Hairline border, dim ink, and out of the way. */
+.ps-version {
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+  font-size: var(--ps-size-caption);
+  letter-spacing: var(--ps-track-label);
+  padding: 0 var(--ps-1);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+  color: var(--ps-ink-faint);
+}
+
+/* Inline with the caption it follows, so a list row never gains a second line
+ * just to hold a footnote. */
+.ps-caption .ps-version {
+  margin-left: var(--ps-1);
+  vertical-align: baseline;
+}
+
+/* ---- Sandbox evidence.
+ *
+ * The one panel on the page reporting something EXECUTED rather than judged.
+ * Deliberately quiet: it sits inside a verdict, it is not a second showpiece,
+ * and nothing in it is green because tests passing is not money moving. */
+.ps-sandbox {
+  margin-top: var(--ps-3);
+  padding: var(--ps-3);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink-dim);
+  background: var(--ps-sunk);
+}
+
+/* Tabular figures, because this is a count and a count should not jitter. */
+.ps-sandbox-score {
+  font-size: var(--ps-size-data-m);
+  font-variant-numeric: tabular-nums;
+  color: var(--ps-ink);
+}
+
+.ps-sandbox-what {
+  margin: var(--ps-2) 0 0;
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+/* THE WHOLE PANEL IS ONE LINE UNTIL ASKED.
+ *
+ * The headline is the entire claim for a reader skimming a page of verdicts:
+ * code ran somewhere isolated, and here is the score. Everything under it
+ * answers a doubt, and the reader who has one is the reader willing to click.
+ *
+ * The summary row stays on the 4px grid and keeps the score right-aligned, so a
+ * column of these reads as a column whether open or shut. */
+.ps-sandbox summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ps-sandbox summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The score sits hard right, and the caret after it states which way it moves. */
+.ps-sandbox-score {
+  margin-left: auto;
+}
+
+.ps-sandbox summary::after {
+  content: '\25B8';
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox[open] summary::after {
+  content: '\25BE';
+}
+
+.ps-sandbox-mark {
+  flex: none;
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox-body {
+  margin-top: var(--ps-3);
+  padding-top: var(--ps-3);
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+}
+
+/* WHAT THE SUITE CHECKED. A total cannot tell a suite that probed the milestone
+ * from one that never touched it, so the names are what make this evidence
+ * rather than a score. NOT GREEN: tests passing is not money released. */
+.ps-sandbox-checked {
+  margin-top: var(--ps-3);
+}
+
+.ps-sandbox-checked ul {
+  margin: var(--ps-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-sandbox-checked li {
+  padding: var(--ps-1) 0 var(--ps-1) var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+  position: relative;
+}
+
+.ps-sandbox-checked li::before {
+  content: '\2713';
+  position: absolute;
+  left: 0;
+  color: var(--ps-ink-faint);
+}
+
+.ps-sandbox-failures {
+  margin-top: var(--ps-3);
+  padding-top: var(--ps-3);
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+}
+
+/* A failing test name is the most useful thing on this page for a contributor:
+ * a concrete case to reproduce rather than a score to argue with. Given room. */
+.ps-sandbox-failures ul {
+  margin: var(--ps-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-sandbox-failures li {
+  padding: var(--ps-1) 0 var(--ps-1) var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink);
+  position: relative;
+}
+
+.ps-sandbox-failures li::before {
+  content: '×';
+  position: absolute;
+  left: 0;
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox .ps-caption {
+  margin: var(--ps-2) 0 0;
+}
+
+/* The milestone field is not one setting among nine: it is the text the agent
+ * judges every merge against, and the only field on the form a contributor's
+ * pay depends on. Given weight so it reads as the thing being written. */
+.ps-label-lead {
+  font-size: var(--ps-size-label);
+  color: var(--ps-ink);
+  font-weight: 700;
+}

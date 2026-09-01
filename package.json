@@ -38,10 +38,15 @@
     "test:caps": "tsx --test web/test/caps.test.ts",
     "test:metering": "tsx --test agent/test/metering.test.ts",
     "test:create-stream": "tsx --test web/test/create-stream.test.ts",
+    "test:sandbox": "tsx --test agent/test/sandbox.test.ts",
+    "test:correctness": "tsx --test agent/test/correctness.test.ts",
+    "test:suite-cache": "tsx --test agent/test/suite-cache.test.ts",
+    "test:reconcile": "tsx --test agent/test/reconcile-judged.test.ts",
+    "test:failover": "tsx --test agent/test/llm-failover.test.ts",
     "watch": "tsx --env-file-if-exists=.env scripts/watch.ts",
     "stream:status": "tsx --env-file=.env scripts/stream-status.ts",
-    "test:reconcile": "tsx --test agent/test/reconcile-judged.test.ts",
-    "test:failover": "tsx --test agent/test/llm-failover.test.ts"
+    "probe:policy": "tsx --env-file=.env scripts/probe-policy.ts",
+    "sandbox:smoke": "tsx --env-file=.env scripts/sandbox-smoke.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

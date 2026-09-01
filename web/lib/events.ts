@@ -37,6 +37,33 @@ export type AgentEvent = {
     reasoning: string;
     red_flags: string[];
   };
+  /** What the correctness check found, when it ran. Absent means it was off or
+   *  unavailable, which is the normal case and must render as nothing at all
+   *  rather than as a failure. */
+  correctness?: {
+    outcome: 'passes' | 'fails' | 'inconclusive' | 'void';
+    /** Failing tests unique to this work. Named, so a contributor gets a case
+     *  they can reproduce rather than a score. */
+    kept: string[];
+    /** Failures the earlier version had too, so they say nothing about this
+     *  work and were set aside. */
+    discarded: string[];
+    /** What the suite actually checked and got right. A total on its own does
+     *  not say whether the milestone was probed at all, so the names are what
+     *  make this panel evidence rather than a score. Optional: verdicts
+     *  recorded before this was captured have no list, and must still render. */
+    passedTests?: string[];
+    /** The contributor's OWN test suite, run as a second ruler. A repository
+     *  with no tests reports a real zero; absent means the run concluded
+     *  nothing. */
+    ownTests?: { passed: number; total: number };
+    /** Whether an earlier version of the repository actually adjudicated the
+     *  failures, or they are reported unchecked. */
+    filtered: boolean;
+    passed: number;
+    total: number;
+    reason?: string;
+  };
   verificationFeeUsdc?: string;
   gatewayTransfer?: string;
   /** Only present on `unlock_failed`. True when the request genuinely exceeded a
