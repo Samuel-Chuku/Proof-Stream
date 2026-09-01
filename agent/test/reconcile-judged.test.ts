@@ -22,6 +22,9 @@ Object.assign(process.env, {
   GITHUB_TOKEN: 'x',
   GITHUB_WEBHOOK_SECRET: 'x',
   LLM_API_KEY: 'x',
+  LLM_BASE_URL: 'https://example.invalid/v1',
+  AGENT_MODEL: 'test/model',
+  VERIFIER_MODEL: 'test/other-model',
   VERIFIER_ADDRESS: '0x0000000000000000000000000000000000000003',
 });
 

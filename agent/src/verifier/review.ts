@@ -151,7 +151,8 @@ function clamp01(n: unknown): number {
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
 }
 
-/// Any OpenAI-compatible endpoint — see callLlm in verdict.ts. The verifier
+/// Any endpoint serving POST {LLM_BASE_URL}/chat/completions — see callLlm in
+/// verdict.ts. The verifier
 /// reads the SAME LLM_BASE_URL but its own VERIFIER_MODEL, so a second opinion
 /// can come from a different model on the same provider or, by pointing the
 /// two processes at different .env values, a different provider entirely.
@@ -159,8 +160,8 @@ function clamp01(n: unknown): number {
 /// Free model pools are shared and return 429 under load. One retry with a
 /// pause costs nothing and saves a long unattended run from dying.
 
-/// How long the provider asked us to wait, in ms. OpenRouter puts it in the
-/// Retry-After header and again inside the error body; either will do.
+/// How long the provider asked us to wait, in ms. Providers put it in the
+/// Retry-After header and often again inside the error body; either will do.
 function retryAfterMs(res: Response, body: string): number {
   const header = Number(res.headers.get('retry-after'));
   if (Number.isFinite(header) && header > 0) return header * 1000;
@@ -183,10 +184,10 @@ function retryAfterMs(res: Response, body: string): number {
 const MODEL_UNUSABLE = new Set([402, 403, 404]);
 
 async function callLlm(body: unknown, key: string): Promise<any> {
-  // Sent as a PREFERENCE. Some endpoints refuse it outright —
-  // `openai/gpt-oss-20b:free` answers 400 "Reasoning is mandatory for this
-  // endpoint and cannot be disabled" — so a blanket demand breaks any model
-  // that reasons by design. Dropped and retried once if refused.
+  // Sent as a PREFERENCE. Some endpoints refuse it outright, answering 400
+  // "Reasoning is mandatory for this endpoint and cannot be disabled", so a
+  // blanket demand breaks any model that reasons by design. Dropped and retried
+  // once if refused.
   let payload: any = body;
   // Copied so a fallback consumed on one call does not shrink the next call's list.
   const fallbacks = [...env.verifierFallbackModels];
@@ -247,8 +248,8 @@ async function callLlm(body: unknown, key: string): Promise<any> {
 
     const text = await res.text();
 
-    // RATE LIMITED. The free pools are shared across every OpenRouter user, so
-    // this says nothing about our usage and everything about who else is busy.
+    // RATE LIMITED. Shared capacity says nothing about our usage and everything
+    // about who else is busy.
     //
     // Honour the provider's own Retry-After when it sends one. It told us 24
     // seconds and the old fixed backoff waited 5, then 10, then 20 — three
@@ -281,10 +282,9 @@ async function callLlm(body: unknown, key: string): Promise<any> {
     // providers retire `:free` slugs without notice, and a retired primary then
     // throws on the first call without anything else being tried.
     //
-    // Matched on STATUS, never on the provider's error prose. Any
-    // OpenAI-compatible endpoint can be configured here — Ollama, Together,
-    // Groq, vLLM, a local model — and a message-shaped rule would work for
-    // exactly one of them.
+    // Matched on STATUS, never on the provider's error prose. Any endpoint at
+    // all can be configured here, hosted or local, and a message-shaped rule
+    // would work for exactly one of them.
     if (MODEL_UNUSABLE.has(res.status) || res.status >= 500) {
       const next = fallbacks.shift();
       if (next) {

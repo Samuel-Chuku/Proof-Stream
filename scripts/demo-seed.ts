@@ -547,7 +547,7 @@ for (let pass = 1; pass <= passes; pass++) {
       note({ event: 'seed_error', pass, index: i + 1, title: cs.title, message });
     }
 
-    // Arc rate-limits, OpenRouter is slower under load, and back-to-back
+    // Arc rate-limits, inference is slower under load, and back-to-back
     // unlocks in the same second confuse the daily-cap bucket.
     await new Promise((r) => setTimeout(r, 4_000));
   }

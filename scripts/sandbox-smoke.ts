@@ -4,7 +4,7 @@
 //
 // LIVE: this creates a real sandbox and costs about half a cent. It is the only
 // way to find out, because everything in the test suite is asserted against the
-// source rather than against Beam.
+// source rather than against the provider.
 //
 // The interesting check is the third one. "No egress" is the control most
 // likely to be silently untrue — an SDK flag that is accepted and ignored looks
@@ -43,11 +43,11 @@ console.log('\n2. our environment did NOT follow the code in');
 // The whole game. If a Circle secret or a wallet id is readable in there, every
 // other control is decoration.
 const leak = await runInSandbox([], 'env', { seconds: 60 }, { trusted: false });
-const secrets = ['CIRCLE_API_KEY', 'ENTITY_SECRET', 'AGENT_WALLET_ID', 'GITHUB_TOKEN', 'LLM_API_KEY', 'OPENROUTER_API_KEY'];
+const secrets = ['CIRCLE_API_KEY', 'ENTITY_SECRET', 'AGENT_WALLET_ID', 'GITHUB_TOKEN', 'LLM_API_KEY', 'SANDBOX_TOKEN'];
 const found = secrets.filter((k) => leak.stdout.includes(k));
 found.length === 0 ? pass('no agent secrets in the sandbox environment') : fail(`LEAKED: ${found.join(', ')}`);
-// Beam injects its own gateway credential into the base environment. It reaches
-// nothing of ours, but it would buy our Beam account, so it gets scrubbed too.
+// The provider injects its own gateway credential into the base environment. It
+// reaches nothing of ours, but it would spend our account, so it is scrubbed too.
 !/BETA9_TOKEN/.test(leak.stdout) ? pass("the platform's own token is scrubbed") : fail('BETA9_TOKEN is still readable');
 console.log(`        (sandbox saw: ${leak.stdout.trim().split('\n').map((l) => l.split('=')[0]).join(', ') || 'nothing'})`);
 
@@ -79,7 +79,7 @@ const started = Date.now();
 const hung = await runInSandbox([], 'sleep 600', { seconds: 20 }, { trusted: false });
 const took = Math.round((Date.now() - started) / 1000);
 hung.timedOut ? pass(`reported as a timeout after ~${took}s`) : fail(`not reported as a timeout (exit ${hung.exitCode})`);
-took < 90 ? pass('killed near the deadline rather than at Beam\'s') : fail(`took ${took}s for a 20s limit`);
+took < 90 ? pass("killed near our deadline rather than the provider's") : fail(`took ${took}s for a 20s limit`);
 
 console.log('\n5. the image can actually run a generated suite, and a failure looks like one');
 // The controls above are about safety. This one is about the check being able

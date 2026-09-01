@@ -51,14 +51,13 @@ export const VERIFICATION_FEE = '$0.005' as const;
  *  returns nothing. */
 export const VERIFIER_MAX_TOKENS = 24000;
 
-/** Sent as OpenRouter's `reasoning` parameter on every call: thinking OFF.
+/** Sent as the provider's `reasoning` parameter on every call: thinking OFF.
  *
- *  Not a cap. A cap was tried and does not hold — OpenRouter accepted
- *  `reasoning: { max_tokens: 4000 }`, the verifier logged the cap at startup,
- *  and the backend it routed to spent 24000 tokens reasoning anyway and wrote
- *  nothing. OpenRouter picks among providers per request and they do not all
- *  honour it, so the same model and the same code succeeded locally and failed
- *  on the server minutes apart.
+ *  Not a cap. A cap was tried and does not hold: the request was accepted,
+ *  the verifier logged the cap at startup, and the backend it routed to spent
+ *  the full budget reasoning anyway and wrote nothing. A router picks among
+ *  backends per request and they do not all honour it, so the same model and
+ *  the same code succeeded locally and failed on the server minutes apart.
  *
  *  `enabled: false` is a instruction to omit reasoning rather than a budget to
  *  spend, so a provider that ignores it degrades to "reasons anyway" instead of
@@ -72,8 +71,8 @@ export const VERIFIER_MAX_TOKENS = 24000;
 /*  RETIRED, kept as `undefined` so the key is omitted from the payload
  *  entirely rather than sent and refused.
  *
- *  `openai/gpt-oss-20b:free` answers **400 "Reasoning is mandatory for this
- *  endpoint and cannot be disabled"** to every single request carrying it. The
+ *  Some endpoints answer **400 "Reasoning is mandatory for this endpoint and
+ *  cannot be disabled"** to every single request carrying it. The
  *  agent's fallback drops the field and retries, so it worked — at the cost of
  *  two round trips per judgment and a second chance to fail. That retry can
  *  come back 200 with an EMPTY completion, which surfaces as

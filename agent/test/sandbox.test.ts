@@ -58,7 +58,7 @@ test('the working directory is thrown away after the run', async () => {
 
 // --- the remote driver ---------------------------------------------------
 //
-// These do not call Beam. Reaching the vendor needs a key, costs money and
+// These make no network call. Reaching the provider needs a key, costs money and
 // makes the suite depend on someone else's uptime; none of that tells us
 // anything about the controls, which is what can actually hurt us here.
 //
@@ -86,8 +86,8 @@ test('CONTROL 3: the sandbox is terminated even when the run throws', () => {
   assert.match(remote, /finally\s*\{[\s\S]*terminate\(\)/, 'terminate() must be in a finally');
 });
 
-test('CONTROL 3: our deadline fires before Beam reaps the sandbox', () => {
-  // If Beam's keepWarmSeconds were the tighter of the two, a slow suite would be
+test('CONTROL 3: our deadline fires before the provider reaps the sandbox', () => {
+  // If keepWarmSeconds were the tighter of the two, a slow suite would be
   // reaped mid-run and reported as a failure rather than a timeout — blaming a
   // contributor for our own ceiling.
   assert.match(remote, /keepWarmSeconds:\s*limits\.seconds\s*\+/);
@@ -126,7 +126,8 @@ test('a timeout is reported as a timeout, not as a test failure', () => {
 
 test('the vendor is IMPORTED only inside runRemotely', () => {
   // The seam's promise: swapping vendors is a one-function change. Prose may
-  // name Beam anywhere — the doc comment above runRemotely does, deliberately.
+  // name the provider anywhere — the doc comment above runRemotely does,
+  // deliberately, and it is the one place allowed to.
   // What must not escape is the IMPORT and the TYPES, because those are what
   // make a caller depend on the vendor.
   const imports = [...source.matchAll(/@beamcloud/g)].map((m) => m.index ?? 0);
@@ -141,26 +142,27 @@ test('the vendor is IMPORTED only inside runRemotely', () => {
   );
 });
 
-test('a missing BEAM_TOKEN fails with an instruction, not a vendor error', async () => {
+test('a missing SANDBOX_TOKEN fails with an instruction, not a vendor error', async () => {
   // The SDK authenticates off a mutable module object and reads no env var of
-  // its own, so a missing token surfaces as "Beam token is not set" on the first
+  // its own, so a missing token would otherwise surface as the SDK's own
+  // complaint on the first
   // live judgment. That is both too late and too cryptic.
-  const saved = { d: process.env.SANDBOX_DRIVER, t: process.env.BEAM_TOKEN };
+  const saved = { d: process.env.SANDBOX_DRIVER, t: process.env.SANDBOX_TOKEN };
   process.env.SANDBOX_DRIVER = 'remote';
-  delete process.env.BEAM_TOKEN;
+  delete process.env.SANDBOX_TOKEN;
   try {
     await assert.rejects(
       runInSandbox([], 'true', { seconds: 5 }, { trusted: false }),
-      /BEAM_TOKEN is not set/,
+      /SANDBOX_TOKEN is not set/,
     );
   } finally {
     saved.d === undefined ? delete process.env.SANDBOX_DRIVER : (process.env.SANDBOX_DRIVER = saved.d);
-    if (saved.t !== undefined) process.env.BEAM_TOKEN = saved.t;
+    if (saved.t !== undefined) process.env.SANDBOX_TOKEN = saved.t;
   }
 });
 
 test('the remote driver does NOT trust the SDK\'s wait()', () => {
-  // Measured against Beam on 2026-08-23: `proc.wait()` opens with
+  // Measured against the provider: `proc.wait()` opens with
   // `if (this.exitCode >= 0) return this.exitCode`, and the SDK seeds exitCode
   // from the exec response, which carries 0 for a process that has only
   // STARTED. `sleep 600` came back exit 0 in about a second.
@@ -184,7 +186,8 @@ test('output is captured on a timeout too', () => {
 });
 
 test('the environment is scrubbed by allowlist, not by a list of known names', () => {
-  // Beam merges our env with the container's base rather than replacing it, so
+  // The provider merges our env with the container's base rather than
+  // replacing it, so
   // passing { PATH, HOME } adds and does not remove. A blocklist of the
   // variables we happened to see on 2026-08-23 would go stale the first time
   // the platform adds one.

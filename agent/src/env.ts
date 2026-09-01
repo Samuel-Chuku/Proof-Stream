@@ -28,16 +28,6 @@ function requireOneOf(...names: string[]): void {
   throw new Error(`set one of ${names.join(' or ')} — see .env.example`);
 }
 
-/// First name wins; the later ones are legacy aliases kept so an existing
-/// .env does not break when a variable is renamed.
-function required2(...names: string[]): string {
-  for (const n of names) {
-    const value = process.env[n];
-    if (value) return value;
-  }
-  throw new Error(`set ${names[0]} (or ${names.slice(1).join('/')}) — see .env.example`);
-}
-
 requireOneOf('REGISTRY_ADDRESS', 'WORKSTREAM_ADDRESS');
 
 /// Where the runtime ledgers live: `verdicts.jsonl` and `reviews.jsonl`.
@@ -137,29 +127,33 @@ export const env = {
   reconcileMaxPrs: Number(process.env.RECONCILE_MAX_PRS || 5),
   webhookSecret: required('GITHUB_WEBHOOK_SECRET'),
 
-  // --- LLM provider (any OpenAI-compatible endpoint) -----------------------
-  // Ollama, Together, Groq, vLLM, a local model — anything that serves
-  // POST {base}/chat/completions. Only the base URL changes.
-  llmBaseUrl: (process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, ''),
+  // --- Inference provider --------------------------------------------------
+  // Anything serving POST {base}/chat/completions, hosted or local. Only the
+  // base URL changes.
+  //
+  // REQUIRED, WITH NO DEFAULT, and the same goes for every model below. A
+  // default would put one provider's name and one vendor's model slug in a
+  // public file and make them this project's implied recommendation. Which
+  // provider and which model you run is your decision and your bill.
+  llmBaseUrl: required('LLM_BASE_URL').replace(/\/+$/, ''),
 
-  // LLM_API_KEY is the name to use. OPENROUTER_API_KEY still works so existing
-  // setups keep running, and a local provider that wants no key can pass any
-  // placeholder rather than being forced to invent one.
-  llmApiKey: required2('LLM_API_KEY', 'OPENROUTER_API_KEY'),
+  // A provider wanting no key at all can pass any placeholder rather than being
+  // forced to invent one.
+  llmApiKey: required('LLM_API_KEY'),
 
-  // FREE by default. Development and seeding replay the same judgments many
-  // times over; paying frontier prices for that is waste. Both free models were
-  // checked against a known-good and a known-bad diff and matched
-  // claude-sonnet-5's verdicts. Override with a paid model for the recorded
-  // demo, where reasoning quality is what is on screen.
-  model: process.env.AGENT_MODEL || 'openai/gpt-oss-20b:free',
+  /// The model that judges merged work.
+  ///
+  /// Qualify any model before trusting it here, on a diff that does NOT satisfy
+  /// the milestone as well as one that does. A model that cannot tell them
+  /// apart does not error; it approves, in the direction that releases money.
+  model: required('AGENT_MODEL'),
 
-  /// Tried in order when the primary is rate-limited or unavailable. The free
-  /// pools are SHARED across every OpenRouter user, so a 429 says nothing about
-  /// this project's usage and everything about who else is busy — and a stream
-  /// that happens to merge during someone else's spike gets no judgment at all.
+  /// Tried in order when the primary is rate-limited or unavailable. Shared
+  /// capacity means a 429 says nothing about this project's usage and
+  /// everything about who else is busy, and a stream that happens to merge
+  /// during someone else's spike would otherwise get no judgment at all.
   /// Comma-separated; blank disables fallback.
-  fallbackModels: (process.env.AGENT_FALLBACK_MODELS ?? 'meta-llama/llama-3.3-70b-instruct:free,mistralai/mistral-small-3.2-24b-instruct:free')
+  fallbackModels: (process.env.AGENT_FALLBACK_MODELS ?? '')
     .split(',').map((m) => m.trim()).filter(Boolean),
 
   port: Number(process.env.PORT || 8787),
@@ -182,17 +176,18 @@ export const env = {
   // wired straight to a payout.
   correctnessCheck: process.env.CORRECTNESS_CHECK === 'on',
 
-  /// THE MODEL IS THE MAIN CONTROL HERE, not a tuning detail, and this default
-  /// was chosen by measurement rather than by preference.
+  /// THE MODEL IS THE MAIN CONTROL HERE, not a tuning detail. It moves this
+  /// result far more than any prompt does.
   ///
-  /// Qualify any replacement before trusting it. A weak oracle does not error —
-  /// it writes a suite that passes everything and reports the code correct, so
-  /// the check degrades into a rubber stamp pointing in the direction that
-  /// releases money. Model choice moves this result far more than any prompt.
+  /// Qualify any model before trusting it. A weak oracle does not error — it
+  /// writes a suite that passes everything and reports the code correct, so the
+  /// check degrades into a rubber stamp pointing in the direction that releases
+  /// money. It needs to write a suite that compiles AND discriminates, which is
+  /// a harder job than judging a diff.
   ///
-  /// Deliberately not the free default the rest of the agent uses; this job
-  /// needs a model that can write a suite that compiles and discriminates.
-  oracleModel: process.env.ORACLE_MODEL || 'anthropic/claude-sonnet-5',
+  /// Required only when the check is switched on, so a clone that never uses it
+  /// is not asked to choose a model for it.
+  oracleModel: process.env.CORRECTNESS_CHECK === 'on' ? required('ORACLE_MODEL') : (process.env.ORACLE_MODEL ?? ''),
 
   /// Wall-clock ceiling for one suite run in the sandbox. Generous: a cold
   /// sandbox has to start before a test can run, and killing a slow run reports
@@ -207,43 +202,30 @@ export const env = {
   verifierPort: Number(process.env.VERIFIER_PORT || 8788),
   verifierUrl: process.env.VERIFIER_URL || 'http://localhost:8788/verify',
 
-  // A different vendor on purpose — a second opinion from the same model is
-  // not a second opinion. Free tier by default, same reasoning as above.
+  // A different vendor from the attestor on purpose — a second opinion from the
+  // same model is not a second opinion.
   //
-  // Was `cohere/north-mini-code:free`, which could not return a verdict at all:
-  // it expands its reasoning to fill whatever `max_tokens` it is given (9511
-  // against a 8000 ceiling, then 27476 against 24000), so every review arrived
-  // truncated and every one was PAID FOR — x402 settles before the handler runs.
+  // QUALIFY WHATEVER YOU CHOOSE ON A DIFF THAT DOES NOT SATISFY THE MILESTONE,
+  // not just one that does. More than one candidate has judged the easy case
+  // correctly in seconds and then, on the mismatch, expanded its reasoning to
+  // fill the entire token budget and returned nothing at all. That arrives as
+  // "not valid JSON", it only appears on the case that actually needs judgment,
+  // and every one of them is PAID FOR — x402 settles before the handler runs.
   //
-  // Chosen against the alternatives on a real diff with `pnpm review:test`, and
-  // the negative control is what picked it: given the same diff and a milestone
-  // it does not satisfy, it returns `satisfies=false, fraction 0` with specific
-  // red flags rather than rubber-stamping (T5).
+  // The negative control is the whole test: given a diff and a milestone it
+  // does not satisfy, the verifier must return `satisfies=false, fraction 0`
+  // with specific red flags rather than rubber-stamping (T5).
+  // `pnpm review:test <pr> "<a milestone the diff fails>"` is how you run it.
   //
-  // `nvidia/nemotron-3-super-120b-a12b:free` was rejected, and HOW it failed is
-  // the point. It judged the easy case correctly in seconds, then on the
-  // mismatch spent 8384 completion tokens of which 8384 were reasoning — every
-  // single one — and returned nothing after seven minutes. Same class of
-  // failure as the model it would have replaced, and it only appeared on the
-  // case that needed judgment. **A verifier must be qualified on a diff that
-  // does NOT satisfy the milestone.** Testing only the happy path would have
-  // shipped this one.
-  //
-  // The default stays on the FREE tier so a stranger who clones this is never
-  // billed by surprise. For a recorded run set VERIFIER_MODEL to the paid slug
-  // `poolside/laguna-s-2.1` — the same model on dedicated capacity, off the
-  // shared free pool and its 429s. Measured on both cases above: $0.0003 to
-  // approve, $0.0001 to refuse, verdicts identical to the free tier.
-  //
-  // That price is the interesting part. VERIFICATION_FEE is $0.005, so at
-  // ~$0.0002 a review the verifier finally earns more than it spends. It has
-  // sold at a loss since Phase 3 (roadmap R1) — $0.005 charged against
-  // $0.0103-$0.0124 of measured inference, about 6x underwater on every call.
-  verifierModel: process.env.VERIFIER_MODEL || 'poolside/laguna-s-2.1:free',
+  // Required, and worth choosing deliberately rather than copying the attestor:
+  // a second opinion from the same model is not a second opinion. Whether the
+  // fee covers the inference depends entirely on what you pick, so price it
+  // against VERIFICATION_FEE before running it in anger.
+  verifierModel: required('VERIFIER_MODEL'),
 
-  /// Same idea for the second opinion. Kept on a DIFFERENT vendor from the
+  /// Same idea for the second opinion. Keep it on a DIFFERENT vendor from the
   /// attestor's list — a fallback that lands both agents on the same model
   /// would quietly turn the second opinion into an echo.
-  verifierFallbackModels: (process.env.VERIFIER_FALLBACK_MODELS ?? 'mistralai/mistral-small-3.2-24b-instruct:free,google/gemma-3-27b-it:free')
+  verifierFallbackModels: (process.env.VERIFIER_FALLBACK_MODELS ?? '')
     .split(',').map((m) => m.trim()).filter(Boolean),
 };

@@ -299,27 +299,20 @@ ProofStream never custodies it.
 
 ### Bring your own model provider
 
-Nothing here is tied to a particular LLM vendor. Both judges call
-`POST {LLM_BASE_URL}/chat/completions`, so any OpenAI-compatible endpoint works — run it
-against a local model and no inference leaves your machine:
+Nothing here is tied to a particular vendor, and this repository does not choose
+one for you. Both judges call `POST {LLM_BASE_URL}/chat/completions`, so any endpoint
+serving that shape works, including one on your own machine — point it there and no
+inference leaves it.
 
-```bash
-LLM_BASE_URL=http://localhost:11434/v1     # Ollama
-LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_BASE_URL=https://api.together.xyz/v1
-LLM_BASE_URL=https://api.openai.com/v1
-```
-
-`LLM_BASE_URL` defaults to OpenRouter and `LLM_API_KEY` falls back to
-`OPENROUTER_API_KEY`, so existing setups keep working untouched. Set `AGENT_MODEL` and
-`VERIFIER_MODEL` to slugs **that provider** serves — carrying over a model name that only
-exists on OpenRouter is the usual failure after switching. `pnpm preflight:agent` catches
+`LLM_BASE_URL`, `LLM_API_KEY`, `AGENT_MODEL` and `VERIFIER_MODEL` are all **required and
+have no defaults**. Set the models to slugs **that provider** serves; carrying over a name
+from somewhere else is the usual failure after switching. `pnpm preflight:agent` catches
 it: it sends a one-token completion, so it verifies the endpoint, the key and the model
 name together rather than just checking a key exists.
 
-The defaults are free models, deliberately. The whole system is provider-agnostic because
-the interesting claim is that *an agent exercises judgment*, not that a particular vendor
-does — and a reviewer should be able to reproduce that on their own hardware.
+There are no defaults, deliberately. The whole system is provider-agnostic because the
+interesting claim is that *an agent exercises judgment*, not that a particular vendor does,
+and a reviewer should be able to reproduce that on their own hardware.
 
 Two judges from the same model is not a second opinion, so keep `AGENT_MODEL` and
 `VERIFIER_MODEL` different. To split them across providers entirely, run the attestor and

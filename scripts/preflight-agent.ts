@@ -41,13 +41,14 @@ for (const name of requiredVars) {
   add(`env ${name}`, present, present ? 'set' : 'MISSING');
 }
 
-// LLM_API_KEY is the current name; OPENROUTER_API_KEY still works.
-const hasLlmKey = Boolean(process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY);
-if (!hasLlmKey) envOk = false;
+const hasLlmKey = Boolean(process.env.LLM_API_KEY);
+const hasLlmUrl = Boolean(process.env.LLM_BASE_URL);
+if (!hasLlmKey || !hasLlmUrl) envOk = false;
+add('env LLM_API_KEY', hasLlmKey, hasLlmKey ? 'set' : 'MISSING — set it');
 add(
-  'env LLM_API_KEY or OPENROUTER_API_KEY',
-  hasLlmKey,
-  hasLlmKey ? `via ${process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1'}` : 'MISSING — set one',
+  'env LLM_BASE_URL',
+  hasLlmUrl,
+  hasLlmUrl ? String(process.env.LLM_BASE_URL) : 'MISSING — no default, pick your provider',
 );
 
 // Either discovery mode is fine, but with neither the agent watches nothing.
@@ -310,12 +311,12 @@ for (const entry of served) {
   }
 }
 
-// A real (tiny) completion rather than OpenRouter's /key endpoint, which no
-// other provider serves. This proves three things at once that a key lookup
-// cannot: the endpoint is reachable, the key is accepted, and AGENT_MODEL
-// actually exists on that provider — the last being the usual failure when
-// someone points LLM_BASE_URL somewhere new and keeps a model slug that only
-// OpenRouter has.
+// A real (tiny) completion rather than a key-lookup endpoint, which is not
+// something every provider serves. This proves three things at once that a key
+// lookup cannot: the endpoint is reachable, the key is accepted, and
+// AGENT_MODEL actually exists there — the last being the usual failure when
+// someone points LLM_BASE_URL somewhere new and keeps a model slug the new
+// provider has never heard of.
 try {
   const res = await fetch(`${env.llmBaseUrl}/chat/completions`, {
     method: 'POST',
