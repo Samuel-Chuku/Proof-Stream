@@ -109,7 +109,7 @@ contract Deploy is Script {
             // No author allowlist from the terminal path: empty means any
             // author, which is how every stream behaved before CT-2.
             new string[](0),
-            WorkStream.Policy({maxTranche: t.maxTranche, dailyUnlockCap: t.dailyUnlockCap, payee: t.payee})
+            WorkStream.Policy({maxTranche: t.maxTranche, dailyUnlockCap: t.dailyUnlockCap, payee: t.payee, claimCap: 0, dailyClaimCap: 0})
         );
         vm.stopBroadcast();
 

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import { WORK_STREAM_ABI } from '@proofstream/config';
-import { type ContractFunctionName, createPublicClient, encodeFunctionData, http, parseAbiItem } from 'viem';
+import { createPublicClient, encodeFunctionData, http, parseAbi, parseAbiItem, type ContractFunctionName } from 'viem';
 import { arcTestnet } from 'viem/chains';
 import { env } from './env';
 import { pollUntilTerminal } from './poll';
@@ -61,6 +61,15 @@ export type StreamState = {
   paused: boolean;
   maxTranche: bigint;
   dailyUnlockCap: bigint;
+  /** Which generation of the contract this is. Decides the SHAPE of what we
+   *  sign and call: v3 attestations carry an earner and v3's `policy()` returns
+   *  five fields, and both change the ABI selector, so the wrong shape is not a
+   *  wrong value — it is a call that cannot be decoded at all. 1 for a stream
+   *  that predates `version()`. */
+  version: number;
+  /** True on a stream that names nobody: anyone's accepted work earns a share
+   *  and the attestation must say who. */
+  isPublic: boolean;
 };
 
 export type Attestation = {
@@ -72,7 +81,22 @@ export type Attestation = {
   confidenceBps: bigint;
   issuedAt: bigint;
   milestoneHash: `0x${string}`;
+  /** WHO EARNED IT, opaque to the contract: keccak256("github:<numeric id>").
+   *  Required on a v3 public stream, zero on a v3 named one, and ABSENT on v1/v2,
+   *  whose attestation has no such field. */
+  earnerId?: `0x${string}`;
 };
+
+/// The shapes that changed between v2 and v3, hand-written because the
+/// generated ABI describes only the current contract and the agent still has
+/// to speak to every stream that exists. Two functions: the getter whose return
+/// grew, and the certification whose tuple grew. Everything else is identical.
+const LEGACY_ABI = parseAbi([
+  'function policy() view returns (uint256 maxTranche, uint256 dailyUnlockCap, address payee)',
+  'function certify((uint256 nonce,uint256 certifiedBps,uint256 prNumber,string commitSha,uint256 confidenceBps,uint256 issuedAt,bytes32 milestoneHash) a, bytes signature)',
+]);
+
+const ZERO_EARNER = `0x${'0'.repeat(64)}` as const;
 
 const publicClient = createPublicClient({ chain: arcTestnet, transport: http(env.arcRpcUrl) });
 const circle = initiateDeveloperControlledWalletsClient({
@@ -176,7 +200,28 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
   const nonce = await read<bigint>('nonce');
   const accrued = await read<bigint>('accrued');
   const paused = await read<boolean>('paused');
-  const [maxTranche, dailyUnlockCap] = await read<[bigint, bigint, string]>('policy');
+  const version = await readVersion(read);
+
+  // `policy()` returns three fields before v3 and five from it, and viem cannot
+  // decode three words against a five-field ABI. Pick the ABI by version.
+  let maxTranche: bigint;
+  let dailyUnlockCap: bigint;
+  if (version >= 3) {
+    [maxTranche, dailyUnlockCap] = await read<[bigint, bigint, string, bigint, bigint]>('policy');
+  } else {
+    [maxTranche, dailyUnlockCap] = await withRetry(
+      () =>
+        publicClient.readContract({
+          address: streamAddress,
+          abi: LEGACY_ABI,
+          functionName: 'policy',
+        }) as Promise<[bigint, bigint, string]>,
+    );
+  }
+
+  const contributor = await read<string>('contributor');
+  const claimAuthority = version >= 2 ? await read<string>('claimAuthority') : '0x1';
+  const isPublic = version >= 3 && isZeroAddress(contributor) && isZeroAddress(claimAuthority);
 
   return {
     milestone,
@@ -196,7 +241,22 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
     paused,
     maxTranche,
     dailyUnlockCap,
+    version,
+    isPublic,
   };
+}
+
+const isZeroAddress = (a: string) => /^0x0{40}$/i.test(a);
+
+/// `version()` does not exist before v2, and reading a function a contract
+/// lacks reverts. Same shape as `readAuthors`: the honest answer for such a
+/// stream is the generation that predates the getter.
+async function readVersion(read: <T>(fn: ReadFn) => Promise<T>): Promise<number> {
+  try {
+    return Number(await read<bigint>('version'));
+  } catch {
+    return 1;
+  }
 }
 
 /// EIP-712 payload. Domain and field order must match WorkStream.sol exactly —
@@ -207,7 +267,7 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
 /// so a signature made against stream A is rejected by stream B — which is the
 /// point: it stops an attestation being replayed across a multi-tenant fleet.
 /// Hardcoding one address here would silently break every stream but that one.
-function typedData(streamAddress: `0x${string}`, a: Attestation) {
+function typedData(streamAddress: `0x${string}`, a: Attestation, version: number) {
   return {
     types: {
       EIP712Domain: [
@@ -224,6 +284,11 @@ function typedData(streamAddress: `0x${string}`, a: Attestation) {
         { name: 'confidenceBps', type: 'uint256' },
         { name: 'issuedAt', type: 'uint256' },
         { name: 'milestoneHash', type: 'bytes32' },
+        // v3 adds the earner. A v2 stream's typehash has no such field, and a
+        // signature over the wrong struct recovers to the wrong address, which
+        // the contract reports as WrongSigner — a misleading error for what is
+        // really a version mismatch. Decided here, once, by the stream itself.
+        ...(version >= 3 ? [{ name: 'earnerId', type: 'bytes32' }] : []),
       ],
     },
     primaryType: 'Attestation',
@@ -241,6 +306,7 @@ function typedData(streamAddress: `0x${string}`, a: Attestation) {
       confidenceBps: a.confidenceBps.toString(),
       issuedAt: a.issuedAt.toString(),
       milestoneHash: a.milestoneHash,
+      ...(version >= 3 ? { earnerId: a.earnerId ?? ZERO_EARNER } : {}),
     },
   };
 }
@@ -249,10 +315,11 @@ function typedData(streamAddress: `0x${string}`, a: Attestation) {
 export async function signAttestation(
   streamAddress: `0x${string}`,
   a: Attestation,
+  version: number,
 ): Promise<`0x${string}`> {
   const res = await circle.signTypedData({
     walletId: env.agentWalletId,
-    data: JSON.stringify(typedData(streamAddress, a)),
+    data: JSON.stringify(typedData(streamAddress, a, version)),
   });
   const signature = res.data?.signature;
   if (!signature) throw new Error('Circle returned no signature');
@@ -276,12 +343,34 @@ export async function sendCertification(
   streamAddress: `0x${string}`,
   a: Attestation,
   signature: `0x${string}`,
+  version: number,
 ): Promise<CertifyResult> {
-  const callData = encodeFunctionData({
-    abi: WORK_STREAM_ABI,
-    functionName: 'certify',
-    args: [a, signature],
-  });
+  // The tuple grew in v3, and a tuple's shape is part of the function selector,
+  // so this is not one call with an optional field: it is two different
+  // functions, and the current ABI can only name one of them.
+  const callData =
+    version >= 3
+      ? encodeFunctionData({
+          abi: WORK_STREAM_ABI,
+          functionName: 'certify',
+          args: [{ ...a, earnerId: a.earnerId ?? ZERO_EARNER }, signature],
+        })
+      : encodeFunctionData({
+          abi: LEGACY_ABI,
+          functionName: 'certify',
+          args: [
+            {
+              nonce: a.nonce,
+              certifiedBps: a.certifiedBps,
+              prNumber: a.prNumber,
+              commitSha: a.commitSha,
+              confidenceBps: a.confidenceBps,
+              issuedAt: a.issuedAt,
+              milestoneHash: a.milestoneHash,
+            },
+            signature,
+          ],
+        });
 
   const res = await circle.createContractExecutionTransaction({
     walletId: env.agentWalletId,

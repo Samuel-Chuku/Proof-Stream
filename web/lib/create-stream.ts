@@ -204,6 +204,11 @@ export function deployStream(terms: StreamTerms) {
         maxTranche: usdc(terms.maxTranche),
         dailyUnlockCap: usdc(terms.dailyUnlockCap),
         payee: terms.payee || ZERO_ADDRESS,
+        // Public-mode payout caps. Zero on a named or claimable stream, and the
+        // constructor REFUSES non-zero here on those, so this is not a default
+        // to tune: it is the field the public-mode form will fill in later.
+        claimCap: 0n,
+        dailyClaimCap: 0n,
       },
     ],
   } as const;

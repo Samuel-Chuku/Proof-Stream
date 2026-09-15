@@ -115,6 +115,11 @@ export async function processPr(pr: MergedPr): Promise<PipelineOutcome[]> {
 /// free and correct invalidation key.
 ///
 /// TWO SNAPSHOTS OF THE REPOSITORY, and the second one is what makes the check
+/// The contract's ceiling on `certifiedBps` (`BPS` in WorkStream.sol). A
+/// certification at or above this is the whole milestone, and `certifiedBps`
+/// only ever rises, so nothing can follow it.
+const FULL_BPS = 10_000n;
+
 /// usable. Generated tests over-specify — they assert requirements the milestone
 /// never stated — so a failure means nothing until it is measured against code
 /// already known to be acceptable. That reference is the branch as it stood
@@ -215,6 +220,30 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     }
   }
 
+  // A FULLY CERTIFIED MILESTONE CANNOT BE RAISED BY ANY VERDICT, so there is
+  // nothing to buy.
+  //
+  // `certifiedBps` is monotonic and the contract rejects anything above
+  // FULL_BPS, so at the ceiling every possible judgment — including a perfect
+  // one — is refused further down. This is the ONE refusal that needs no
+  // verdict to reach, which is what makes it worth taking early.
+  //
+  // Measured, not theorised: three reconciled merges against a stream already at
+  // 100% cost $0.0857, and the most expensive generated a fresh suite for a
+  // number that could not move. It recurs on every merge into a finished
+  // milestone that nobody has closed, and multiplies by the streams watching
+  // that repo.
+  if (stream.certifiedBps >= FULL_BPS) {
+    log({
+      event: 'skipped',
+      pr: pr.number,
+      workStream: streamAddress,
+      reason:
+        'the milestone is already certified in full — no verdict can raise it, so nothing was judged or bought',
+    });
+    return 'skipped';
+  }
+
   const diff = await fetchDiff(want.repo, pr.number);
 
   // DOES THE CODE DO WHAT THE MILESTONE ASKED, not merely contain something
@@ -222,12 +251,10 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // correctness.ts for why a failing test is evidence handed to the judge
   // rather than a payout gate of its own.
   //
-  // IT RUNS BEFORE THE GATES THAT COULD REFUSE, and that costs money. Its
-  // result is an input to the judgment, and the cheap gates below all need a
-  // verdict before they can decide — so a redelivered webhook on a stream that
-  // is already fully certified still pays for a check nothing will use. That is
-  // a known cost, not an oversight; `alreadyJudged` is what bounds it on the
-  // reconcile path.
+  // IT RUNS BEFORE THE GATES BELOW THAT COULD REFUSE, and that costs money.
+  // Those gates compare a verdict against what is already certified, so they
+  // cannot be reached without one. The ceiling check above is the exception and
+  // is taken first; everything remaining here genuinely needs the judgment.
   //
   // It never throws and it is never required: with the check off, or
   // unavailable, `judge` receives nothing and behaves exactly as it always has.
@@ -469,8 +496,8 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // Signed against THIS stream: the EIP-712 domain's verifyingContract is the
   // stream address, so a signature is only ever valid at the contract it was
   // made for.
-  const signature = await signAttestation(streamAddress, attestation);
-  const result = await sendCertification(streamAddress, attestation, signature);
+  const signature = await signAttestation(streamAddress, attestation, stream.version);
+  const result = await sendCertification(streamAddress, attestation, signature, stream.version);
   const outcome: PipelineOutcome = result.state === 'COMPLETE' ? 'unlocked' : 'unlock_failed';
 
   // COULD THE POLICY HAVE REFUSED THIS, OR DID WE NEVER GET AS FAR AS ASKING?

@@ -705,6 +705,84 @@ code {
   margin-top: var(--ps-1);
 }
 
+/* ---- Author allowlist ------------------------------------ */
+
+/* NOT GREEN, and it will be tempting. This decides whose merges the agent will
+   even look at, so it feels important — but green means USDC the agent has
+   released, and a list of usernames is not money. */
+.ps-allow-open {
+  width: 100%;
+  text-align: left;
+}
+
+/* The chosen names, on the form itself. A setting that silently withholds
+   somebody's pay must be readable without reopening the dialog. */
+.ps-allow-summary {
+  margin: var(--ps-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-allow-summary li {
+  padding: var(--ps-1) 0 var(--ps-1) var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+  position: relative;
+}
+
+.ps-allow-summary li::before {
+  content: '\2022';
+  position: absolute;
+  left: 0;
+  color: var(--ps-ink-faint);
+}
+
+/* Input and its button on one line, the button sized to its text. */
+.ps-allow-entry {
+  display: flex;
+  gap: var(--ps-2);
+}
+
+.ps-allow-entry .ps-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ps-allow-entry .ps-button {
+  flex: 0 0 auto;
+}
+
+/* THE PALETTE HAS NO RED, so a rejected name is stated in inverted ink rather
+   than coloured. It is the same treatment a policy revert gets, for the same
+   reason: it has to stop the reader without introducing a second accent. */
+.ps-allow-problem {
+  margin: 0;
+  padding: var(--ps-2);
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+}
+
+.ps-allow-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+}
+
+.ps-allow-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-2);
+  padding: var(--ps-2) 0;
+  border-bottom: var(--ps-bw-hair) dashed var(--ps-border);
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+}
+
 /* ---- Home ------------------------------------------------ */
 
 .ps-lede {

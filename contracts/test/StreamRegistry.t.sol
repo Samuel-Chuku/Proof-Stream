@@ -42,7 +42,7 @@ contract StreamRegistryTest is Test {
             // never certify the milestone in full and the remainder would refund
             // to the employer. These are fixtures for registry behaviour, so the
             // caps just need to be legal.
-            WorkStream.Policy({maxTranche: 40e6, dailyUnlockCap: 50e6, payee: payee})
+            WorkStream.Policy({maxTranche: 40e6, dailyUnlockCap: 50e6, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
     }
 
