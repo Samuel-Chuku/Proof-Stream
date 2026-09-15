@@ -124,17 +124,23 @@ add(
 /// none is green on plumbing but has nothing to do, so it is checked once.
 let liveStreams = 0;
 
-const ATTESTATION_TYPES = {
-  Attestation: [
-    { name: 'nonce', type: 'uint256' },
-    { name: 'certifiedBps', type: 'uint256' },
-    { name: 'prNumber', type: 'uint256' },
-    { name: 'commitSha', type: 'string' },
-    { name: 'confidenceBps', type: 'uint256' },
-    { name: 'issuedAt', type: 'uint256' },
-    { name: 'milestoneHash', type: 'bytes32' },
-  ],
-} as const;
+/// The struct the stream expects, BY VERSION. v3 added `earnerId`, and a
+/// signature over the wrong struct recovers to the wrong address — which this
+/// preflight would then report as the agent key being wrong, when the key is
+/// fine and the shape is not.
+const attestationTypes = (version: number) =>
+  ({
+    Attestation: [
+      { name: 'nonce', type: 'uint256' },
+      { name: 'certifiedBps', type: 'uint256' },
+      { name: 'prNumber', type: 'uint256' },
+      { name: 'commitSha', type: 'string' },
+      { name: 'confidenceBps', type: 'uint256' },
+      { name: 'issuedAt', type: 'uint256' },
+      { name: 'milestoneHash', type: 'bytes32' },
+      ...(version >= 3 ? [{ name: 'earnerId', type: 'bytes32' }] : []),
+    ],
+  }) as const;
 
 // Every served stream gets the full battery. The signature check is run PER
 // STREAM on purpose: each WorkStream builds its EIP-712 domain separator from
@@ -217,8 +223,9 @@ for (const entry of served) {
       confidenceBps: 10_000n,
       issuedAt: BigInt(Math.floor(Date.now() / 1000)),
       milestoneHash: stream.milestoneHash,
+      ...(stream.version >= 3 ? { earnerId: `0x${'0'.repeat(64)}` as `0x${string}` } : {}),
     };
-    const signature = await signAttestation(entry.stream, probe);
+    const signature = await signAttestation(entry.stream, probe, stream.version);
     const recovered = await recoverTypedDataAddress({
       domain: {
         name: 'ProofStream',
@@ -226,7 +233,7 @@ for (const entry of served) {
         chainId: arcTestnet.id,
         verifyingContract: entry.stream,
       },
-      types: ATTESTATION_TYPES,
+      types: attestationTypes(stream.version),
       primaryType: 'Attestation',
       message: probe,
       signature,
@@ -248,7 +255,7 @@ for (const entry of served) {
         chainId: arcTestnet.id,
         verifyingContract: '0x000000000000000000000000000000000000dEaD',
       },
-      types: ATTESTATION_TYPES,
+      types: attestationTypes(stream.version),
       primaryType: 'Attestation',
       message: probe,
       signature,

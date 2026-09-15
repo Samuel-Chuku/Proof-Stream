@@ -161,11 +161,39 @@ contract WorkStream {
         uint256 maxTranche; // ceiling on new entitlement per attestation
         uint256 dailyUnlockCap; // ceiling on new entitlement per UTC day
         address payee; // only address withdraw may pay
+        // PUBLIC MODE ONLY. Bound what one payout and one UTC day may move,
+        // mirroring the two above on certification. Zero on a named or
+        // claimable stream, and MUST be non-zero on a public one: that is what
+        // makes "nobody named" a deliberate choice rather than an omission.
+        uint256 claimCap;
+        uint256 dailyClaimCap;
     }
 
     Policy public policy;
     uint256 public dayBucket; // block.timestamp / 1 days of last certification
     uint256 public unlockedToday; // entitlement created in that day
+
+    // ------------------------------------------------------- public mode
+    //
+    // Two facts recorded at two times. WHO EARNED IT is written by certify()
+    // as a share of the milestone. WHO GETS PAID is written once by
+    // bindPayee(), later, when the earner chooses. Nothing below is reachable
+    // on a named or claimable stream.
+
+    /// milestone index -> earner -> bps of that milestone credited to them.
+    /// Sums to `cur.certifiedBps` while the milestone is open.
+    mapping(uint256 => mapping(bytes32 => uint256)) public creditBps;
+    /// milestone index -> earner -> USDC already paid out to them.
+    mapping(uint256 => mapping(bytes32 => uint256)) public paidTo;
+    /// earner -> the one address they may ever be paid to. Stream-wide: an
+    /// earner is a person, and their wallet does not change per milestone.
+    mapping(bytes32 => address) public payeeOf;
+    /// Snapshots at close. The next milestone overwrites `cur`, and a share is
+    /// a fraction of a total that has to keep existing.
+    mapping(uint256 => uint256) public closedTarget;
+    mapping(uint256 => uint256) public closedBps;
+    uint256 public claimDayBucket;
+    uint256 public claimedToday;
 
     // ---------------------------------------------------------------- consts
     //
@@ -202,8 +230,10 @@ contract WorkStream {
     uint256 public constant CLOSE_GRACE = 4 hours;
 
     bytes32 public constant ATTESTATION_TYPEHASH = keccak256(
-        "Attestation(uint256 nonce,uint256 certifiedBps,uint256 prNumber,string commitSha,uint256 confidenceBps,uint256 issuedAt,bytes32 milestoneHash)"
+        "Attestation(uint256 nonce,uint256 certifiedBps,uint256 prNumber,string commitSha,uint256 confidenceBps,uint256 issuedAt,bytes32 milestoneHash,bytes32 earnerId)"
     );
+    bytes32 public constant PAYEE_BINDING_TYPEHASH =
+        keccak256("PayeeBinding(bytes32 earnerId,address payee,uint256 deadline)");
     bytes32 public immutable DOMAIN_SEPARATOR;
 
     struct Attestation {
@@ -214,6 +244,10 @@ contract WorkStream {
         uint256 confidenceBps;
         uint256 issuedAt;
         bytes32 milestoneHash; // binds the verdict to the milestone judged
+        // WHO EARNED IT, opaque to the contract. The agent hashes a
+        // platform-namespaced identity ("github:12345") so nothing here knows
+        // or cares which platform. Zero on a named or claimable stream.
+        bytes32 earnerId;
     }
 
     // ---------------------------------------------------------------- events
@@ -240,6 +274,8 @@ contract WorkStream {
     event ClaimAuthoritySet(address indexed authority);
     event AuthorsSet(string[] authors);
     event PolicyRaised(uint256 maxTranche, uint256 dailyUnlockCap);
+    event PayeeBound(bytes32 indexed earnerId, address indexed payee);
+    event PaidOut(uint256 indexed milestone, bytes32 indexed earnerId, address indexed to, uint256 amount);
 
     // ---------------------------------------------------------------- errors
     error NotEmployer();
@@ -272,6 +308,15 @@ contract WorkStream {
     error BadClaimSignature();
     error NotClaimable();
     error StreamIsPaused();
+    error NoEarner();
+    error EarnerOnNamedStream();
+    error NotPublic();
+    error NotPayee();
+    error AlreadyBound();
+    error StaleBinding();
+    error BadCapPair();
+    error OverClaimCap();
+    error DailyClaimCapExceeded();
 
     constructor(
         IERC20 _usdc,
@@ -285,17 +330,27 @@ contract WorkStream {
         string[] memory _authors_,
         Policy memory _policy
     ) {
-        // EXACTLY ONE OF NAMED OR CLAIMABLE.
+        // EXACTLY ONE OF NAMED, CLAIMABLE OR PUBLIC.
         //
         // A named stream knows its contributor and its payee at deploy. A
         // claimable one knows neither, and binds both when someone presents a
-        // link. Allowing both would leave two answers to "who gets paid";
-        // allowing neither would leave a funded stream nobody could ever
-        // withdraw from.
+        // link. A public one names nobody: anyone's accepted work earns a
+        // share, and each earner binds their own payee later.
+        //
+        // Public is NOT "the other two left blank". It has to carry payout
+        // caps, so an employer who simply forgot to name anyone gets a revert
+        // rather than a stream open to the world.
         bool named = _contributor != address(0);
-        if (named == (_claimAuthority != address(0))) revert ZeroAddress();
+        bool claimable = _claimAuthority != address(0);
+        bool open = !named && !claimable;
+        if (named && claimable) revert ZeroAddress();
         if (_agent == address(0)) revert ZeroAddress();
         if (named != (_policy.payee != address(0))) revert ZeroAddress();
+        if (open) {
+            if (_policy.claimCap == 0 || _policy.dailyClaimCap < _policy.claimCap) revert BadCapPair();
+        } else {
+            if (_policy.claimCap != 0 || _policy.dailyClaimCap != 0) revert BadCapPair();
+        }
 
         // THE CAPS MAY THROTTLE THE RATE, NEVER MAKE THE TOTAL UNREACHABLE.
         //
@@ -368,7 +423,14 @@ contract WorkStream {
     ///      answer. This cannot be added to an already-deployed stream, so a
     ///      stream that does not answer is by definition version 1.
     function version() external pure returns (uint256) {
-        return 2;
+        return 3;
+    }
+
+    /// @notice A public stream names nobody at deploy. Recognised by the
+    ///         absence of both a contributor and a claim authority, which the
+    ///         constructor only permits alongside payout caps.
+    function isPublic() public view returns (bool) {
+        return contributor == address(0) && claimAuthority == address(0);
     }
 
     /// @notice What the agent judges work against.
@@ -508,7 +570,11 @@ contract WorkStream {
     ///      contributor a week of accrual for a delay they did not cause and
     ///      could not see.
     function _activateIfReady() internal {
-        if (cur.activatedAt != 0 || !fullyFunded() || contributor == address(0)) return;
+        // A claimable stream waits for someone to claim; there is nobody to pay
+        // until then. A public stream never has a single contributor, so it
+        // starts the moment it is funded: earners are recorded as they arrive.
+        if (cur.activatedAt != 0 || !fullyFunded()) return;
+        if (contributor == address(0) && !isPublic()) return;
         cur.activatedAt = uint64(block.timestamp);
         pausedSeconds = 0;
         emit MilestoneActivated(milestoneIndex, cur.activatedAt, cur.budget);
@@ -589,6 +655,10 @@ contract WorkStream {
 
         uint256 credited = target();
         settledCredit += credited;
+        // Freeze what a share is a fraction OF. The next milestone overwrites
+        // `cur`, and an earner who has not withdrawn yet must still be able to.
+        closedTarget[milestoneIndex] = credited;
+        closedBps[milestoneIndex] = cur.certifiedBps;
         cur.closed = true;
 
         // Everything not owed to the contributor goes home.
@@ -648,13 +718,25 @@ contract WorkStream {
                         keccak256(bytes(a.commitSha)),
                         a.confidenceBps,
                         a.issuedAt,
-                        a.milestoneHash
+                        a.milestoneHash,
+                        a.earnerId
                     )
                 )
             )
         );
         address signer = recover(digest, signature);
         if (signer != agent) revert WrongSigner();
+
+        // WHO EARNED IT. `a.certifiedBps` is still the new TOTAL for the
+        // milestone, so the ratchet, both caps, the ceiling and target() all
+        // keep working on the total untouched. The delta is what this earner
+        // is credited, and the sum over earners stays equal to the total.
+        if (isPublic()) {
+            if (a.earnerId == bytes32(0)) revert NoEarner();
+            creditBps[milestoneIndex][a.earnerId] += a.certifiedBps - cur.certifiedBps;
+        } else if (a.earnerId != bytes32(0)) {
+            revert EarnerOnNamedStream();
+        }
 
         nonce = a.nonce + 1;
         unlockedToday += added;
@@ -672,6 +754,87 @@ contract WorkStream {
         withdrawn += amount;
         if (!usdc.transfer(to, amount)) revert TransferFailed();
         emit Withdrawn(to, amount);
+    }
+
+    // ------------------------------------------------------- public mode
+
+    /// @notice An earner's slice of one milestone, metered PROPORTIONALLY.
+    /// @dev When the clock has released less than the total owed, every earner
+    ///      may take their fraction of what is released, pro rata to what they
+    ///      were credited. Nothing to race and nobody is punished for being
+    ///      asleep, which is why first-come was rejected.
+    ///
+    ///      Integer division leaves at most one unit per earner unassigned. It
+    ///      stays in the contract. Sub-cent, permanent, documented in SPEC-V3.
+    function earnerShare(uint256 m, bytes32 earnerId) public view returns (uint256) {
+        uint256 bps = creditBps[m][earnerId];
+        if (bps == 0) return 0;
+        if (m == milestoneIndex && !cur.closed) {
+            return (earned() * bps) / cur.certifiedBps;
+        }
+        return (closedTarget[m] * bps) / closedBps[m];
+    }
+
+    /// @notice What an earner may still take from one milestone.
+    function earnerWithdrawable(uint256 m, bytes32 earnerId) public view returns (uint256) {
+        return earnerShare(m, earnerId) - paidTo[m][earnerId];
+    }
+
+    /// @notice Choose, once and for ever, where an earner is paid.
+    /// @dev Three properties, each load-bearing:
+    ///      - `payee` is INSIDE the signed struct, so a signature lifted from
+    ///        the mempool authorises somebody else's address and is useless.
+    ///      - `msg.sender` must BE the payee, so a typo or a dead address can
+    ///        never be bound. That is the whole reason binding is safe to make
+    ///        permanent. Gas is sponsored, so a wallet-less earner can still
+    ///        be the sender.
+    ///      - Once per earner, and that is the replay guard: no nonce needed.
+    ///        `deadline` bounds how long an unused authorisation lives.
+    function bindPayee(bytes32 earnerId, address payee_, uint256 deadline, bytes calldata signature) external {
+        if (!isPublic()) revert NotPublic();
+        if (payee_ == address(0)) revert ZeroAddress();
+        if (msg.sender != payee_) revert NotPayee();
+        if (payeeOf[earnerId] != address(0)) revert AlreadyBound();
+        if (block.timestamp > deadline) revert StaleBinding();
+
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR,
+                keccak256(abi.encode(PAYEE_BINDING_TYPEHASH, earnerId, payee_, deadline))
+            )
+        );
+        if (recover(digest, signature) != agent) revert WrongSigner();
+
+        payeeOf[earnerId] = payee_;
+        emit PayeeBound(earnerId, payee_);
+    }
+
+    /// @notice Pay an earner their share of one milestone, to their bound payee.
+    /// @dev Capped per call and per UTC day, mirroring certify(). A compromised
+    ///      agent that binds itself to an unbound earner drains at this rate
+    ///      until the employer closes the milestone, which refunds the rest.
+    ///      Same shape as the bound on a compromised certifier.
+    function withdrawFor(uint256 m, bytes32 earnerId, uint256 amount) external {
+        if (!isPublic()) revert NotPublic();
+        address to = payeeOf[earnerId];
+        if (to == address(0) || msg.sender != to) revert NotPayee();
+        if (amount > earnerWithdrawable(m, earnerId)) revert ExceedsWithdrawable();
+        if (amount > policy.claimCap) revert OverClaimCap();
+
+        uint256 today = block.timestamp / 1 days;
+        if (today != claimDayBucket) {
+            claimDayBucket = today;
+            claimedToday = 0;
+        }
+        if (claimedToday + amount > policy.dailyClaimCap) revert DailyClaimCapExceeded();
+
+        claimedToday += amount;
+        paidTo[m][earnerId] += amount;
+        // The stream total too, so closeMilestone's refund arithmetic holds.
+        withdrawn += amount;
+        if (!usdc.transfer(to, amount)) revert TransferFailed();
+        emit PaidOut(m, earnerId, to, amount);
     }
 
     /// @notice Employer stops the clock (stop shipping → money pauses itself).

@@ -55,6 +55,8 @@ async function simulateDeploy(args: {
   maxTranche: bigint;
   dailyUnlockCap: bigint;
   payee: Address;
+  claimCap?: bigint;
+  dailyClaimCap?: bigint;
 }): Promise<string | null> {
   const data = encodeDeployData({
     abi: WORK_STREAM_ABI,
@@ -69,7 +71,13 @@ async function simulateDeploy(args: {
       args.duration,
       'owner/repo',
       [],
-      { maxTranche: args.maxTranche, dailyUnlockCap: args.dailyUnlockCap, payee: args.payee },
+      {
+        maxTranche: args.maxTranche,
+        dailyUnlockCap: args.dailyUnlockCap,
+        payee: args.payee,
+        claimCap: args.claimCap ?? 0n,
+        dailyClaimCap: args.dailyClaimCap ?? 0n,
+      },
     ],
   });
   try {
@@ -132,11 +140,29 @@ async function main() {
     both ? reason(both) : 'DEPLOYED — two answers to "who gets paid"',
   );
 
-  const neither = await simulateDeploy({ ...sound, contributor: NOBODY, payee: NOBODY });
+  // Naming nobody is PUBLIC MODE, and it has to be chosen: without payout caps
+  // it is indistinguishable from having forgotten, so the constructor refuses.
+  const forgot = await simulateDeploy({ ...sound, contributor: NOBODY, payee: NOBODY });
   add(
-    'CT-6 a stream cannot be neither',
-    neither === 'ZeroAddress',
-    neither ? reason(neither) : 'DEPLOYED — a funded stream nobody can withdraw from',
+    'v3 naming nobody WITHOUT caps is refused',
+    forgot === 'BadCapPair',
+    forgot ? reason(forgot) : 'DEPLOYED — an open stream by omission',
+  );
+
+  const open = await simulateDeploy({
+    ...sound,
+    contributor: NOBODY,
+    payee: NOBODY,
+    claimCap: BUDGET / 3n,
+    dailyClaimCap: BUDGET,
+  });
+  add('CONTROL — a public stream with caps deploys', open === null, open ? reason(open) : 'accepted');
+
+  const capsOnNamed = await simulateDeploy({ ...sound, claimCap: 1n, dailyClaimCap: 1n });
+  add(
+    'v3 a named stream may not carry payout caps',
+    capsOnNamed === 'BadCapPair',
+    capsOnNamed ? reason(capsOnNamed) : 'DEPLOYED — inert caps that mislead the reader',
   );
 
   const claimable = await simulateDeploy({

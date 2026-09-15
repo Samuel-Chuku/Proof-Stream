@@ -2,7 +2,7 @@
 // may ever be imported by a client component — the browser gets numbers, never
 // the transport.
 import { USDC_ADDRESS, WORK_STREAM_ABI } from '@proofstream/config';
-import { type ContractFunctionName, createPublicClient, erc20Abi, http } from 'viem';
+import { createPublicClient, erc20Abi, http, parseAbi, type ContractFunctionName } from 'viem';
 import { arcTestnet } from 'viem/chains';
 
 /// The names below are checked against the GENERATED ABI at compile time.
@@ -92,6 +92,12 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
   }
 }
 
+/// `policy()` as it was before v3. The generated ABI describes only the current
+/// contract, and this page has to render every stream that exists.
+const LEGACY_POLICY_ABI = parseAbi([
+  'function policy() view returns (uint256 maxTranche, uint256 dailyUnlockCap, address payee)',
+]);
+
 /// One stream's full state. The address is a parameter now that the app serves
 /// many streams; WORKSTREAM_ADDRESS remains the fallback so a single-stream
 /// deployment keeps working with no configuration change.
@@ -109,6 +115,17 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
     client.readContract({ address, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
 
   try {
+    // FIRST, AND ON ITS OWN. `version()` does not exist on a v1 stream, so the
+    // call reverts, and inside a multicall that revert takes every other read
+    // down with it. Asked separately, a revert is the answer. It has to come
+    // before the batch because it decides the SHAPE of one read in it:
+    // `policy()` returns three fields before v3 and five from it, and three
+    // words cannot be decoded against a five-field ABI.
+    const version = await client
+      .readContract({ address, abi: WORK_STREAM_ABI, functionName: 'version' as never })
+      .then((v) => Number(v))
+      .catch(() => 1);
+
     // Fired together on purpose — the multicall batcher turns them into one
     // request. Awaiting them one at a time is what made this page take 5s.
     const [
@@ -119,7 +136,11 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       nonce, agent,
     ] = await withRetry(() =>
       Promise.all([
-        read<[bigint, bigint, `0x${string}`]>('policy'),
+        version >= 3
+          ? read<[bigint, bigint, `0x${string}`, bigint, bigint]>('policy')
+          : (client.readContract({ address, abi: LEGACY_POLICY_ABI, functionName: 'policy' }) as Promise<
+              [bigint, bigint, `0x${string}`]
+            >),
         client.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [address] }),
         read<string>('milestone'),
         read<string>('repo'),
@@ -146,15 +167,6 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
         read<`0x${string}`>('agent'),
       ]),
     );
-
-    // DELIBERATELY NOT IN THE BATCH ABOVE. `version()` does not exist on a v1
-    // stream, so the call reverts — and inside a multicall that revert takes
-    // every other read down with it, turning "this is an older stream" into
-    // "this page is broken". Asked separately, a revert is the answer.
-    const version = await client
-      .readContract({ address, abi: WORK_STREAM_ABI, functionName: 'version' as never })
-      .then((v) => Number(v))
-      .catch(() => 1);
 
     const [maxTranche, dailyUnlockCap, payee] = policy;
 

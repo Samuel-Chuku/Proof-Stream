@@ -81,7 +81,7 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: maxTranche_, dailyUnlockCap: dailyCap_, payee: payee})
+            WorkStream.Policy({maxTranche: maxTranche_, dailyUnlockCap: dailyCap_, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
     }
 
@@ -102,7 +102,8 @@ contract WorkStreamTest is Test {
             commitSha: "deadbeefcafe",
             confidenceBps: 9_100,
             issuedAt: block.timestamp,
-            milestoneHash: s.milestoneHash()
+            milestoneHash: s.milestoneHash(),
+            earnerId: bytes32(0)
         });
     }
 
@@ -121,7 +122,8 @@ contract WorkStreamTest is Test {
                 keccak256(bytes(a.commitSha)),
                 a.confidenceBps,
                 a.issuedAt,
-                a.milestoneHash
+                a.milestoneHash,
+                a.earnerId
             )
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", s.DOMAIN_SEPARATOR(), structHash));
@@ -260,7 +262,7 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: BUDGET - 1, dailyUnlockCap: BUDGET, payee: payee})
+            WorkStream.Policy({maxTranche: BUDGET - 1, dailyUnlockCap: BUDGET, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
     }
 
@@ -282,7 +284,7 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 4_000e6, payee: payee})
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 4_000e6, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
     }
 
@@ -301,9 +303,9 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 5_000e6, payee: payee})
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: 5_000e6, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
-        (, uint256 daily,) = s.policy();
+        (, uint256 daily,,,) = s.policy();
         assertEq(daily, 5_000e6, "half the budget per day over two days is reachable");
     }
 
@@ -323,7 +325,7 @@ contract WorkStreamTest is Test {
             "acme/widgets",
             new string[](0),
             // 30% of the budget per attestation: the shape that took 67 of 97.
-            WorkStream.Policy({maxTranche: 3_000e6, dailyUnlockCap: BUDGET, payee: payee})
+            WorkStream.Policy({maxTranche: 3_000e6, dailyUnlockCap: BUDGET, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
     }
 
@@ -379,7 +381,7 @@ contract WorkStreamTest is Test {
 
         vm.prank(employer);
         s.raisePolicy(BUDGET + 1_000e6, 9_000e6);
-        (uint256 maxT, uint256 daily,) = s.policy();
+        (uint256 maxT, uint256 daily,,,) = s.policy();
         assertEq(maxT, BUDGET + 1_000e6);
         assertEq(daily, 9_000e6);
 
@@ -401,7 +403,7 @@ contract WorkStreamTest is Test {
     function test_RaisePolicyCannotChangeThePayee() public {
         vm.prank(employer);
         ws.raisePolicy(MAX_TRANCHE, DAILY_CAP);
-        (,, address p) = ws.policy();
+        (,, address p,,) = ws.policy();
         assertEq(p, payee, "payee is untouched by any policy change");
     }
 
@@ -788,7 +790,7 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0)})
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0), claimCap: 0, dailyClaimCap: 0})
         );
     }
 
@@ -820,7 +822,7 @@ contract WorkStreamTest is Test {
         s.claim(sig);
 
         assertEq(s.contributor(), alice);
-        (,, address paidTo) = s.policy();
+        (,, address paidTo,,) = s.policy();
         assertEq(paidTo, alice, "the claimant is the payee");
         assertTrue(s.activatedAt() != 0, "the clock starts at claim");
     }
@@ -946,9 +948,14 @@ contract WorkStreamTest is Test {
         s.closeMilestone();
     }
 
+    /// Naming nobody is no longer an error in itself: it is how a PUBLIC
+    /// stream is declared. What is refused is naming nobody AND setting no
+    /// payout caps, because that is indistinguishable from having forgotten,
+    /// and the difference between "forgot" and "open to the world" must not be
+    /// silent. Public-mode behaviour itself is tested in WorkStreamPublic.t.sol.
     function test_ConstructorRejectsAStreamThatIsNeitherNamedNorClaimable() public {
         vm.prank(employer);
-        vm.expectRevert(WorkStream.ZeroAddress.selector);
+        vm.expectRevert(WorkStream.BadCapPair.selector);
         new WorkStream(
             IERC20(address(usdc)),
             address(0),
@@ -959,7 +966,7 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0)})
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: address(0), claimCap: 0, dailyClaimCap: 0})
         );
     }
 
@@ -976,7 +983,7 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee})
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
     }
 
@@ -1063,13 +1070,13 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             oneAuthor("ada"),
-            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee})
+            WorkStream.Policy({maxTranche: BUDGET, dailyUnlockCap: BUDGET, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
         assertEq(s.authors()[0], "ada");
     }
 
     function test_VersionIdentifiesThisBytecode() public view {
-        assertEq(ws.version(), 2);
+        assertEq(ws.version(), 3);
     }
 
     function test_SetRepo_EmployerOnly() public {
@@ -1139,7 +1146,7 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: payee})
+            WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
     }
 
@@ -1157,7 +1164,7 @@ contract WorkStreamTest is Test {
             DURATION,
             "acme/widgets",
             new string[](0),
-            WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: address(0)})
+            WorkStream.Policy({maxTranche: MAX_TRANCHE, dailyUnlockCap: DAILY_CAP, payee: address(0), claimCap: 0, dailyClaimCap: 0})
         );
     }
 }

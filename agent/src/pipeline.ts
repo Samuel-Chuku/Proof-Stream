@@ -496,8 +496,8 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // Signed against THIS stream: the EIP-712 domain's verifyingContract is the
   // stream address, so a signature is only ever valid at the contract it was
   // made for.
-  const signature = await signAttestation(streamAddress, attestation);
-  const result = await sendCertification(streamAddress, attestation, signature);
+  const signature = await signAttestation(streamAddress, attestation, stream.version);
+  const result = await sendCertification(streamAddress, attestation, signature, stream.version);
   const outcome: PipelineOutcome = result.state === 'COMPLETE' ? 'unlocked' : 'unlock_failed';
 
   // COULD THE POLICY HAVE REFUSED THIS, OR DID WE NEVER GET AS FAR AS ASKING?
