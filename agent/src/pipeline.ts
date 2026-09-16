@@ -3,12 +3,12 @@
 // Duplicating these would let the demo and the product drift apart, and these
 // gates are the product.
 import { appendFileSync } from 'node:fs';
-import { authorIsAllowed, coAuthorLogins, formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
+import { allowedEarner, authorIsAllowed, coAuthorLogins, earnerId, formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
 import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
 import { evidenceImproved } from './adjudicate';
 import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
-import { fetchCommitMessages, fetchDiff, fetchSourceFiles, mergeParentSha, type MergedPr } from './github';
+import { fetchCommitMessages, fetchDiff, fetchSourceFiles, mergeParentSha, userId, type MergedPr } from './github';
 import { agentsDisagree, meterCertification, requiredConfidence } from './metering';
 import { buySecondOpinion } from './pay';
 import { lastEvidence } from './reconcile';
@@ -205,8 +205,9 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // pull request. The commit messages are fetched only when the stream names
   // authors AND the opener is not one of them, so the common path pays nothing
   // for it.
+  let coAuthors: string[] = [];
   if (!authorIsAllowed(stream.authors, pr.author)) {
-    const coAuthors = coAuthorLogins(await fetchCommitMessages(want.repo, pr.number));
+    coAuthors = coAuthorLogins(await fetchCommitMessages(want.repo, pr.number));
     if (!authorIsAllowed(stream.authors, pr.author, coAuthors)) {
       log({
         event: 'skipped',
@@ -218,6 +219,37 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
       });
       return 'skipped';
     }
+  }
+
+  // WHO IS CREDITED, decided before anything is bought.
+  //
+  // Only a public stream needs this; on a named one the field is zero and the
+  // contract refuses anything else. The earner is the first candidate the
+  // allowlist accepted — on a public stream with an allowlist that is the
+  // person whose presence let the merge through, and crediting the author
+  // instead could pay somebody the employer never allowed.
+  //
+  // The author's numeric id came with the event. A co-author only arrives as
+  // a login from a trailer, so that one case costs a lookup. Either way an
+  // earner we cannot resolve is a refusal, never a zero: the contract would
+  // reject the zero as NoEarner, but only after we had paid to judge.
+  let earner: `0x${string}` | undefined;
+  if (stream.isPublic) {
+    const login = allowedEarner(stream.authors, pr.author, coAuthors);
+    const id = login === undefined ? undefined : login === pr.author ? pr.authorId : await userId(login);
+    if (login === undefined || id === undefined) {
+      log({
+        event: 'skipped',
+        pr: pr.number,
+        workStream: streamAddress,
+        reason:
+          login === undefined
+            ? 'this is a public stream and no accepted author could be found to credit'
+            : `this is a public stream and ${login}'s GitHub id could not be resolved, so nobody can be credited`,
+      });
+      return 'skipped';
+    }
+    earner = earnerId('github', id);
   }
 
   // A FULLY CERTIFIED MILESTONE CANNOT BE RAISED BY ANY VERDICT, so there is
@@ -491,6 +523,9 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     confidenceBps: BigInt(Math.round(verdict.confidence * 10_000)),
     issuedAt: BigInt(Math.floor(Date.now() / 1000)),
     milestoneHash: stream.milestoneHash,
+    // Undefined on a named stream; chain.ts sends zero there and omits the
+    // field entirely on v1/v2, whose struct never had it.
+    earnerId: earner,
   };
 
   // Signed against THIS stream: the EIP-712 domain's verifyingContract is the

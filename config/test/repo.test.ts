@@ -152,3 +152,71 @@ test('the trailer is matched case-insensitively and across several commits', () 
 test('a commit with no trailer yields nothing', () => {
   assert.deepEqual(coAuthorLogins(['just a normal commit message']), []);
 });
+
+// --- who is credited, and under what name ------------------------------------
+//
+// On a public stream the earner is PAID. That inverts the safety property the
+// allowlist relied on: a Co-authored-by trailer is no longer only a way to make
+// someone else be paid. So the earner is the first candidate the allowlist
+// accepts — the person whose presence let the merge through — never simply the
+// author.
+
+import { allowedEarner, earnerId } from '../src/repo';
+
+test('with no allowlist the author is the earner', () => {
+  assert.equal(allowedEarner([], 'ada', ['bob']), 'ada');
+});
+
+test('an allowed author is the earner even when a co-author is also allowed', () => {
+  assert.equal(allowedEarner(['ada', 'bob'], 'ada', ['bob']), 'ada');
+});
+
+test('THE EARNER IS THE FIRST ALLOWED CANDIDATE, NOT THE AUTHOR', () => {
+  // The author is not on the list; the merge counted because Bob co-authored.
+  // Crediting Ada would pay somebody the employer never allowed.
+  assert.equal(allowedEarner(['bob'], 'ada', ['bob']), 'bob');
+});
+
+test('co-authors are tried in trailer order', () => {
+  assert.equal(allowedEarner(['carol', 'bob'], 'ada', ['bob', 'carol']), 'bob');
+});
+
+test('nobody allowed means nobody, never a fallback to the author', () => {
+  // The caller must refuse to certify. Sending the author here would credit
+  // exactly the person the allowlist excluded.
+  assert.equal(allowedEarner(['bob'], 'ada', ['carol']), undefined);
+});
+
+test('matching is case-insensitive, like the allowlist itself', () => {
+  assert.equal(allowedEarner(['Samuel-Chuku'], 'samuel-chuku'), 'samuel-chuku');
+});
+
+test('an unreadable author is skipped, not matched', () => {
+  assert.equal(allowedEarner(['bob'], undefined, ['bob']), 'bob');
+  assert.equal(allowedEarner([], undefined, []), undefined);
+});
+
+test('EARNER ID MATCHES THE CONTRACT BYTE FOR BYTE', () => {
+  // WorkStreamPublic.t.sol uses keccak256("github:1001") as ALICE. If this
+  // ever disagrees, every credit the agent writes lands under a key the earner
+  // page cannot find, with no error anywhere. Pinned against `cast keccak`.
+  assert.equal(
+    earnerId('github', 1001),
+    '0x15a2dae246512208989449537f1e3d3f6f2d8faa159c7c51df01a6d09efdd05e',
+  );
+});
+
+test('the numeric id and its bigint form hash identically', () => {
+  assert.equal(earnerId('github', 12345), earnerId('github', 12345n));
+});
+
+test('platforms are namespaced, so the same id on two platforms never collides', () => {
+  assert.notEqual(earnerId('github', 1), earnerId('gitlab', 1));
+});
+
+test('earnerId refuses what could not be an identity', () => {
+  assert.throws(() => earnerId('github', 0), /positive/);
+  assert.throws(() => earnerId('github', -5), /positive/);
+  assert.throws(() => earnerId('GitHub', 1), /bad platform/, 'the namespace is lowercase, once, forever');
+  assert.throws(() => earnerId('git hub', 1), /bad platform/);
+});

@@ -42,6 +42,7 @@
     "test:sandbox": "tsx --test agent/test/sandbox.test.ts",
     "test:correctness": "tsx --test agent/test/correctness.test.ts",
     "test:suite-cache": "tsx --test agent/test/suite-cache.test.ts",
+    "test:earner": "tsx --test agent/test/earner.test.ts",
     "test:ceiling": "tsx --test agent/test/ceiling.test.ts",
     "test:reconcile": "tsx --test agent/test/reconcile-judged.test.ts",
     "test:failover": "tsx --test agent/test/llm-failover.test.ts",
