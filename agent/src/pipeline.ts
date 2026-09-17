@@ -304,6 +304,11 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     title: pr.title,
     commitSha: pr.commitSha,
     milestone: stream.milestone,
+    // On a public stream the chain records only a hash of who earned it. The
+    // dashboard maps that hash back to a person through these two fields, and
+    // this row is the only place the pairing exists.
+    author: pr.author,
+    earnerId: earner,
     model,
     inferenceCostUsd: costUsd,
     // Logged whenever it ran, INCLUDING when it concluded nothing. A check that

@@ -37,6 +37,11 @@ export type AgentEvent = {
     reasoning: string;
     red_flags: string[];
   };
+  /** Who opened the pull request, and the opaque id the contract credited for
+   *  it on an open stream. Together they are the only place the hash the chain
+   *  stores is tied back to a person. */
+  author?: string;
+  earnerId?: `0x${string}`;
   /** What the correctness check found, when it ran. Absent means it was off or
    *  unavailable, which is the normal case and must render as nothing at all
    *  rather than as a failure. */

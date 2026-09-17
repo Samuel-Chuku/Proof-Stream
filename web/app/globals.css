@@ -705,6 +705,176 @@ code {
   margin-top: var(--ps-1);
 }
 
+/* ---- Earners: the ledger of shares on an open stream --------- */
+
+/* Set like the transaction feed, because it is the same kind of thing: rows
+   the eye runs down, not panels. Five columns — who | share | can take | paid |
+   to — with the flexible one on WHO, so a long login pushes nothing else.
+
+   ONE GRID FOR THE WHOLE TABLE. The header and every row are `display:
+   contents`, so all their cells sit in the same five tracks and a column is a
+   column from top to bottom. Rows as independent grids drifted: "40%" and
+   "2.5%" started at different x, and a ledger whose figures do not align is
+   not a ledger. Row chrome therefore lives on the cells. */
+.ps-earners {
+  display: grid;
+  grid-template-columns: 1fr max-content max-content max-content max-content;
+  border-top: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+/* Spacing as cell padding rather than a column gap, so the row rules run
+   unbroken across the table instead of breaking into dashes at every gap. */
+.ps-earners-head > span:not(:first-child),
+.ps-earners-row > span:not(:first-child) {
+  padding-left: var(--ps-3);
+}
+
+.ps-earners-head,
+.ps-earners-row {
+  display: contents;
+}
+
+.ps-earners-head > span,
+.ps-earners-row > span {
+  display: flex;
+  align-items: center;
+  padding: var(--ps-2) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-earners-head > span {
+  color: var(--ps-ink-dim);
+  min-height: 24px;
+}
+
+.ps-earners-row > span {
+  min-height: 40px;
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+}
+
+/* Figures sit under their headings: the money and share columns are right
+   aligned, so magnitudes line up on the decimal like a printed ledger. */
+.ps-earners-head > span:not(:first-child),
+.ps-earners-row > span:not(:first-child) {
+  justify-content: flex-end;
+}
+
+/* The last row closes the ledger with the same weight it opened. */
+.ps-earners-row:last-child > span {
+  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-earners-who {
+  color: var(--ps-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An earner the ledger has not named yet. The chain knows the hash; we have
+   not seen the judgment that paired it with a login. Dim, and honest about it. */
+.ps-earners-hash {
+  color: var(--ps-ink-faint);
+}
+
+.ps-earners-share {
+  color: var(--ps-ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Under 720 the ledger becomes a list. One column, left aligned, every figure
+   introduced by its column name in caption ink, and the name across the top
+   of each block. Right-aligned max-content cells in a two-column grid clipped
+   at the viewport edge, which is what this replaces. */
+@media (max-width: 720px) {
+  .ps-earners {
+    grid-template-columns: 1fr;
+  }
+  .ps-earners-head {
+    display: none;
+  }
+  .ps-earners-head > span:not(:first-child),
+  .ps-earners-row > span:not(:first-child) {
+    padding-left: 0;
+    justify-content: flex-start;
+  }
+  .ps-earners-row > span {
+    min-width: 0;
+    min-height: 28px;
+    padding: var(--ps-1) 0;
+    border-bottom: 0;
+    gap: var(--ps-2);
+  }
+  .ps-earners-row > span[data-col]::before {
+    content: attr(data-col);
+    font-size: var(--ps-size-label);
+    line-height: var(--ps-lh-label);
+    letter-spacing: var(--ps-track-label);
+    color: var(--ps-ink-dim);
+    min-width: 72px;
+  }
+  .ps-earners-row > .ps-earners-who {
+    padding-top: var(--ps-3);
+    white-space: normal;
+  }
+  .ps-earners-row > .ps-earners-to {
+    padding-bottom: var(--ps-3);
+    border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  }
+  .ps-earners-row:last-child > .ps-earners-to {
+    border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+  }
+}
+
+/* ---- Who gets paid: the mode switch ------------------------ */
+
+/* Two answers on one line, in the slot the wallet field used. The active one is
+   PRESSED: it sits flush on the page with no shadow, in inverted ink, the way a
+   key stays down. The other stands proud. That reads as a state, not a pair of
+   buttons — and none of it is green, because choosing a mode moves no money. */
+.ps-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-2);
+  margin-bottom: var(--ps-2);
+}
+
+.ps-mode-option {
+  padding: 12px;
+  text-align: center;
+}
+
+.ps-mode-on,
+.ps-mode-on:hover:not(:disabled) {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border-color: var(--ps-rule);
+  box-shadow: var(--ps-shadow-pressed);
+  transform: translate(2px, 2px);
+  cursor: default;
+}
+
+/* The two payout ceilings, side by side, where the wallet field would be. */
+.ps-mode-caps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-2);
+}
+
+.ps-mode-cap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-1);
+}
+
+@media (max-width: 480px) {
+  .ps-mode,
+  .ps-mode-caps {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---- Author allowlist ------------------------------------ */
 
 /* NOT GREEN, and it will be tempting. This decides whose merges the agent will

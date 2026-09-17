@@ -62,6 +62,7 @@ export default function NewStream() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const [terms, setTerms] = useState<StreamTerms>({
+    mode: 'named',
     contributor: '' as `0x${string}`,
     agent: AGENT_ADDRESS,
     milestone: '',
@@ -72,6 +73,10 @@ export default function NewStream() {
     authors: [],
     ...suggestedCaps(INITIAL_BUDGET),
     payee: '' as `0x${string}`,
+    // Open-stream payout caps. They mirror the budget the same way the
+    // certification caps do, and stop moving once edited by hand.
+    claimCap: suggestedCaps(INITIAL_BUDGET).maxTranche,
+    dailyClaimCap: suggestedCaps(INITIAL_BUDGET).dailyUnlockCap,
   });
 
   // The repo list only exists once GitHub is connected; a 401 here is the
@@ -229,6 +234,8 @@ export default function NewStream() {
       budget: value,
       maxTranche: touched.maxTranche ? t.maxTranche : caps.maxTranche,
       dailyUnlockCap: touched.dailyUnlockCap ? t.dailyUnlockCap : caps.dailyUnlockCap,
+      claimCap: touched.claimCap ? t.claimCap : caps.maxTranche,
+      dailyClaimCap: touched.dailyClaimCap ? t.dailyClaimCap : caps.dailyUnlockCap,
     }));
   }
 
@@ -354,21 +361,87 @@ export default function NewStream() {
       </div>
 
       <div className="ps-form">
+        {/* WHO THIS STREAM IS FOR. One line, two answers, and the fields under
+            it change with the answer. The default is the case every stream so
+            far has been, so a form filled exactly as before behaves exactly as
+            before. Not green: choosing a mode is not money moving. */}
         <Field
           label="WHO GETS PAID"
-          caption="The contributor's wallet. Only this address can trigger a withdrawal."
+          caption={
+            terms.mode === 'named'
+              ? "The contributor's wallet. Only this address can trigger a withdrawal."
+              : 'Nobody is named. Anyone whose merge the agent accepts earns a share, and chooses where it is paid later.'
+          }
         >
-          <input
-            className="ps-input"
-            value={terms.contributor}
-            placeholder="[ 0x… ]"
-            onChange={(e) => setContributor(e.target.value as `0x${string}`)}
-          />
+          <div className="ps-mode" role="radiogroup" aria-label="Who gets paid">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={terms.mode === 'named'}
+              className={`ps-button ps-mode-option${terms.mode === 'named' ? ' ps-mode-on' : ''}`}
+              onClick={() => set('mode', 'named')}
+            >
+              [ ONE PERSON ]
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={terms.mode === 'open'}
+              className={`ps-button ps-mode-option${terms.mode === 'open' ? ' ps-mode-on' : ''}`}
+              onClick={() => set('mode', 'open')}
+            >
+              [ ANYONE WHO SHIPS ]
+            </button>
+          </div>
+
+          {terms.mode === 'named' ? (
+            <input
+              className="ps-input"
+              value={terms.contributor}
+              placeholder="[ 0x… ]"
+              aria-label="Contributor wallet"
+              onChange={(e) => setContributor(e.target.value as `0x${string}`)}
+            />
+          ) : (
+            // The two payout ceilings, side by side, in the space the wallet
+            // field would have used. They default to the budget so nothing
+            // throttles an earner unless the employer decides it should.
+            <div className="ps-mode-caps">
+              <label className="ps-mode-cap">
+                <span className="ps-caption">PER WITHDRAWAL</span>
+                <input
+                  className="ps-input ps-num"
+                  value={terms.claimCap ?? ''}
+                  inputMode="decimal"
+                  onChange={(e) => {
+                    edit('claimCap');
+                    set('claimCap', e.target.value);
+                  }}
+                />
+              </label>
+              <label className="ps-mode-cap">
+                <span className="ps-caption">PER DAY</span>
+                <input
+                  className="ps-input ps-num"
+                  value={terms.dailyClaimCap ?? ''}
+                  inputMode="decimal"
+                  onChange={(e) => {
+                    edit('dailyClaimCap');
+                    set('dailyClaimCap', e.target.value);
+                  }}
+                />
+              </label>
+            </div>
+          )}
         </Field>
 
         <Field
-          label="WHOSE MERGES COUNT"
-          caption="Optional. Empty means any author's merges are judged."
+          label={terms.mode === 'named' ? 'WHOSE MERGES COUNT' : 'WHO MAY EARN'}
+          caption={
+            terms.mode === 'named'
+              ? "Optional. Empty means any author's merges are judged."
+              : 'Optional. Empty means anyone. Named accounts are the only ones whose merges earn a share.'
+          }
         >
           <AuthorAllowlist
             authors={terms.authors ?? []}
@@ -447,6 +520,10 @@ export default function NewStream() {
         </Field>
       </div>
 
+      {/* A payout address belongs to a named stream. On an open one each
+          earner binds their own, so the field would be asking a question the
+          contract cannot use the answer to. */}
+      {terms.mode === 'named' && (
       <details className="ps-advanced">
         <summary className="ps-label">ADVANCED — PAYOUT ADDRESS ▾</summary>
         <div className="ps-form">
@@ -467,6 +544,7 @@ export default function NewStream() {
 
         </div>
       </details>
+      )}
 
       <Field
         lead
