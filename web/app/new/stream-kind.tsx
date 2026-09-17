@@ -76,12 +76,15 @@ export function KindGate({ onChoose }: { onChoose: (m: StreamMode) => void }) {
               onClick={() => !disabled && onChoose(k.mode as StreamMode)}
             >
               <span className="ps-gatekind-head">
+                <KindMark kind={k.mode} />
                 <span className="ps-label">{k.name}</span>
                 {k.soon && <span className="ps-kind-soon">SOON</span>}
               </span>
-              <span className="ps-body ps-gatekind-what">{k.what}</span>
-              <span className="ps-caption ps-gatekind-cta">
-                {disabled ? k.soon : '[ CHOOSE THIS ]'}
+              <span className="ps-gatekind-body">
+                <span className="ps-body ps-gatekind-what">{k.what}</span>
+                <span className="ps-caption ps-gatekind-cta">
+                  {disabled ? k.soon : '[ CHOOSE THIS ]'}
+                </span>
               </span>
             </button>
           );
@@ -96,11 +99,61 @@ export function KindLine({ mode, onChange }: { mode: StreamMode; onChange: () =>
   const k = KINDS.find((x) => x.mode === mode) ?? KINDS[0];
   return (
     <div className="ps-kindline">
+      <KindMark kind={mode} size={16} />
       <span className="ps-label">{k.name}</span>
       <span className="ps-caption ps-kindline-short">{k.short}</span>
       <button type="button" className="ps-chip" onClick={onChange}>
         [ CHANGE ]
       </button>
     </div>
+  );
+}
+
+/// ONE MARK PER KIND, drawn rather than imported.
+///
+/// No icon package: their rounded strokes read as a different app bolted on.
+/// Each is a 6x6 grid of 4px cells in a 24px box, `crispEdges` so nothing
+/// anti-aliases off the pixel grid, in `currentColor` so it inverts with the
+/// panel it sits in. Three pictures a person reads before the label:
+///
+///   named      one figure, head and shoulders
+///   public     three figures side by side
+///   claimable  a key, because the stream is opened with something you hold
+function KindMark({ kind, size = 24 }: { kind: StreamMode | 'claimable'; size?: number }) {
+  const cells: [number, number, number, number][] =
+    kind === 'named'
+      ? [
+          [8, 0, 8, 8], // head
+          [4, 12, 16, 12], // shoulders and body
+        ]
+      : kind === 'public'
+        ? [
+            [2, 4, 4, 4], // three heads, centred in the box
+            [10, 4, 4, 4],
+            [18, 4, 4, 4],
+            [2, 12, 20, 12], // one body they share: a group, not a queue
+          ]
+        : [
+            [4, 0, 12, 4], // ring, top
+            [4, 4, 4, 4], // ring, left
+            [12, 4, 4, 4], // ring, right
+            [4, 8, 12, 4], // ring, bottom
+            [8, 12, 4, 12], // shaft
+            [12, 16, 4, 4], // tooth
+          ];
+  return (
+    <svg
+      className="ps-kind-mark"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {cells.map(([x, y, w, h], i) => (
+        <rect key={i} x={x} y={y} width={w} height={h} fill="currentColor" />
+      ))}
+    </svg>
   );
 }

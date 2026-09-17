@@ -850,8 +850,7 @@ code {
 .ps-gatekind-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--ps-3);
-  padding: var(--ps-4);
+  padding: 0;
   text-align: left;
   font: inherit;
   background: var(--ps-surface);
@@ -862,8 +861,25 @@ code {
   cursor: pointer;
 }
 
+/* BOLD ON HOVER: the whole panel inverts, band and body alike, with the
+   green-deep ring every button gets. A border change alone read as nothing
+   at three panels wide. Inverted ink is the system's one strong fill that
+   is not money. */
 .ps-gatekind-panel:hover:not(:disabled) {
   border-color: var(--ps-green-deep);
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+}
+
+.ps-gatekind-panel:hover:not(:disabled) .ps-gatekind-head {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border-bottom-color: var(--ps-invert-ink);
+}
+
+.ps-gatekind-panel:hover:not(:disabled) .ps-gatekind-what,
+.ps-gatekind-panel:hover:not(:disabled) .ps-gatekind-cta {
+  color: var(--ps-invert-ink);
 }
 
 /* The panel physically lands on the page, like every button. */
@@ -879,11 +895,39 @@ code {
   cursor: not-allowed;
 }
 
+/* THE BAND. A sunk well across the top of each panel carrying the mark and
+   the name, closed by a structural rule. It is what makes three panels three
+   different things at a glance, before any sentence is read. */
 .ps-gatekind-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--ps-2);
+  gap: var(--ps-3);
+  padding: var(--ps-3) var(--ps-4);
+  background: var(--ps-sunk);
+  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-gatekind-head > .ps-label {
+  flex: 1;
+}
+
+.ps-gatekind-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-3);
+  flex: 1;
+  padding: var(--ps-4);
+}
+
+.ps-gatekind-panel:disabled .ps-gatekind-head {
+  color: var(--ps-ink-faint);
+  border-bottom-color: var(--ps-ink-faint);
+}
+
+/* The mark inherits the ink around it, so it inverts and dims with it. */
+.ps-kind-mark {
+  flex: none;
+  display: block;
 }
 
 .ps-gatekind-what {
@@ -923,21 +967,53 @@ code {
 
 /* ---- The chosen kind, one line at the top of the form ---------- */
 
+/* THE KEY STAYS PRESSED. The panel chosen at the gate carries on as one
+   inverted band across the top of the form, mark and name in inverted ink,
+   so what kind of stream this is stays readable from anywhere on the page.
+   Inverted, not green: green is money the agent released, and choosing a kind
+   released nothing. */
 .ps-kindline {
   display: flex;
   align-items: center;
   gap: var(--ps-3);
-  padding: var(--ps-2) 0;
-  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+  padding: var(--ps-3) var(--ps-4);
+  margin-bottom: var(--ps-2);
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+}
+
+.ps-kindline > .ps-label {
+  color: var(--ps-invert-ink);
 }
 
 .ps-kindline-short {
   flex: 1;
+  color: var(--ps-invert-ink);
+  opacity: 0.72;
   text-transform: none;
   letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The way back, in the band's own ink so it does not read as a second panel. */
+.ps-kindline > .ps-chip {
+  color: var(--ps-invert-ink);
+  border-color: var(--ps-invert-ink);
+  background: transparent;
+}
+
+@media (max-width: 720px) {
+  .ps-kindline {
+    flex-wrap: wrap;
+  }
+  .ps-kindline-short {
+    flex-basis: 100%;
+    white-space: normal;
+  }
 }
 
 /* ---- Steps that fold ---------------------------------------- */
