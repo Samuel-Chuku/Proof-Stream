@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AuthorAllowlist } from './author-allowlist';
-import { StreamKind } from './stream-kind';
+import { KindGate, KindLine } from './stream-kind';
+import { isAddress } from 'viem';
 import { useAccount, useConfig, useDeployContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { AGENT_ADDRESS, EXPLORER } from '../../lib/chain';
@@ -61,6 +62,24 @@ export default function NewStream() {
   // Edited-by-hand flags: these fields mirror another until the user disagrees,
   // and must then stop moving under them.
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // THE GATE. Nothing below the masthead renders until a kind is chosen, and
+  // "change" sends you back here without losing anything typed.
+  const [chosen, setChosen] = useState(false);
+
+  // WHICH STEPS ARE OPEN. Only the first on arrival. Satisfying a step opens
+  // the next one once, and after that the page never fights the reader: they
+  // open and close whatever they like. `revealed` remembers which steps have
+  // had their one automatic opening, so collapsing a step stays collapsed.
+  const [openSteps, setOpenSteps] = useState<Set<number>>(() => new Set([1]));
+  const [revealed, setRevealed] = useState<Set<number>>(() => new Set([1]));
+  const toggleStep = (n: number) =>
+    setOpenSteps((o) => {
+      const next = new Set(o);
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      return next;
+    });
 
   const [terms, setTerms] = useState<StreamTerms>({
     mode: 'named',
@@ -159,6 +178,40 @@ export default function NewStream() {
 
   const problems = validate({ ...terms, durationSeconds });
   const notes = advisories({ ...terms, durationSeconds });
+
+  // WHEN A STEP IS DONE, for the check mark in its header. Each is the plain
+  // condition, not a search through `problems` for a matching sentence: a
+  // check mark means "nothing in this step is blocking", and that has to stay
+  // true if the wording of a problem ever changes.
+  const capsOk = (per: string | undefined, day: string | undefined) => {
+    const a = Number(per) || 0;
+    const b = Number(day) || 0;
+    return a > 0 && b >= a;
+  };
+  const stepDone: Record<number, boolean> = {
+    1: isConnected,
+    2: terms.repo !== '' && terms.branch !== '',
+    3:
+      terms.mode === 'public'
+        ? capsOk(terms.claimCap, terms.dailyClaimCap)
+        : isAddress(terms.contributor) && isAddress(terms.payee),
+    4:
+      (Number(terms.budget) || 0) > 0 &&
+      durationSeconds > 0 &&
+      terms.milestone.trim() !== '' &&
+      capsOk(terms.maxTranche, terms.dailyUnlockCap),
+  };
+
+  // Open the step after a newly satisfied one, once.
+  useEffect(() => {
+    for (const n of [1, 2, 3]) {
+      if (stepDone[n] && !revealed.has(n + 1)) {
+        setRevealed((r) => new Set(r).add(n + 1));
+        setOpenSteps((o) => new Set(o).add(n + 1));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepDone[1], stepDone[2], stepDone[3]]);
   const ready = isConnected && problems.length === 0 && terms.repo !== '' && terms.branch !== '';
 
   async function run() {
@@ -251,11 +304,18 @@ export default function NewStream() {
         </div>
       </header>
 
-      <StreamKind mode={terms.mode} onChange={(mode) => set('mode', mode)} />
+      {!chosen ? (
+        <KindGate
+          onChoose={(mode) => {
+            set('mode', mode);
+            setChosen(true);
+          }}
+        />
+      ) : (
+        <>
+      <KindLine mode={terms.mode} onChange={() => setChosen(false)} />
 
-      <div className="ps-section-rule">
-        <span className="ps-label">1 · YOUR WALLET</span>
-      </div>
+      <Step n={1} title="YOUR WALLET" done={stepDone[1]} open={openSteps.has(1)} onToggle={() => toggleStep(1)}>
       <Connect />
       {address && (
         <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
@@ -263,9 +323,9 @@ export default function NewStream() {
         </p>
       )}
 
-      <div className="ps-section-rule">
-        <span className="ps-label">2 · THE REPOSITORY</span>
-      </div>
+      </Step>
+
+      <Step n={2} title="THE REPOSITORY" done={stepDone[2]} open={openSteps.has(2)} onToggle={() => toggleStep(2)}>
       {repos === null ? (
         <p className="ps-caption">LOADING…</p>
       ) : repos.length === 0 ? (
@@ -359,10 +419,15 @@ export default function NewStream() {
         </>
       )}
 
-      <div className="ps-section-rule">
-        <span className="ps-label">3 · WHO GETS PAID</span>
-      </div>
+      </Step>
 
+      <Step
+        n={3}
+        title={terms.mode === 'public' ? 'PAYOUT RULES' : 'WHO GETS PAID'}
+        done={stepDone[3]}
+        open={openSteps.has(3)}
+        onToggle={() => toggleStep(3)}
+      >
       <div className="ps-form">
         {terms.mode === 'named' ? (
           <Field
@@ -429,10 +494,9 @@ export default function NewStream() {
         </Field>
       </div>
 
-      <div className="ps-section-rule">
-        <span className="ps-label">4 · THE TERMS</span>
-      </div>
+      </Step>
 
+      <Step n={4} title="THE TERMS" done={stepDone[4]} open={openSteps.has(4)} onToggle={() => toggleStep(4)}>
       <div className="ps-form">
         <Field
           label="MILESTONE BUDGET"
@@ -545,6 +609,8 @@ export default function NewStream() {
         />
       </Field>
 
+      </Step>
+
       <div className="ps-section-rule">
         <span className="ps-label">5 · CREATE IT</span>
       </div>
@@ -634,7 +700,52 @@ export default function NewStream() {
           FUNDED AND ACCRUING — THE AGENT WILL JUDGE THE NEXT PULL REQUEST MERGED INTO {terms.branch} ON {terms.repo}
         </p>
       )}
+        </>
+      )}
     </main>
+  );
+}
+
+/// One numbered step, openable and closable at will, with a check mark once
+/// nothing in it is blocking. The header is the section rule the page already
+/// used, so a closed step reads as the same ledger line it always was, with a
+/// mark. The body is a plain block: no shadow, no panel, the fields as before.
+function Step({
+  n,
+  title,
+  done,
+  open,
+  onToggle,
+  children,
+}: {
+  n: number;
+  title: string;
+  done: boolean;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <details
+      className={`ps-step-fold${done ? ' ps-step-fold-done' : ''}`}
+      open={open}
+      onToggle={(e) => {
+        // Only act on a real change, so the controlled `open` and the DOM stay
+        // agreed and a re-render does not re-fire the handler.
+        if ((e.currentTarget as HTMLDetailsElement).open !== open) onToggle();
+      }}
+    >
+      <summary className="ps-section-rule ps-step-fold-head">
+        <span className="ps-label">
+          {n} · {title}
+        </span>
+        <span className="ps-step-fold-state ps-label" aria-hidden>
+          {done ? '✓' : ''}
+          <span className="ps-step-fold-caret">{open ? '▾' : '▸'}</span>
+        </span>
+      </summary>
+      <div className="ps-step-fold-body">{children}</div>
+    </details>
   );
 }
 

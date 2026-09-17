@@ -827,56 +827,86 @@ code {
   }
 }
 
-/* ---- What kind of stream: the picker above the steps ----------- */
+/* ---- What kind of stream: the gate ----------------------------- */
 
-/* Three buttons in a row, named for what the contract calls them, and one
-   paragraph beneath that swaps with the pressed one. It sits above the
-   numbered steps because it is the decision every step depends on.
+/* Three panels, whole meaning on each, choose one to continue. Panels rather
+   than buttons because this is the one moment that wants all three paragraphs
+   visible at once, side by side, to be compared. Each is the raised surface
+   the funding gate uses, and hover borders in green-deep like every button,
+   which is a ring and not a fill. Nothing here is green as a fill: choosing a
+   kind moves no money. */
+.ps-gatekind-lede {
+  margin: 0 0 var(--ps-4);
+  color: var(--ps-ink-dim);
+}
 
-   The pressed kind is inverted ink and sits flat with no shadow, like a key
-   held down; the others stand proud. Not green: choosing a kind moves no
-   money. */
-.ps-kind {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ps-3);
+.ps-gatekind-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ps-4);
   margin-bottom: var(--ps-6);
 }
 
-.ps-kind-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+.ps-gatekind-panel {
+  display: flex;
+  flex-direction: column;
   gap: var(--ps-3);
+  padding: var(--ps-4);
+  text-align: left;
+  font: inherit;
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+  box-shadow: var(--ps-shadow-2);
+  cursor: pointer;
 }
 
-.ps-kind-option {
+.ps-gatekind-panel:hover:not(:disabled) {
+  border-color: var(--ps-green-deep);
+}
+
+/* The panel physically lands on the page, like every button. */
+.ps-gatekind-panel:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: var(--ps-shadow-pressed);
+}
+
+.ps-gatekind-panel:disabled {
+  color: var(--ps-ink-faint);
+  border-color: var(--ps-ink-faint);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.ps-gatekind-head {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: var(--ps-2);
-  padding: 16px 12px;
-  text-align: center;
-  white-space: nowrap;
 }
 
-.ps-kind-on,
-.ps-kind-on:hover:not(:disabled) {
-  background: var(--ps-invert-bg);
-  color: var(--ps-invert-ink);
-  border-color: var(--ps-rule);
-  box-shadow: var(--ps-shadow-pressed);
-  transform: translate(2px, 2px);
-  cursor: default;
+.ps-gatekind-what {
+  margin: 0;
+  flex: 1;
 }
 
-/* The radio mark inherits the row's ink, so it inverts with it. */
-.ps-kind-mark {
-  font-size: var(--ps-size-data-m);
-  line-height: 1;
+.ps-gatekind-panel:disabled .ps-gatekind-what {
+  color: var(--ps-ink-faint);
 }
 
-/* A kind the contract supports and the app cannot yet offer. Shown and
-   named, dimmed, not pressable. */
+/* The call to action reads as the button's own label, at the foot. */
+.ps-gatekind-cta {
+  color: var(--ps-ink);
+}
+
+.ps-gatekind-panel:disabled .ps-gatekind-cta {
+  color: var(--ps-ink-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* A kind the contract supports and the app cannot yet offer. */
 .ps-kind-soon {
   font-size: var(--ps-size-label);
   letter-spacing: var(--ps-track-label);
@@ -885,25 +915,72 @@ code {
   border-radius: var(--ps-r-1);
 }
 
-/* What the pressed kind means. A quiet callout with a structural left rule,
-   the same shape the sandbox panel uses for "here is what happened". */
-.ps-kind-what {
-  margin: 0;
-  padding: var(--ps-3) var(--ps-4);
-  border: var(--ps-bw-hair) solid var(--ps-border);
-  border-left: var(--ps-bw-struct) solid var(--ps-ink-dim);
-  background: var(--ps-sunk);
-  min-height: 64px;
-}
-
 @media (max-width: 720px) {
-  .ps-kind-row {
+  .ps-gatekind-row {
     grid-template-columns: 1fr;
   }
-  .ps-kind-option {
-    justify-content: flex-start;
-    white-space: normal;
-  }
+}
+
+/* ---- The chosen kind, one line at the top of the form ---------- */
+
+.ps-kindline {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-3);
+  padding: var(--ps-2) 0;
+  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-kindline-short {
+  flex: 1;
+  text-transform: none;
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Steps that fold ---------------------------------------- */
+
+/* Each numbered step opens and closes at will. The header IS the section rule
+   the page always used, so a closed step is the same ledger line with a mark
+   at its end: a check once nothing in it is blocking, and a caret saying which
+   way it will go. The body is the fields exactly as before, no panel. */
+.ps-step-fold > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.ps-step-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The mark sits AFTER the dashed line. The rule's ::after is the line and is
+   last in source order; `order` moves the mark past it to the right edge. */
+.ps-step-fold-state {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-2);
+  color: var(--ps-ink-dim);
+}
+
+.ps-step-fold-done .ps-step-fold-state {
+  color: var(--ps-ink);
+}
+
+.ps-step-fold-caret {
+  color: var(--ps-ink-dim);
+}
+
+/* A closed step keeps the rule's bottom margin so the next line does not
+   crowd it; an open one lets its body provide the spacing. */
+.ps-step-fold[open] > summary {
+  margin-bottom: var(--ps-4);
+}
+
+.ps-step-fold-body {
+  margin-bottom: var(--ps-2);
 }
 
 /* The two payout ceilings, side by side, in one field. */
