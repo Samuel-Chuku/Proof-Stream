@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AuthorAllowlist } from './author-allowlist';
+import { StreamKind } from './stream-kind';
 import { useAccount, useConfig, useDeployContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { AGENT_ADDRESS, EXPLORER } from '../../lib/chain';
@@ -250,6 +251,8 @@ export default function NewStream() {
         </div>
       </header>
 
+      <StreamKind mode={terms.mode} onChange={(mode) => set('mode', mode)} />
+
       <div className="ps-section-rule">
         <span className="ps-label">1 · YOUR WALLET</span>
       </div>
@@ -357,44 +360,15 @@ export default function NewStream() {
       )}
 
       <div className="ps-section-rule">
-        <span className="ps-label">3 · THE TERMS</span>
+        <span className="ps-label">3 · WHO GETS PAID</span>
       </div>
 
       <div className="ps-form">
-        {/* WHO THIS STREAM IS FOR. One line, two answers, and the fields under
-            it change with the answer. The default is the case every stream so
-            far has been, so a form filled exactly as before behaves exactly as
-            before. Not green: choosing a mode is not money moving. */}
-        <Field
-          label="WHO GETS PAID"
-          caption={
-            terms.mode === 'named'
-              ? "The contributor's wallet. Only this address can trigger a withdrawal."
-              : 'Nobody is named. Anyone whose merge the agent accepts earns a share, and chooses where it is paid later.'
-          }
-        >
-          <div className="ps-mode" role="radiogroup" aria-label="Who gets paid">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={terms.mode === 'named'}
-              className={`ps-button ps-mode-option${terms.mode === 'named' ? ' ps-mode-on' : ''}`}
-              onClick={() => set('mode', 'named')}
-            >
-              [ ONE PERSON ]
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={terms.mode === 'open'}
-              className={`ps-button ps-mode-option${terms.mode === 'open' ? ' ps-mode-on' : ''}`}
-              onClick={() => set('mode', 'open')}
-            >
-              [ ANYONE WHO SHIPS ]
-            </button>
-          </div>
-
-          {terms.mode === 'named' ? (
+        {terms.mode === 'named' ? (
+          <Field
+            label="THEIR WALLET"
+            caption="Only this address can trigger a withdrawal."
+          >
             <input
               className="ps-input"
               value={terms.contributor}
@@ -402,10 +376,15 @@ export default function NewStream() {
               aria-label="Contributor wallet"
               onChange={(e) => setContributor(e.target.value as `0x${string}`)}
             />
-          ) : (
-            // The two payout ceilings, side by side, in the space the wallet
-            // field would have used. They default to the budget so nothing
-            // throttles an earner unless the employer decides it should.
+          </Field>
+        ) : (
+          // The two payout ceilings, side by side in one field. They default
+          // to the budget so nothing throttles an earner unless the employer
+          // decides it should.
+          <Field
+            label="PAYOUT CEILING"
+            caption="The most any one earner can take per withdrawal, and the most that can leave per day across all of them."
+          >
             <div className="ps-mode-caps">
               <label className="ps-mode-cap">
                 <span className="ps-caption">PER WITHDRAWAL</span>
@@ -432,8 +411,8 @@ export default function NewStream() {
                 />
               </label>
             </div>
-          )}
-        </Field>
+          </Field>
+        )}
 
         <Field
           label={terms.mode === 'named' ? 'WHOSE MERGES COUNT' : 'WHO MAY EARN'}
@@ -448,7 +427,13 @@ export default function NewStream() {
             onChange={(authors) => setTerms((t) => ({ ...t, authors }))}
           />
         </Field>
+      </div>
 
+      <div className="ps-section-rule">
+        <span className="ps-label">4 · THE TERMS</span>
+      </div>
+
+      <div className="ps-form">
         <Field
           label="MILESTONE BUDGET"
           caption="You deposit this in full before the stream starts. Nothing is owed until you do."
@@ -561,7 +546,7 @@ export default function NewStream() {
       </Field>
 
       <div className="ps-section-rule">
-        <span className="ps-label">4 · CREATE IT</span>
+        <span className="ps-label">5 · CREATE IT</span>
       </div>
 
       {problems.length > 0 && (

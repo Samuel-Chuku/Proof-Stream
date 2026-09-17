@@ -151,20 +151,20 @@ test('the list is bounded, matching the contract', () => {
   assert.ok(validate(terms({ authors: many })).some((p) => /16/.test(p)));
 });
 
-// --- an open stream: nobody named, everyone may earn -------------------------
+// --- a public stream: nobody named, everyone may earn -------------------------
 //
 // The contract refuses "nobody named" WITHOUT payout caps, so that forgetting to
 // name anyone cannot silently deploy a stream open to the world. The form has
 // to say the same thing, in the same place, before the wallet is asked to sign.
 
 const open = (over: Partial<StreamTerms> = {}): StreamTerms =>
-  terms({ mode: 'open', contributor: ZERO, payee: ZERO, claimCap: '30', dailyClaimCap: '100', ...over });
+  terms({ mode: 'public', contributor: ZERO, payee: ZERO, claimCap: '30', dailyClaimCap: '100', ...over });
 
-test('an open stream with caps is valid, and needs no contributor', () => {
+test('a public stream with caps is valid, and needs no contributor', () => {
   assert.deepEqual(validate(open()), []);
 });
 
-test('AN OPEN STREAM WITHOUT A PAYOUT CEILING IS REFUSED', () => {
+test('A PUBLIC STREAM WITHOUT A PAYOUT CEILING IS REFUSED', () => {
   // This is the line between "chose open" and "forgot to name anyone".
   assert.ok(validate(open({ claimCap: '0' })).some((p) => /payout ceiling per withdrawal/.test(p)));
   assert.ok(validate(open({ claimCap: undefined })).some((p) => /payout ceiling per withdrawal/.test(p)));
@@ -176,12 +176,12 @@ test('a daily ceiling below the per-withdrawal ceiling is refused', () => {
   assert.ok(validate(open({ claimCap: '30', dailyClaimCap: '10' })).some((p) => /daily payout ceiling/.test(p)));
 });
 
-test('an open stream ignores the contributor and payee fields entirely', () => {
+test('a public stream ignores the contributor and payee fields entirely', () => {
   // The form hides them, but a stale value left in state must not leak through.
   assert.deepEqual(validate(open({ contributor: addr, payee: addr })), []);
 });
 
-test('an open stream cannot also be a claim link', () => {
+test('a public stream cannot also be a claim link', () => {
   assert.ok(validate(open({ claimAuthority: addr })).some((p) => /cannot also be a claim link/.test(p)));
 });
 
@@ -195,7 +195,7 @@ test('a named stream never carries payout caps, whatever the form left in state'
   assert.equal(call.args[1], addr, 'the contributor is still named');
 });
 
-test('an open stream deploys with nobody named and the caps set', () => {
+test('a public stream deploys with nobody named and the caps set', () => {
   const { deployStream } = require('../lib/create-stream') as typeof import('../lib/create-stream');
   const call: any = deployStream(open({ contributor: addr, payee: addr }));
   assert.equal(call.args[1], ZERO, 'contributor is zero even if the form left one in state');

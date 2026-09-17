@@ -827,26 +827,40 @@ code {
   }
 }
 
-/* ---- Who gets paid: the mode switch ------------------------ */
+/* ---- What kind of stream: the picker above the steps ----------- */
 
-/* Two answers on one line, in the slot the wallet field used. The active one is
-   PRESSED: it sits flush on the page with no shadow, in inverted ink, the way a
-   key stays down. The other stands proud. That reads as a state, not a pair of
-   buttons — and none of it is green, because choosing a mode moves no money. */
-.ps-mode {
+/* Three buttons in a row, named for what the contract calls them, and one
+   paragraph beneath that swaps with the pressed one. It sits above the
+   numbered steps because it is the decision every step depends on.
+
+   The pressed kind is inverted ink and sits flat with no shadow, like a key
+   held down; the others stand proud. Not green: choosing a kind moves no
+   money. */
+.ps-kind {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-3);
+  margin-bottom: var(--ps-6);
+}
+
+.ps-kind-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ps-3);
+}
+
+.ps-kind-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: var(--ps-2);
-  margin-bottom: var(--ps-2);
-}
-
-.ps-mode-option {
-  padding: 12px;
+  padding: 16px 12px;
   text-align: center;
+  white-space: nowrap;
 }
 
-.ps-mode-on,
-.ps-mode-on:hover:not(:disabled) {
+.ps-kind-on,
+.ps-kind-on:hover:not(:disabled) {
   background: var(--ps-invert-bg);
   color: var(--ps-invert-ink);
   border-color: var(--ps-rule);
@@ -855,7 +869,44 @@ code {
   cursor: default;
 }
 
-/* The two payout ceilings, side by side, where the wallet field would be. */
+/* The radio mark inherits the row's ink, so it inverts with it. */
+.ps-kind-mark {
+  font-size: var(--ps-size-data-m);
+  line-height: 1;
+}
+
+/* A kind the contract supports and the app cannot yet offer. Shown and
+   named, dimmed, not pressable. */
+.ps-kind-soon {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  padding: 0 var(--ps-1);
+  border: var(--ps-bw-hair) solid currentColor;
+  border-radius: var(--ps-r-1);
+}
+
+/* What the pressed kind means. A quiet callout with a structural left rule,
+   the same shape the sandbox panel uses for "here is what happened". */
+.ps-kind-what {
+  margin: 0;
+  padding: var(--ps-3) var(--ps-4);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink-dim);
+  background: var(--ps-sunk);
+  min-height: 64px;
+}
+
+@media (max-width: 720px) {
+  .ps-kind-row {
+    grid-template-columns: 1fr;
+  }
+  .ps-kind-option {
+    justify-content: flex-start;
+    white-space: normal;
+  }
+}
+
+/* The two payout ceilings, side by side, in one field. */
 .ps-mode-caps {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -869,7 +920,6 @@ code {
 }
 
 @media (max-width: 480px) {
-  .ps-mode,
   .ps-mode-caps {
     grid-template-columns: 1fr;
   }

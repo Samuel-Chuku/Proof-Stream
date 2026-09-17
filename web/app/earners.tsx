@@ -88,7 +88,7 @@ export function Earners({
 export function OpenChip() {
   return (
     <span className="ps-version" title="Nobody is named. Anyone whose merge the agent accepts earns a share.">
-      OPEN
+      PUBLIC
     </span>
   );
 }

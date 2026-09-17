@@ -13,11 +13,11 @@ import { encodeFunctionData, erc20Abi, parseUnits } from 'viem';
 import { WORK_STREAM_BYTECODE } from './bytecode';
 import { REGISTRY_ADDRESS, USDC } from './chain';
 
-export type StreamMode = 'named' | 'open';
+export type StreamMode = 'named' | 'public';
 
 export type StreamTerms = {
   /** Who this stream is for. `named` pays one person the employer already
-   *  knows. `open` names nobody: anyone whose merge is accepted earns a share,
+   *  knows. `public` names nobody: anyone whose merge is accepted earns a share,
    *  and each earner binds their own payee later. Explicit rather than inferred
    *  from an empty contributor, because the difference between "forgot to name
    *  anyone" and "open to the world" must never be silent. */
@@ -54,9 +54,9 @@ export type StreamTerms = {
   /** The only address withdraw() may pay. Zero for a claimable stream: the
    *  claimant becomes the payee. */
   payee: `0x${string}`;
-  /** OPEN STREAMS ONLY. Ceiling on one payout to an earner, human USDC. */
+  /** PUBLIC STREAMS ONLY. Ceiling on one payout to an earner, human USDC. */
   claimCap?: string;
-  /** OPEN STREAMS ONLY. Ceiling on payouts per UTC day, human USDC. */
+  /** PUBLIC STREAMS ONLY. Ceiling on payouts per UTC day, human USDC. */
   dailyClaimCap?: string;
 };
 
@@ -108,13 +108,13 @@ export function validate(terms: StreamTerms): string[] {
 
   // WHO THIS IS FOR, which is what the contract enforces as exactly one mode.
   const claimable = Boolean(terms.claimAuthority) && terms.claimAuthority !== zero;
-  if (terms.mode === 'open') {
+  if (terms.mode === 'public') {
     // Nobody is named. The contract refuses this WITHOUT payout caps, so that
     // an employer who simply forgot cannot deploy a stream open to the world.
-    if (claimable) problems.push('An open stream cannot also be a claim link.');
+    if (claimable) problems.push('A public stream cannot also be a claim link.');
     const claimCap = usdc(terms.claimCap || '0');
     const dailyClaimCap = usdc(terms.dailyClaimCap || '0');
-    if (claimCap <= 0n) problems.push('An open stream needs a payout ceiling per withdrawal.');
+    if (claimCap <= 0n) problems.push('A public stream needs a payout ceiling per withdrawal.');
     if (dailyClaimCap < claimCap) {
       problems.push('The daily payout ceiling cannot be below the per-withdrawal ceiling — the first payout of the day would never fit.');
     }
@@ -212,10 +212,10 @@ export function deployStream(terms: StreamTerms) {
       // Exactly one of these is set. A named stream carries a contributor and a
       // zero claim authority; a claimable one carries the reverse and binds both
       // the contributor and the payee when someone opens the link.
-      // An open stream names nobody; the caps below are what make that a
+      // A public stream names nobody; the caps below are what make that a
       // choice rather than an omission, and the constructor checks they are set.
-      terms.mode === 'open' ? ZERO_ADDRESS : terms.contributor || ZERO_ADDRESS,
-      terms.mode === 'open' ? ZERO_ADDRESS : terms.claimAuthority || ZERO_ADDRESS,
+      terms.mode === 'public' ? ZERO_ADDRESS : terms.contributor || ZERO_ADDRESS,
+      terms.mode === 'public' ? ZERO_ADDRESS : terms.claimAuthority || ZERO_ADDRESS,
       terms.agent,
       terms.milestone,
       usdc(terms.budget),
@@ -225,11 +225,11 @@ export function deployStream(terms: StreamTerms) {
       {
         maxTranche: usdc(terms.maxTranche),
         dailyUnlockCap: usdc(terms.dailyUnlockCap),
-        payee: terms.mode === 'open' ? ZERO_ADDRESS : terms.payee || ZERO_ADDRESS,
-        // Payout caps exist only on an open stream. The constructor refuses
+        payee: terms.mode === 'public' ? ZERO_ADDRESS : terms.payee || ZERO_ADDRESS,
+        // Payout caps exist only on a public stream. The constructor refuses
         // them on a named one, so they are not a default to tune.
-        claimCap: terms.mode === 'open' ? usdc(terms.claimCap || '0') : 0n,
-        dailyClaimCap: terms.mode === 'open' ? usdc(terms.dailyClaimCap || '0') : 0n,
+        claimCap: terms.mode === 'public' ? usdc(terms.claimCap || '0') : 0n,
+        dailyClaimCap: terms.mode === 'public' ? usdc(terms.dailyClaimCap || '0') : 0n,
       },
     ],
   } as const;
