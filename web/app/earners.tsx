@@ -40,6 +40,7 @@ export function Earners({
   }
 
   return (
+    <>
     <div className="ps-earners" role="table" aria-label="Earners">
       <div className="ps-earners-head ps-label" role="row">
         <span role="columnheader">WHO</span>
@@ -79,6 +80,12 @@ export function Earners({
         </div>
       ))}
     </div>
+    {/* The one sanctioned route to the page that asks for a wallet: from a
+        stream page on our own domain, never from a link someone sent. */}
+    <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+      EARNED HERE? <a href="/earnings">SIGN IN ON THE EARNINGS PAGE TO CHOOSE WHERE YOU ARE PAID →</a>
+    </p>
+    </>
   );
 }
 

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { currentUser, exchangeCode } from '../../../../lib/github';
-import { SESSION_COOKIE, STATE_COOKIE, seal, verifyState } from '../../../../lib/session';
+import { NEXT_COOKIE, SESSION_COOKIE, STATE_COOKIE, safeNext, seal, verifyState } from '../../../../lib/session';
 
 export const runtime = 'nodejs';
 
@@ -27,11 +27,13 @@ export async function GET(req: NextRequest) {
   try {
     // Same origin the login route used, or GitHub rejects the exchange.
     const { token, expiresAt } = await exchangeCode(code, `${url.origin}/api/github/callback`);
-    const { login } = await currentUser(token);
+    const { id, login } = await currentUser(token);
 
-    const res = NextResponse.redirect(new URL('/new?github=connected', url.origin));
+    // Back to wherever asked for the login, or the create form by default.
+    const next = safeNext(req.cookies.get(NEXT_COOKIE)?.value) ?? '/new?github=connected';
+    const res = NextResponse.redirect(new URL(next, url.origin));
 
-    res.cookies.set(SESSION_COOKIE, seal({ token, login, expiresAt }), {
+    res.cookies.set(SESSION_COOKIE, seal({ token, login, id, expiresAt }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -39,6 +41,7 @@ export async function GET(req: NextRequest) {
       expires: new Date(expiresAt * 1000),
     });
     res.cookies.delete(STATE_COOKIE);
+    res.cookies.delete(NEXT_COOKIE);
 
     return res;
   } catch (err) {

@@ -326,6 +326,82 @@ export async function signAttestation(
   return signature as `0x${string}`;
 }
 
+/// What the agent signs when an earner chooses where to be paid, on a public
+/// stream. Same domain as the attestation, so a binding made for stream A is
+/// meaningless against stream B, and the PAYEE IS INSIDE THE STRUCT, so a
+/// signature lifted in transit authorises somebody else's address and does
+/// nothing for the thief. The contract also requires the payee to be the
+/// sender, which is why binding is safe to make permanent.
+export function bindingTypedData(
+  streamAddress: `0x${string}`,
+  earnerId: `0x${string}`,
+  payee: `0x${string}`,
+  deadline: bigint,
+) {
+  return {
+    types: {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ],
+      PayeeBinding: [
+        { name: 'earnerId', type: 'bytes32' },
+        { name: 'payee', type: 'address' },
+        { name: 'deadline', type: 'uint256' },
+      ],
+    },
+    primaryType: 'PayeeBinding',
+    domain: {
+      name: 'ProofStream',
+      version: '1',
+      chainId: arcTestnet.id,
+      verifyingContract: streamAddress,
+    },
+    message: { earnerId, payee, deadline: deadline.toString() },
+  };
+}
+
+export async function signPayeeBinding(
+  streamAddress: `0x${string}`,
+  earnerId: `0x${string}`,
+  payee: `0x${string}`,
+  deadline: bigint,
+): Promise<`0x${string}`> {
+  const res = await circle.signTypedData({
+    walletId: env.agentWalletId,
+    data: JSON.stringify(bindingTypedData(streamAddress, earnerId, payee, deadline)),
+  });
+  const signature = res.data?.signature;
+  if (!signature) throw new Error('Circle returned no signature');
+  return signature as `0x${string}`;
+}
+
+/// The two facts a binding request is checked against before anything is
+/// signed: whether the stream is public at all, and whether this earner has
+/// already chosen. `isPublic()` does not exist before v3, and a stream that
+/// cannot answer is by definition not public.
+export async function readBindingState(
+  streamAddress: `0x${string}`,
+  earnerId: `0x${string}`,
+): Promise<{ isPublic: boolean; payee: `0x${string}` }> {
+  const read = <T>(functionName: ReadFn, args: readonly unknown[] = []) =>
+    withRetry(
+      () =>
+        publicClient.readContract({
+          address: streamAddress,
+          abi: WORK_STREAM_ABI,
+          functionName: functionName as never,
+          args: args as never,
+        }) as Promise<T>,
+    );
+  const isPublic = await read<boolean>('isPublic').catch(() => false);
+  if (!isPublic) return { isPublic: false, payee: `0x${'0'.repeat(40)}` };
+  const payee = await read<`0x${string}`>('payeeOf', [earnerId]);
+  return { isPublic, payee };
+}
+
 export type CertifyResult = {
   transactionId: string;
   state: string;

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authorizeUrl, installUrl } from '../../../../lib/github';
-import { STATE_COOKIE, newState } from '../../../../lib/session';
+import { NEXT_COOKIE, STATE_COOKIE, newState, safeNext } from '../../../../lib/session';
 
 // node:crypto — not available on the edge runtime.
 export const runtime = 'nodejs';
@@ -19,10 +19,15 @@ export const runtime = 'nodejs';
 /// authorization. Authorizing proves who someone is; installing is what grants
 /// the agent read access to specific repositories. They are separate steps and
 /// a user can legitimately need the second after doing the first.
+///
+/// `?next=/path` is where to return afterwards. The create form was the only
+/// destination once; the earnings page signs in too, and sending an earner to
+/// the create form after they proved who they are is a dead end.
 export function GET(req: NextRequest) {
   const { nonce, state } = newState();
   const origin = new URL(req.url).origin;
   const wantsInstall = new URL(req.url).searchParams.get('install') === '1';
+  const next = safeNext(new URL(req.url).searchParams.get('next'));
 
   const target = wantsInstall
     ? installUrl(state)
@@ -39,6 +44,15 @@ export function GET(req: NextRequest) {
     path: '/',
     maxAge: 600,
   });
+  if (next) {
+    res.cookies.set(NEXT_COOKIE, next, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 600,
+    });
+  }
 
   return res;
 }

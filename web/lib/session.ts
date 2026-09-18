@@ -8,11 +8,18 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 
 export const SESSION_COOKIE = 'ps_session';
 export const STATE_COOKIE = 'ps_oauth_state';
+/// Where to land after GitHub returns. Set by the login route, consumed once
+/// by the callback, and only ever a same-origin path.
+export const NEXT_COOKIE = 'ps_oauth_next';
 
 export type Session = {
   /** GitHub user access token. */
   token: string;
   login: string;
+  /** GitHub's numeric account id. Logins can be renamed and reassigned; the
+   *  number cannot, which is why the contract's earner id is hashed from it.
+   *  Absent on a session minted before this field existed. */
+  id?: number;
   /** Seconds since epoch. */
   expiresAt: number;
 };
@@ -78,4 +85,12 @@ export function verifyState(state: string | null): boolean {
   const [nonce, sig] = state.split('.');
   if (!nonce || !sig) return false;
   return stateMatches(sig, signState(nonce));
+}
+
+/// A post-login destination is only ever a path on this site. Anything with a
+/// scheme, a host, or a protocol-relative prefix would turn the callback into
+/// an open redirect, which is the one thing an OAuth return must never be.
+export function safeNext(value: string | null | undefined): string | null {
+  if (!value || !/^\/[\w\-./?=&#]*$/.test(value) || value.startsWith('//')) return null;
+  return value;
 }
