@@ -3331,3 +3331,138 @@ input[type='range'].ps-range:disabled {
   color: var(--ps-ink);
   font-weight: 700;
 }
+
+/* ── The earner's page ───────────────────────────────────────────────────────
+   Same frame as the passkey panel: hard shadow, surface ground, no radius past
+   chips. Nothing here is green except the WITHDRAW button, which moves
+   released USDC and is the one button allowed to be. */
+
+/* The headline: everything released to this person and not yet taken. Ink,
+   not green, because it is a sum over streams rather than one bar's release;
+   the green lives on the stream pages where it can be counted. */
+.ps-earner-total {
+  margin: 0 0 var(--ps-4);
+}
+
+.ps-earner-total .ps-label {
+  color: var(--ps-ink-dim);
+  margin: var(--ps-1) 0 0;
+}
+
+.ps-earner-actions {
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  background: var(--ps-surface);
+  padding: var(--ps-4);
+  margin: var(--ps-4) 0 var(--ps-5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ps-2);
+}
+
+.ps-earner-actions .ps-body { margin: 0; max-width: 62ch; }
+.ps-earner-actions .ps-caption { margin: 0; max-width: 72ch; }
+.ps-earner-actions .ps-label { margin: 0; }
+.ps-earner-actions code { font: inherit; }
+
+/* Two ways to be paid, side by side. Each is a well, not a card: the panel
+   around them is the card. */
+.ps-earner-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-3);
+  width: 100%;
+  margin-top: var(--ps-2);
+}
+
+.ps-earner-option {
+  background: var(--ps-sunk);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  padding: var(--ps-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ps-2);
+}
+
+.ps-earner-option .ps-input { width: 100%; }
+
+.ps-earner-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-2);
+}
+
+/* The moment before a permanent choice. Sunk, framed, and the address in a
+   chip so the eye lands on what is about to be fixed for ever. */
+.ps-earner-confirm {
+  width: 100%;
+  background: var(--ps-sunk);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  padding: var(--ps-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ps-2);
+}
+
+.ps-earner-withdraw {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ps-2) var(--ps-3);
+}
+
+/* The amount sits inside the bracketed label, so it inherits the button's
+   size rather than the component's own. */
+.ps-earner-withdraw .ps-amount { font-size: inherit; line-height: inherit; }
+.ps-earner-withdraw .ps-amount-fraction,
+.ps-earner-withdraw .ps-amount-suffix { color: inherit; }
+
+@media (max-width: 720px) {
+  .ps-earner-options { grid-template-columns: 1fr; }
+  .ps-earner-actions { padding: var(--ps-3); }
+}
+
+/* A milestone that has closed, noted beside its index. */
+.ps-earnings-note { margin-left: var(--ps-2); }
+
+/* The two ways a stream can know you, one row each. A well, not a panel: this
+   is the page's header material, and the streams below are the content. */
+.ps-identities {
+  background: var(--ps-sunk);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  padding: var(--ps-3);
+  margin: 0 0 var(--ps-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-3);
+}
+
+.ps-identity {
+  display: grid;
+  grid-template-columns: 64px 1fr max-content;
+  align-items: center;
+  gap: var(--ps-2) var(--ps-3);
+}
+
+.ps-identity > .ps-label { color: var(--ps-ink-dim); }
+.ps-identity > .ps-caption { margin: 0; }
+.ps-identity form { margin: 0; }
+
+.ps-identity-value {
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
+}
+
+.ps-identity-wallets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ps-1) var(--ps-2);
+}
+
+@media (max-width: 720px) {
+  .ps-identity { grid-template-columns: 1fr; }
+}

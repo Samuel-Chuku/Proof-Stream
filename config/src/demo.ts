@@ -96,3 +96,8 @@ export const REASONING = undefined;
  *  workflow, that trap was one env-var edit away from firing. A ceiling is not
  *  a reservation, so the headroom is free. */
 export const AGENT_MAX_TOKENS = 8000;
+
+/// How long an agent-signed payee binding stays usable before the contract
+/// refuses it as stale. Long enough to find a passkey and press a button;
+/// short enough that a signature left in a browser tab expires on its own.
+export const BINDING_TTL_SECONDS = 3600;

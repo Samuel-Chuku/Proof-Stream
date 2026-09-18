@@ -19,6 +19,7 @@ import { ThemeToggle } from './theme-toggle';
 const LINKS = [
   { href: '/streams', label: 'STREAMS' },
   { href: '/new', label: 'NEW STREAM' },
+  { href: '/earnings', label: 'EARNINGS' },
   { href: '/docs', label: 'HOW IT WORKS' },
 ];
 

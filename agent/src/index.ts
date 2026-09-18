@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { handleBind } from './bind';
 import { env, ledgerPath } from './env';
 import { parseMergedPr, verifySignature, webhookSecretFor } from './github';
 import { log, processPr } from './pipeline';
@@ -76,6 +77,14 @@ createServer((req, res) => {
         payouts: readLog('payouts.jsonl', limit),
       }),
     );
+    return;
+  }
+
+  // An earner on a public stream choosing where to be paid. The GitHub token in
+  // the Authorization header is the earner's own; see bind.ts for why the agent
+  // asks GitHub rather than trusting the web app.
+  if (req.method === 'POST' && url === '/bind') {
+    handleBind(req, res);
     return;
   }
 

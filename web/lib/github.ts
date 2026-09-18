@@ -136,9 +136,9 @@ export async function exchangeCode(
   };
 }
 
-export async function currentUser(token: string): Promise<{ login: string; avatarUrl: string }> {
-  const user = await gh<{ login: string; avatar_url: string }>('/user', token);
-  return { login: user.login, avatarUrl: user.avatar_url };
+export async function currentUser(token: string): Promise<{ id: number; login: string; avatarUrl: string }> {
+  const user = await gh<{ id: number; login: string; avatar_url: string }>('/user', token);
+  return { id: user.id, login: user.login, avatarUrl: user.avatar_url };
 }
 
 /// Every repository the user granted this App, across all their installations.
