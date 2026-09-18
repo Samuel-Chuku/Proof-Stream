@@ -19,7 +19,7 @@ const SOCIALS: Social[] = [
   },
   {
     name: 'X',
-    href: null,
+    href: 'https://x.com/ProofStream_',
     path: 'M18.9 1.15h3.68l-8.04 9.19 9.46 12.51h-7.41l-5.8-7.59-6.64 7.59H.46l8.6-9.83L0 1.15h7.6l5.24 6.93ZM17.6 20.64h2.04L6.5 3.23H4.31Z',
   },
   {

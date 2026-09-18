@@ -119,7 +119,7 @@ export function KindLine({ mode, onChange }: { mode: StreamMode; onChange: () =>
 ///   named      one figure, head and shoulders
 ///   public     three figures side by side
 ///   claimable  a key, because the stream is opened with something you hold
-function KindMark({ kind, size = 24 }: { kind: StreamMode | 'claimable'; size?: number }) {
+export function KindMark({ kind, size = 24 }: { kind: StreamMode | 'claimable'; size?: number }) {
   const cells: [number, number, number, number][] =
     kind === 'named'
       ? [

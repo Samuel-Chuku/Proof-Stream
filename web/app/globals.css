@@ -1078,6 +1078,352 @@ code {
   }
 }
 
+/* ---- Docs: headings that can be found -------------------- */
+
+/* The sub-heading inside a docs section. It replaced a dim caption that faded
+   into the paragraph under it, so a reader scanning for one guarantee could
+   not find it. Full ink, bold, data size, with a short structural rule at its
+   left so the eye catches it running down the page. Not display face: that is
+   for section titles, and a sub-heading in Silkscreen competed with them. */
+.ps-docs-h {
+  margin: var(--ps-5) 0 var(--ps-2);
+  padding-left: var(--ps-3);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink);
+  font-family: var(--ps-mono);
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  font-weight: 700;
+  color: var(--ps-ink);
+}
+
+.ps-docs-lede {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  max-width: 64ch;
+}
+
+/* ---- Docs: the flow diagram ------------------------------ */
+
+/* Boxed steps joined by arrows, wrapping rather than shrinking. A box is a
+   small raised surface with a hard shadow, same as a button that does nothing:
+   it looks like a thing, not a caption. */
+.ps-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--ps-2) 0;
+  margin: var(--ps-4) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-flow-step {
+  display: flex;
+  align-items: stretch;
+}
+
+.ps-flow-arrow {
+  align-self: center;
+  padding: 0 var(--ps-2);
+  font-size: var(--ps-size-data-m);
+  color: var(--ps-ink-dim);
+}
+
+.ps-flow-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-1);
+  min-width: 128px;
+  max-width: 176px;
+  padding: var(--ps-2) var(--ps-3);
+  background: var(--ps-surface);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-1);
+}
+
+.ps-flow-n {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  color: var(--ps-ink-faint);
+}
+
+.ps-flow-label {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ps-ink);
+}
+
+.ps-flow-note {
+  font-size: var(--ps-size-label);
+  line-height: var(--ps-lh-label);
+  color: var(--ps-ink-dim);
+}
+
+/* ---- Docs: the four fill states ---------------------------- */
+
+.ps-fills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-2);
+  margin: var(--ps-4) 0;
+}
+
+.ps-fills-row {
+  display: grid;
+  grid-template-columns: var(--ps-cell-w) 192px 1fr;
+  align-items: center;
+  gap: var(--ps-3);
+}
+
+/* A real cell, so the legend is the thing it describes. */
+.ps-fills-cell {
+  cursor: default;
+  border: var(--ps-bw-hair) solid var(--ps-rule);
+}
+
+.ps-fills-name {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  color: var(--ps-ink);
+}
+
+.ps-fills-what {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+@media (max-width: 720px) {
+  .ps-fills-row {
+    grid-template-columns: var(--ps-cell-w) 1fr;
+  }
+  .ps-fills-what {
+    grid-column: 2;
+  }
+}
+
+/* ---- Docs: two clocks ---------------------------------------- */
+
+.ps-clocks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-3);
+  margin: var(--ps-4) 0;
+}
+
+.ps-clocks-row {
+  display: grid;
+  grid-template-columns: 232px max-content 1fr;
+  align-items: center;
+  gap: var(--ps-3);
+}
+
+.ps-clocks-who {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  color: var(--ps-ink-dim);
+}
+
+.ps-clocks-result .ps-clocks-who {
+  color: var(--ps-ink);
+}
+
+/* A smaller bar than the hero's, and no hover cursor: this one is a picture. */
+.ps-clocks-bar {
+  margin: 0;
+  box-shadow: var(--ps-shadow-1);
+}
+
+.ps-clocks-cell {
+  width: 12px;
+  height: 20px;
+  cursor: default;
+}
+
+.ps-clocks-fig {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+.ps-clocks-result .ps-clocks-fig {
+  color: var(--ps-ink);
+}
+
+@media (max-width: 720px) {
+  .ps-clocks-row {
+    grid-template-columns: 1fr;
+    gap: var(--ps-1);
+  }
+}
+
+/* ---- Docs: the three kinds ------------------------------------ */
+
+.ps-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ps-4);
+  margin: var(--ps-4) 0;
+}
+
+.ps-kinds-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-2);
+  padding: var(--ps-3);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink);
+  background: var(--ps-sunk);
+}
+
+.ps-kinds-dim {
+  color: var(--ps-ink-faint);
+  border-left-color: var(--ps-ink-faint);
+}
+
+.ps-kinds-name {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.ps-kinds-who {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+.ps-kinds-dim .ps-kinds-who {
+  color: var(--ps-ink-faint);
+}
+
+@media (max-width: 720px) {
+  .ps-kinds {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Built on Arc: the tools ledger ---------------------------- */
+
+/* One row per piece of infrastructure: what it is, what it does HERE, and
+   whether it is live or next. LIVE is full ink and NEXT is dim, so the eye
+   separates what a reader can go and verify from what is still designed. Not
+   green either way: infrastructure is not money. */
+.ps-tools-ledger {
+  border-top: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-tools-row {
+  display: grid;
+  grid-template-columns: 176px 1fr max-content;
+  gap: var(--ps-4);
+  align-items: start;
+  padding: var(--ps-3) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-tools-row:last-child {
+  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-tools-name {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  color: var(--ps-ink);
+}
+
+.ps-tools-role {
+  margin: 0;
+  color: var(--ps-ink-dim);
+}
+
+.ps-tools-state {
+  color: var(--ps-ink-faint);
+  padding: 0 var(--ps-1);
+  border: var(--ps-bw-hair) solid currentColor;
+  border-radius: var(--ps-r-1);
+  line-height: var(--ps-lh-label);
+}
+
+.ps-tools-live {
+  color: var(--ps-ink);
+}
+
+@media (max-width: 720px) {
+  .ps-tools-row {
+    grid-template-columns: 1fr max-content;
+  }
+  .ps-tools-role {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- Home: the statistics strip -------------------------------- */
+
+/* Six figures at hero size in one framed strip. A count in the masthead's
+   caption line was invisible; these are the numbers a judge checks, and they
+   get the weight the stream bar's readout gets. Not green, even "withdrawn":
+   the bar is where released money is green, and a summary is a summary. */
+.ps-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: var(--ps-5) 0;
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  background: var(--ps-surface);
+}
+
+.ps-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-1);
+  padding: var(--ps-4);
+  border-right: var(--ps-bw-hair) solid var(--ps-border);
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-stat:nth-child(3n) {
+  border-right: 0;
+}
+
+.ps-stat:nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+
+.ps-stat-fig {
+  font-size: var(--ps-size-data-xl);
+  line-height: var(--ps-lh-data-xl);
+  font-variant-numeric: tabular-nums;
+  color: var(--ps-ink);
+}
+
+.ps-stat > .ps-label {
+  color: var(--ps-ink-dim);
+}
+
+@media (max-width: 720px) {
+  .ps-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ps-stat:nth-child(3n) {
+    border-right: var(--ps-bw-hair) solid var(--ps-border);
+  }
+  .ps-stat:nth-child(2n) {
+    border-right: 0;
+  }
+  .ps-stat:nth-last-child(-n + 3) {
+    border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  }
+  .ps-stat:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
+
 /* ---- Author allowlist ------------------------------------ */
 
 /* NOT GREEN, and it will be tempting. This decides whose merges the agent will

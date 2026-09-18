@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { ArcTools } from './arc-tools';
+import { Stats } from './stats';
 import { listStreams } from '../lib/registry';
 import { BrandMark } from './brand-mark';
 import { Footer } from './footer';
@@ -53,6 +55,8 @@ export default async function AppHome() {
         </Link>
       </div>
 
+      <Stats />
+
       <GettingStarted hasStreams={streams.length > 0} />
 
       {/* The anchor lives HERE, not inside PasskeyWallet: that component renders
@@ -64,6 +68,8 @@ export default async function AppHome() {
       </div>
 
       <PasskeyWallet />
+
+      <ArcTools />
 
       <Footer />
     </main>
