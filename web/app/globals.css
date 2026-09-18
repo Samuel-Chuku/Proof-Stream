@@ -3466,3 +3466,48 @@ input[type='range'].ps-range:disabled {
 @media (max-width: 720px) {
   .ps-identity { grid-template-columns: 1fr; }
 }
+
+/* Where each stream pays: one row per wallet, the streams as chips that jump
+   to their section. Hairline rows like the tx feed, no panel, so it reads as
+   an index rather than another block. ◆ bound on a public stream, ○ fixed on
+   a named one. */
+.ps-bound {
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+  margin: 0 0 var(--ps-4);
+}
+
+.ps-bound-intro {
+  margin: var(--ps-1) 0;
+}
+
+.ps-bound-row {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  gap: var(--ps-2) var(--ps-3);
+  min-height: 32px;
+  padding: var(--ps-1) 0;
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-bound-row:last-child {
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-bound-streams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-1) var(--ps-2);
+}
+
+.ps-bound-streams .ps-chip {
+  text-decoration: none;
+}
+
+.ps-bound-kind {
+  color: var(--ps-ink-faint);
+}
+
+@media (max-width: 720px) {
+  .ps-bound-row { grid-template-columns: 1fr; }
+}

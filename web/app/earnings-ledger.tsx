@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { AddressChip } from './address-chip';
+import { AddressChip, truncate } from './address-chip';
 import { Amount } from './amount';
 import { Connect } from './connect';
 import { EarningsStream } from './earnings-stream';
@@ -102,6 +102,17 @@ export function EarningsLedger({
     positions.push(p);
   }
   const owed = positions.reduce((sum, p) => sum + p.earnings.reduce((t, e) => t + BigInt(e.withdrawable), 0n), 0n);
+
+  // Which wallet each stream pays. There is no page-wide binding: a public
+  // stream records the payee its earner bound, a named stream the payee it was
+  // created with, each on its own contract. Grouped by wallet so the answer to
+  // "where does my money go" is one row per destination.
+  const byPayee = new Map<string, Position[]>();
+  for (const p of positions) {
+    if (!p.payee) continue;
+    const key = p.payee.toLowerCase();
+    byPayee.set(key, [...(byPayee.get(key) ?? []), p]);
+  }
   const anyIdentity = !!login || wallets.length > 0;
   const stillReading = reading.length > 0;
 
@@ -192,6 +203,37 @@ export function EarningsLedger({
         </section>
       ) : (
         <>
+          {byPayee.size > 0 && (
+            <div className="ps-bound" role="table" aria-label="Where each stream pays you">
+              <p className="ps-caption ps-bound-intro">
+                PAID TO · BOUND ON A PUBLIC STREAM, FIXED AT CREATION ON A NAMED ONE · EACH LIVES ON
+                THAT STREAM&rsquo;S CONTRACT AND CANNOT BE CHANGED
+              </p>
+              {[...byPayee.entries()].map(([key, list]) => (
+                <div className="ps-bound-row" role="row" key={key}>
+                  <span role="cell">
+                    <AddressChip address={list[0].payee as string} />
+                  </span>
+                  <span role="cell" className="ps-bound-streams">
+                    {list.map((p) => (
+                      <a
+                        key={`${p.address}:${p.earnerId ?? 'named'}`}
+                        href={`#${p.address}`}
+                        className="ps-chip"
+                        title={`${p.kind === 'public' ? 'bound' : 'fixed'} · ${p.repo}`}
+                      >
+                        {truncate(p.address)}
+                        <span className="ps-bound-kind" aria-hidden>
+                          {p.kind === 'public' ? '◆' : '○'}
+                        </span>
+                      </a>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="ps-earner-total">
             <Amount raw={owed} size="xl" />
             <p className="ps-label">
