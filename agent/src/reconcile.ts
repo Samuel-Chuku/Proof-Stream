@@ -113,7 +113,7 @@ export type GhPull = {
   body: string | null;
   merged_at: string | null;
   merge_commit_sha: string | null;
-  user: { login: string } | null;
+  user: { login: string; id?: number } | null;
   base: { ref: string } | null;
 };
 
@@ -130,6 +130,7 @@ export function toMergedPr(p: GhPull, repo: string): MergedPr {
     body: p.body ?? '',
     commitSha: p.merge_commit_sha ?? '',
     author: p.user?.login ?? 'unknown',
+    authorId: typeof p.user?.id === 'number' ? p.user.id : undefined,
     repo,
     baseBranch: p.base?.ref,
   };

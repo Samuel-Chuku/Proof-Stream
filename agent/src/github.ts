@@ -36,6 +36,11 @@ export type MergedPr = {
   body: string;
   commitSha: string;
   author: string;
+  /** GitHub's NUMERIC id for the author. This is what a public stream credits,
+   *  never the login: logins can be renamed and reassigned, and a credit that
+   *  followed the login would follow it to a stranger. Undefined when the event
+   *  did not carry it, which fails closed at certification. */
+  authorId?: number;
   /** `owner/name` the event came from, checked against the stream's on-chain
    *  repo so one agent can serve many streams without crossing wires. */
   repo?: string;
@@ -57,9 +62,27 @@ export function parseMergedPr(payload: any): MergedPr | null {
     body: pr.body ?? '',
     commitSha: pr.merge_commit_sha ?? pr.head?.sha ?? '',
     author: pr.user?.login ?? 'unknown',
+    authorId: typeof pr.user?.id === 'number' ? pr.user.id : undefined,
     repo: payload?.repository?.full_name,
     baseBranch: pr.base?.ref,
   };
+}
+
+/// A login's numeric id, for the one case where the earner arrives as a login:
+/// a co-author named in a trailer. The author's id comes free with the event,
+/// so this is never called on the common path.
+///
+/// Undefined on any failure. The caller refuses to certify rather than guess,
+/// because a credit written under the wrong key is money nobody can find.
+export async function userId(login: string): Promise<number | undefined> {
+  try {
+    const res = await gh(`/users/${encodeURIComponent(login)}`);
+    if (!res.ok) return undefined;
+    const body = (await res.json()) as { id?: unknown };
+    return typeof body.id === 'number' ? body.id : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /// How much file content to attach alongside the diff. Whole files are small in

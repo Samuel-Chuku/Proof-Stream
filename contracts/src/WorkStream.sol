@@ -274,6 +274,10 @@ contract WorkStream {
     event ClaimAuthoritySet(address indexed authority);
     event AuthorsSet(string[] authors);
     event PolicyRaised(uint256 maxTranche, uint256 dailyUnlockCap);
+    /// Emitted per certification on a public stream. `creditBps` is a
+    /// mapping, so without this nothing off chain could list who earned from a
+    /// stream; the page that shows earners is built from these.
+    event EarnerCredited(uint256 indexed milestone, bytes32 indexed earnerId, uint256 addedBps, uint256 totalBps);
     event PayeeBound(bytes32 indexed earnerId, address indexed payee);
     event PaidOut(uint256 indexed milestone, bytes32 indexed earnerId, address indexed to, uint256 amount);
 
@@ -733,7 +737,9 @@ contract WorkStream {
         // is credited, and the sum over earners stays equal to the total.
         if (isPublic()) {
             if (a.earnerId == bytes32(0)) revert NoEarner();
-            creditBps[milestoneIndex][a.earnerId] += a.certifiedBps - cur.certifiedBps;
+            uint256 addedBps = a.certifiedBps - cur.certifiedBps;
+            creditBps[milestoneIndex][a.earnerId] += addedBps;
+            emit EarnerCredited(milestoneIndex, a.earnerId, addedBps, creditBps[milestoneIndex][a.earnerId]);
         } else if (a.earnerId != bytes32(0)) {
             revert EarnerOnNamedStream();
         }

@@ -1,6 +1,7 @@
 import { EXPLORER_URL, formatUsdc, parseRepoSpec, parseUsdcLoose } from '@proofstream/config';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
+import { readEarners } from '../../../lib/earners';
 import { readStreamTransactions } from '../../../lib/onchain';
 import { listStreams } from '../../../lib/registry';
 import { readStream } from '../../../lib/stream';
@@ -12,6 +13,7 @@ import { HumanMark } from '../../human-mark';
 import { PasskeyWithdraw } from '../../passkey-withdraw';
 import { StreamActions } from '../../stream-actions';
 import { AgentWatch } from '../../agent-watch';
+import { Earners, OpenChip } from '../../earners';
 import { LockedFigure } from '../../stream-bar';
 import { Reveal } from '../../reveal';
 import { TxDecision } from '../../tx-decision';
@@ -99,6 +101,23 @@ export default async function StreamPage({
     fresh,
   );
 
+  // WHO EARNED IT, for an open stream. The chain stores a hash per earner; the
+  // agent's ledger is the only place that hash sits next to a login, so the
+  // two are joined here. A named stream reads nothing and renders nothing.
+  const earners =
+    stream?.isPublic
+      ? await readEarners(
+          address,
+          stream.milestoneIndex,
+          BigInt(mySummary?.registeredAtBlock ?? (process.env.REGISTRY_DEPLOY_BLOCK || '54593230')),
+          fresh,
+        )
+      : [];
+  const earnerNames = new Map<string, string>();
+  for (const v of verdicts) {
+    if (v.earnerId && v.author) earnerNames.set(v.earnerId.toLowerCase(), v.author);
+  }
+
   return (
     <main>
       <header className="ps-masthead">
@@ -111,6 +130,7 @@ export default async function StreamPage({
                 <span>ARC TESTNET · 5042002</span>
                 <span>MILESTONE {stream.milestoneIndex}</span>
                 <StreamVersion version={stream.version} />
+                {stream.isPublic && <OpenChip />}
               </>
             ) : (
               <span>ARC TESTNET · 5042002</span>
@@ -197,12 +217,21 @@ export default async function StreamPage({
               </dd>
               <dt>Paid to</dt>
               <dd>
-                <AddressChip
-                  address={stream.contributor as `0x${string}`}
-                  href={`${EXPLORER_URL}/address/${stream.contributor}`}
-                />
-                {stream.payee.toLowerCase() !== stream.contributor.toLowerCase() &&
-                  ' — withdrawals reach the allowlisted payee, not this address'}
+                {stream.isPublic ? (
+                  <>
+                    <b>whoever ships</b> — anyone whose merge the agent accepts earns a share, and
+                    chooses where it is paid
+                  </>
+                ) : (
+                  <>
+                    <AddressChip
+                      address={stream.contributor as `0x${string}`}
+                      href={`${EXPLORER_URL}/address/${stream.contributor}`}
+                    />
+                    {stream.payee.toLowerCase() !== stream.contributor.toLowerCase() &&
+                      ' — withdrawals reach the allowlisted payee, not this address'}
+                  </>
+                )}
               </dd>
               <dt>Budget</dt>
               <dd>{(Number(stream.budget) / 1e6).toFixed(2)} USDC</dd>
@@ -211,8 +240,24 @@ export default async function StreamPage({
                 {formatCeiling(stream.maxTranche)} USDC per certification ·{' '}
                 {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} USDC per day
               </dd>
+              {stream.isPublic && (
+                <>
+                  <dt>Payout ceiling</dt>
+                  <dd>
+                    {formatCeiling(stream.claimCap)} USDC per withdrawal ·{' '}
+                    {(Number(stream.dailyClaimCap) / 1e6).toFixed(0)} USDC per day, across all earners
+                  </dd>
+                </>
+              )}
             </dl>
           </div>
+
+          {stream.isPublic && (
+            <>
+              <SectionRule>EARNERS</SectionRule>
+              <Earners earners={earners} names={earnerNames} explorer={EXPLORER_URL} />
+            </>
+          )}
 
           <SectionRule>AGENT DECISIONS</SectionRule>
 

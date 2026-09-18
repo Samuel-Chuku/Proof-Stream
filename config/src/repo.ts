@@ -1,3 +1,4 @@
+import { keccak256, toHex } from 'viem';
 /// Which repository, and which branch, a stream's work has to land on.
 ///
 /// WHY A BRANCH AT ALL. Judging any merged pull request in the repository,
@@ -93,6 +94,50 @@ export function authorIsAllowed(
   const allowed = new Set(authors.map((a) => a.trim().toLowerCase()).filter(Boolean));
   const candidates = [prAuthor, ...coAuthors].map((c) => c?.trim().toLowerCase()).filter(Boolean);
   return candidates.some((c) => allowed.has(c as string));
+}
+
+/// WHO MADE THIS MERGE COUNT, and is therefore the one credited for it.
+///
+/// On a public stream the earner is PAID, which inverts the safety property
+/// the allowlist relied on above: a co-author trailer is no longer only a way to
+/// make someone else be paid. So the earner cannot simply be the pull request's
+/// author. It is the first candidate the allowlist accepts, author first and
+/// then co-authors in trailer order — the person whose presence let this merge
+/// through. With no allowlist everyone is accepted, so that is the author.
+///
+/// One merge, one earner. Splitting one pull request's credit between its
+/// co-authors is a fairness question with no obvious answer, and is deferred
+/// until there is a real case to decide it on.
+///
+/// Returns undefined when nobody is accepted, which the caller treats as
+/// "cannot certify", never as "credit the author anyway".
+export function allowedEarner(
+  authors: string[],
+  prAuthor: string | undefined,
+  coAuthors: string[] = [],
+): string | undefined {
+  const candidates = [prAuthor, ...coAuthors].map((c) => c?.trim()).filter((c): c is string => Boolean(c));
+  if (authors.length === 0) return candidates[0];
+  const allowed = new Set(authors.map((a) => a.trim().toLowerCase()).filter(Boolean));
+  return candidates.find((c) => allowed.has(c.toLowerCase()));
+}
+
+/// The opaque identity the contract credits.
+///
+/// `keccak256("github:12345")`. Namespaced by platform so a GitLab id can never
+/// collide with a GitHub one, and hashed so the contract stores 32 bytes it
+/// does not have to interpret. The NUMERIC id, never the login: logins can be
+/// renamed and reassigned to somebody else, and a credit that followed the
+/// login would follow it to them.
+///
+/// Shared between the agent, which puts it in the attestation, and the web,
+/// which will need the same value to show an earner what they are owed. Two
+/// implementations of this would drift and the drift would be invisible.
+export function earnerId(platform: string, numericId: number | bigint): `0x${string}` {
+  if (!/^[a-z][a-z0-9-]*$/.test(platform)) throw new Error(`earnerId: bad platform "${platform}"`);
+  const n = BigInt(numericId);
+  if (n <= 0n) throw new Error(`earnerId: id must be positive, got ${numericId}`);
+  return keccak256(toHex(`${platform}:${n}`));
 }
 
 /// The GitHub logins named in `Co-authored-by` trailers.

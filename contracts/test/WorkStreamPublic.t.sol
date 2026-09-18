@@ -240,6 +240,17 @@ contract WorkStreamPublicTest is Test {
         assertEq(ws.creditBps(M, ALICE) + ws.creditBps(M, BOB), ws.certifiedBps(), "shares sum to the total");
     }
 
+    function test_EveryCreditIsAnnounced() public {
+        // creditBps is a mapping. Without the event, nothing off chain can list
+        // who earned from a public stream; the earners table is built from it.
+        vm.expectEmit(true, true, false, true);
+        emit WorkStream.EarnerCredited(M, ALICE, 4_000, 4_000);
+        credit(4_000, ALICE);
+        vm.expectEmit(true, true, false, true);
+        emit WorkStream.EarnerCredited(M, ALICE, 2_000, 6_000);
+        credit(6_000, ALICE);
+    }
+
     function test_TheSameEarnerAccumulates() public {
         credit(2_000, ALICE);
         credit(5_000, ALICE);

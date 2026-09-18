@@ -158,3 +158,16 @@ test('THE MERGE COMMIT IS CARRIED, because the reference is derived from it', ()
   // opened and points at a repository that may predate several merges since.
   assert.equal(toMergedPr(pull(), 'owner/repo').commitSha, '31b6bd039c');
 });
+
+test('THE AUTHOR\'S NUMERIC ID IS CARRIED, because that is what a public stream credits', () => {
+  // A login can be renamed and reassigned to a stranger; a credit that
+  // followed the login would follow it to them. The id is stable.
+  assert.equal(toMergedPr(pull({ user: { login: 'Samuel-Chuku', id: 98765 } }), 'owner/repo').authorId, 98765);
+});
+
+test('a listing without a numeric id yields none, never a made-up one', () => {
+  // Fails closed at certification: the pipeline refuses to credit rather than
+  // guessing, because a credit under the wrong key is money nobody can find.
+  assert.equal(toMergedPr(pull({ user: { login: 'ghost' } }), 'owner/repo').authorId, undefined);
+  assert.equal(toMergedPr(pull({ user: null }), 'owner/repo').authorId, undefined);
+});

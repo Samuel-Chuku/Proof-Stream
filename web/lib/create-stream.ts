@@ -13,10 +13,16 @@ import { encodeFunctionData, erc20Abi, parseUnits } from 'viem';
 import { WORK_STREAM_BYTECODE } from './bytecode';
 import { REGISTRY_ADDRESS, USDC } from './chain';
 
+export type StreamMode = 'named' | 'public';
+
 export type StreamTerms = {
-  /** Who gets paid. Zero for a stream shared as a claim link, where the
-   *  employer knows an email but not a wallet, and the recipient binds their
-   *  own address by claiming. */
+  /** Who this stream is for. `named` pays one person the employer already
+   *  knows. `public` names nobody: anyone whose merge is accepted earns a share,
+   *  and each earner binds their own payee later. Explicit rather than inferred
+   *  from an empty contributor, because the difference between "forgot to name
+   *  anyone" and "open to the world" must never be silent. */
+  mode: StreamMode;
+  /** Who gets paid on a named stream. Ignored on an open one. */
   contributor: `0x${string}`;
   /** The address of the one-time key that authorises a claim, or absent for a
    *  stream whose contributor is named at deploy. The PRIVATE key goes in the
@@ -48,6 +54,10 @@ export type StreamTerms = {
   /** The only address withdraw() may pay. Zero for a claimable stream: the
    *  claimant becomes the payee. */
   payee: `0x${string}`;
+  /** PUBLIC STREAMS ONLY. Ceiling on one payout to an earner, human USDC. */
+  claimCap?: string;
+  /** PUBLIC STREAMS ONLY. Ceiling on payouts per UTC day, human USDC. */
+  dailyClaimCap?: string;
 };
 
 export const usdc = (human: string) => parseUnits(human, 6);
@@ -94,21 +104,31 @@ export function validate(terms: StreamTerms): string[] {
   else if (!/^[\w.-]+(\/[\w.-]+)*$/.test(terms.branch.trim())) problems.push('That is not a valid branch name.');
   if (!terms.agent || terms.agent === zero) problems.push('The agent address is required.');
 
-  // EXACTLY ONE OF NAMED OR CLAIMABLE, which is what the contract enforces.
-  // A named stream knows its contributor and payee now; a claimable one binds
-  // both when someone opens the link. Both would leave two answers to "who gets
-  // paid", and neither would leave a funded stream nobody can withdraw from.
-  const named = Boolean(terms.contributor) && terms.contributor !== zero;
+  const budget = usdc(terms.budget || '0');
+
+  // WHO THIS IS FOR, which is what the contract enforces as exactly one mode.
   const claimable = Boolean(terms.claimAuthority) && terms.claimAuthority !== zero;
-  if (named && claimable) {
-    problems.push('A stream cannot both name a contributor and be shared as a claim link. Choose one.');
-  } else if (!named && !claimable) {
-    problems.push('Name a contributor, or create a claim link for them to open.');
-  } else if (named && (!terms.payee || terms.payee === zero)) {
-    problems.push('The payee address is required when a contributor is named.');
+  if (terms.mode === 'public') {
+    // Nobody is named. The contract refuses this WITHOUT payout caps, so that
+    // an employer who simply forgot cannot deploy a stream open to the world.
+    if (claimable) problems.push('A public stream cannot also be a claim link.');
+    const claimCap = usdc(terms.claimCap || '0');
+    const dailyClaimCap = usdc(terms.dailyClaimCap || '0');
+    if (claimCap <= 0n) problems.push('A public stream needs a payout ceiling per withdrawal.');
+    if (dailyClaimCap < claimCap) {
+      problems.push('The daily payout ceiling cannot be below the per-withdrawal ceiling — the first payout of the day would never fit.');
+    }
+  } else {
+    const named = Boolean(terms.contributor) && terms.contributor !== zero;
+    if (named && claimable) {
+      problems.push('A stream cannot both name a contributor and be shared as a claim link. Choose one.');
+    } else if (!named && !claimable) {
+      problems.push('Name a contributor, or create a claim link for them to open.');
+    } else if (named && (!terms.payee || terms.payee === zero)) {
+      problems.push('The payee address is required when a contributor is named.');
+    }
   }
 
-  const budget = usdc(terms.budget || '0');
   const maxTranche = usdc(terms.maxTranche || '0');
   const dailyCap = usdc(terms.dailyUnlockCap || '0');
 
@@ -192,8 +212,10 @@ export function deployStream(terms: StreamTerms) {
       // Exactly one of these is set. A named stream carries a contributor and a
       // zero claim authority; a claimable one carries the reverse and binds both
       // the contributor and the payee when someone opens the link.
-      terms.contributor || ZERO_ADDRESS,
-      terms.claimAuthority || ZERO_ADDRESS,
+      // A public stream names nobody; the caps below are what make that a
+      // choice rather than an omission, and the constructor checks they are set.
+      terms.mode === 'public' ? ZERO_ADDRESS : terms.contributor || ZERO_ADDRESS,
+      terms.mode === 'public' ? ZERO_ADDRESS : terms.claimAuthority || ZERO_ADDRESS,
       terms.agent,
       terms.milestone,
       usdc(terms.budget),
@@ -203,12 +225,11 @@ export function deployStream(terms: StreamTerms) {
       {
         maxTranche: usdc(terms.maxTranche),
         dailyUnlockCap: usdc(terms.dailyUnlockCap),
-        payee: terms.payee || ZERO_ADDRESS,
-        // Public-mode payout caps. Zero on a named or claimable stream, and the
-        // constructor REFUSES non-zero here on those, so this is not a default
-        // to tune: it is the field the public-mode form will fill in later.
-        claimCap: 0n,
-        dailyClaimCap: 0n,
+        payee: terms.mode === 'public' ? ZERO_ADDRESS : terms.payee || ZERO_ADDRESS,
+        // Payout caps exist only on a public stream. The constructor refuses
+        // them on a named one, so they are not a default to tune.
+        claimCap: terms.mode === 'public' ? usdc(terms.claimCap || '0') : 0n,
+        dailyClaimCap: terms.mode === 'public' ? usdc(terms.dailyClaimCap || '0') : 0n,
       },
     ],
   } as const;

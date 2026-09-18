@@ -38,6 +38,12 @@ export type Stream = {
    *  deployment stay live and keep their own behaviour forever. A stream that
    *  cannot answer is by definition version 1: the view did not exist yet. */
   version: number;
+  /** True on a stream that names nobody: anyone's accepted work earns a share
+   *  and each earner binds their own payee. Always false before v3. */
+  isPublic: boolean;
+  /** Open-stream payout ceilings, USDC units. "0" on a named stream. */
+  claimCap: string;
+  dailyClaimCap: string;
   /** The agent's standing verdict on this milestone, 0-10_000. Monotonic. */
   certifiedBps: number;
   /** What the agent certified is owed: budget × certifiedBps. The clock never
@@ -169,6 +175,11 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
     );
 
     const [maxTranche, dailyUnlockCap, payee] = policy;
+    // Five fields from v3; the legacy read returns three and these stay zero.
+    const claimCap = (policy as unknown[])[3] as bigint | undefined;
+    const dailyClaimCap = (policy as unknown[])[4] as bigint | undefined;
+    const zero = /^0x0{40}$/i;
+    const isPublic = version >= 3 && zero.test(contributor) && (claimCap ?? 0n) > 0n;
 
     return {
       address,
@@ -181,6 +192,9 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       fullyFunded,
       milestoneIndex: Number(milestoneIndex),
       version,
+      isPublic,
+      claimCap: (claimCap ?? 0n).toString(),
+      dailyClaimCap: (dailyClaimCap ?? 0n).toString(),
       certifiedBps: Number(certifiedBps),
       target: target.toString(),
       earned: earned.toString(),
