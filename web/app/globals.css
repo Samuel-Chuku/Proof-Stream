@@ -3604,3 +3604,10 @@ input[type='range'].ps-range:disabled {
   .ps-kindmenu-item { grid-template-columns: max-content max-content 1fr; }
   .ps-kindmenu-short { grid-column: 1 / -1; }
 }
+
+/* When a decision was made, inside the outcome label so the strip keeps its
+   height. Faint: the row is about what the agent decided, not when. */
+.ps-verdict-when {
+  margin-left: var(--ps-2);
+  color: var(--ps-ink-faint);
+}
