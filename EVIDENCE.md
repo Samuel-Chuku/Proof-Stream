@@ -18,7 +18,7 @@ Every hash below is a real transaction on Arc Testnet (chain `5042002`).
 | Stream | Repo | Certified | Released | Paid out | Held |
 | --- | --- | --- | --- | --- | --- |
 | [`0xdE72C79b…d036F5`](https://testnet.arcscan.app/address/0xdE72C79b2546EeBD99d987f3803f78F7A6d036F5) | cofxctor/ProofStream-live-test | 100% | 40 | 0 | 40 |
-| [`0xcFfA2c4E…9262c9`](https://testnet.arcscan.app/address/0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9) | cofxctor/ProofStream-live-test | 95% | 28.607638 | 0 | 50 |
+| [`0xcFfA2c4E…9262c9`](https://testnet.arcscan.app/address/0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9) | cofxctor/ProofStream-live-test | 95% | 32.027777 | 0 | 50 |
 | [`0x11370A9E…8B696e`](https://testnet.arcscan.app/address/0x11370A9E34E2dcaD4eEb9433Ee8386aF168B696e) | Samuel-Chuku/proofstream-agent-test | 50% | 15 | 15 | 0 |
 | [`0x0684D1CC…4b5E7f`](https://testnet.arcscan.app/address/0x0684D1CC230719F40fEE35D87Dfb5C913F4b5E7f) | Samuel-Chuku/proofstream-agent-test | 100% | 30 | 30 | 0 |
 | [`0x26B8379c…a8dcE8`](https://testnet.arcscan.app/address/0x26B8379cCB664f94fCAC4837D0FcB62136a8dcE8) | Samuel-Chuku/proofstream-townhall | 100% | 40 | 40 | 0 |
@@ -329,6 +329,19 @@ Samuel-Chuku/proofstream-demo · employer [`0xe9d2E552…170477`](https://testne
 | 2026-07-31 07:31:09 | fund | employer | 15 | [`0xc4100e59…37683b`](https://testnet.arcscan.app/tx/0xc4100e59003eb98da6902d0139e64f824c5c5a0283baab792b41a6c8fe37683b) |
 | 2026-07-31 08:42:40 | withdraw | contributor | 6.46 | [`0xd6cab141…80ad8c`](https://testnet.arcscan.app/tx/0xd6cab141e3a8d545c3f8de989bd55e66c03836a8bdd3b724805699691a80ad8c) |
 | 2026-07-31 18:05:52 | close milestone | employer | 7.4 | [`0x6849fba1…cce8d3`](https://testnet.arcscan.app/tx/0x6849fba122e7aa00b9b7cf518898b84644db78a9d021482e74e6fb56aecce8d3) |
+
+## The policy, refused on chain
+
+Every guard below is proven by simulation in `pnpm probe:policy`. These were
+**sent**, and refused. Each hash is re-checked against the chain when this file
+is generated: the receipt must say reverted, and the call is replayed to decode
+which guard fired.
+
+| When | Guard | Stream | Sent by | Transaction |
+| --- | --- | --- | --- | --- |
+| 2026-09-19 14:00:06 | `WrongSigner()` | [`0xcffa2c4e…9262c9`](https://testnet.arcscan.app/address/0xcffa2c4efec19ab6aebb484ecff15d52449262c9) | `0xe9d2e552…170477` | [`0x3a76a78c…d06b88`](https://testnet.arcscan.app/tx/0x3a76a78cc90d02b4c95108a7ff17adc7ff41b29c238e97715d7d0c1b16d06b88) |
+
+**`WrongSigner()`** — An outsider signed an attestation for the milestone and sent it. The contract refused it: the money cannot be moved by anyone but the agent the employer appointed, whatever signature they hold. It cost 50267 gas and moved nothing.
 
 ### The agent's certifications, with the judgment behind each
 

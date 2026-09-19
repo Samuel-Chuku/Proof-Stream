@@ -238,8 +238,14 @@ async function main() {
   const sendable = best.candidate;
   console.log(`\n  BEST AVAILABLE: ${best.error}()\n\n  ${MEANING[best.error].proves}\n`);
   console.log('  SEND IT (this is the only command here that touches the chain):\n');
+  // THE PUBLIC ENDPOINT, deliberately. ARC_RPC_URL carries a private node token
+  // and must never be printed; and a command that reads it from the shell fails
+  // confusingly when the shell has not sourced .env — cast falls back to
+  // localhost:8545 and reports "Connection refused", which reads like a chain
+  // problem rather than an unset variable.
   console.log(`    ${sendable.cast} \\`);
-  console.log('      --rpc-url "$ARC_RPC_URL" --account proofstream-deployer --gas-limit 200000\n');
+  console.log('      --rpc-url https://rpc.testnet.arc.network \\');
+  console.log('      --account proofstream-deployer --gas-limit 200000\n');
   if (best.error === 'WrongSigner') {
     // ATTESTATION_TTL is 15 minutes and the attestation above is already a
     // minute old. Sent later than that it reverts StaleAttestation, which is a

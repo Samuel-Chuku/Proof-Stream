@@ -9,8 +9,8 @@
 // transaction each. Conflating them would inflate the transaction count, and a
 // judge who suspects an inflated count is worse than a lower honest one.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { EXPLORER_URL, USDC_ADDRESS, formatUsdc } from '@proofstream/config';
-import { createPublicClient, erc20Abi, http, parseAbiItem } from 'viem';
+import { EXPLORER_URL, USDC_ADDRESS, WORK_STREAM_ABI as GENERATED_ABI, formatUsdc } from '@proofstream/config';
+import { createPublicClient, decodeErrorResult, erc20Abi, http, parseAbiItem } from 'viem';
 import { arcTestnet } from 'viem/chains';
 
 const GATEWAY_WALLET = '0x0077777d7EBA4688BDeF3E311b846F25870A19B9' as const;
@@ -360,6 +360,71 @@ const streamState = await inBatches(perStream, async ({ stream }) => {
     };
 });
 
+// --- the policy, refused on chain ------------------------------------------
+//
+// A guard proven by simulation is a guard on paper. These are transactions that
+// were actually sent and actually refused, which is what the definition of done
+// asks for.
+//
+// SELF-VERIFYING. Each hash is checked against the chain at generation time:
+// the receipt must say reverted, and the call is replayed at the block before
+// to decode which error fired. Nothing here is taken from a note, so this
+// section cannot drift into a claim about a transaction that succeeded.
+//
+// Add one with `pnpm revert:prepare <stream>`, which prints the command.
+const RECORDED_REVERTS = ['0x3a76a78cc90d02b4c95108a7ff17adc7ff41b29c238e97715d7d0c1b16d06b88'] as const;
+
+/// What each refusal proves. Kept beside the hashes rather than imported from
+/// scripts/policy-revert.ts, which runs when imported.
+const REVERT_MEANING: Record<string, string> = {
+  WrongSigner:
+    'An outsider signed an attestation for the milestone and sent it. The contract refused it: the money cannot be moved by anyone but the agent the employer appointed, whatever signature they hold.',
+  NotEmployer: 'Somebody other than the employer tried to repoint the stream at a repository they control.',
+  NotContributor: 'Somebody other than the named contributor tried to withdraw.',
+  OverMaxTranche: 'The agent tried to release more in one certification than the employer allowed.',
+  DailyCapExceeded: "The agent tried to release more in one day than the employer allowed.",
+  RepoLocked: 'The employer tried to change the repository after work had been judged against it.',
+};
+
+const reverts = await Promise.all(
+  RECORDED_REVERTS.map(async (hash) => {
+    const [receipt, sent] = await Promise.all([
+      client.getTransactionReceipt({ hash }),
+      client.getTransaction({ hash }),
+    ]);
+    let guard = 'unknown';
+    try {
+      await client.call({ account: sent.from, to: sent.to!, data: sent.input, blockNumber: receipt.blockNumber - 1n });
+    } catch (err) {
+      for (let e: any = err; e; e = e.cause) {
+        const data = typeof e.data === 'string' ? e.data : e.data?.data;
+        if (typeof data === 'string' && data.startsWith('0x') && data.length >= 10) {
+          try {
+            // THE GENERATED ABI, not the small local one below: only the
+            // generated one declares the contract's errors, and decoding
+            // against an ABI without them yields "unknown" for every guard.
+            guard = decodeErrorResult({ abi: GENERATED_ABI, data: data as `0x${string}` }).errorName ?? 'unknown';
+          } catch {
+            guard = 'unknown';
+          }
+          break;
+        }
+      }
+    }
+    const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+    return {
+      hash,
+      guard,
+      stream: sent.to as `0x${string}`,
+      from: sent.from,
+      at: new Date(Number(block.timestamp) * 1000).toISOString().slice(0, 19).replace('T', ' '),
+      block: receipt.blockNumber,
+      reverted: receipt.status === 'reverted',
+      gasUsed: receipt.gasUsed,
+    };
+  }),
+);
+
 const chainRows = perStream.flatMap((s) => s.txs);
 const registrations = [...announced.values()].filter((s) => s.txHash);
 const chainTotal = chainRows.length + registrations.length;
@@ -490,6 +555,27 @@ in the loop.
 
 ${chainSections.join('\n\n') || '| — | — | — | — | — |'}
 
+## The policy, refused on chain
+
+Every guard below is proven by simulation in \`pnpm probe:policy\`. These were
+**sent**, and refused. Each hash is re-checked against the chain when this file
+is generated: the receipt must say reverted, and the call is replayed to decode
+which guard fired.
+
+${
+  reverts.length === 0
+    ? '_None recorded yet. \`pnpm revert:prepare <stream>\` prints the command._'
+    : `| When | Guard | Stream | Sent by | Transaction |\n| --- | --- | --- | --- | --- |\n` +
+      reverts
+        .map(
+          (r) =>
+            `| ${r.at} | \`${r.guard}()\`${r.reverted ? '' : ' — **DID NOT REVERT**'} | [\`${r.stream.slice(0, 10)}…${r.stream.slice(-6)}\`](${EXPLORER_URL}/address/${r.stream}) | \`${r.from.slice(0, 10)}…${r.from.slice(-6)}\` | ${tx(r.hash)} |`,
+        )
+        .join('\n')
+}
+
+${reverts.map((r) => `**\`${r.guard}()\`** — ${REVERT_MEANING[r.guard] ?? 'refused by the contract.'} It cost ${r.gasUsed} gas and moved nothing.`).join('\n\n')}
+
 ### The agent's certifications, with the judgment behind each
 
 The same certify transactions as above, from the agent's own ledger, which is
@@ -576,6 +662,7 @@ Across ${allVerdicts.filter((v) => v.verdict).length} decisions.
 writeFileSync(new URL('../EVIDENCE.md', import.meta.url).pathname, md);
 
 console.log(`EVIDENCE.md written`);
+console.log(`  policy reverts recorded:      ${reverts.filter((r) => r.reverted).length} of ${reverts.length}`);
 console.log(`  streams announced:            ${announced.size}`);
 console.log(`  on-chain transactions:        ${chainTotal} (${agentSent} sent by the agent)`);
 console.log(`  certifications in the ledger: ${directRows.length}`);
