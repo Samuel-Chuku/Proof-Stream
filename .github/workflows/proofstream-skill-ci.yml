@@ -1,0 +1,75 @@
+name: ProofStream skill CI
+
+on:
+  pull_request:
+    paths:
+      - "proofstream-skill/**"
+      - "contracts/**"
+      - "agent/**"
+      - "config/**"
+      - "scripts/sync-artifacts.ts"
+      - "web/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  push:
+    branches: [main]
+    paths:
+      - "proofstream-skill/**"
+      - "contracts/**"
+      - "agent/**"
+      - "config/**"
+      - "scripts/sync-artifacts.ts"
+      - "web/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+          cache: pnpm
+      - run: pnpm --version
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: pnpm install --frozen-lockfile
+      - run: forge build --root contracts
+      - run: pnpm skill:check
+      - run: pnpm --filter proofstream-integration-skill examples:typecheck
+      - run: pnpm skill:pack
+      - run: pnpm skill:install-test
+
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+          cache: pnpm
+      - run: pnpm --version
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: pnpm install --frozen-lockfile
+      - run: forge build --root contracts
+      - run: pnpm --filter proofstream-integration-skill generate:check
+      - run: pnpm --filter proofstream-integration-skill test

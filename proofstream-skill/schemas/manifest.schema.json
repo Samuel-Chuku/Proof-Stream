@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofstream.dev/schemas/manifest.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "name", "displayName", "skillVersion", "cli", "proofstream", "entrypoint", "compatibility", "integrity"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "name": { "const": "proofstream-integration" },
+    "displayName": { "type": "string", "minLength": 1 },
+    "skillVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+" },
+    "cli": { "const": "proofstream-skill" },
+    "proofstream": { "type": "object", "required": ["repository", "commit"], "additionalProperties": false, "properties": { "repository": { "format": "uri" }, "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" } } },
+    "entrypoint": { "const": "SKILL.md" },
+    "compatibility": { "type": "string" },
+    "integrity": { "type": "string" }
+  }
+}

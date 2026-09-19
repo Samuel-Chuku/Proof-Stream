@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "proofstreamCommit": "92b5e741947a73dc95f673adc8ff2431b7615aa1",
+  "sources": [
+    "contracts/out/WorkStream.sol/WorkStream.json",
+    "contracts/out/StreamRegistry.sol/StreamRegistry.json",
+    "README.md",
+    "EVIDENCE.md",
+    ".env.example",
+    "web/lib/chain.ts"
+  ],
+  "claims": [
+    {
+      "id": "chain.arc-testnet",
+      "classification": "verified",
+      "source": "web/lib/chain.ts"
+    },
+    {
+      "id": "deployment.workstream-address",
+      "classification": "conflicted",
+      "source": "README.md and EVIDENCE.md"
+    },
+    {
+      "id": "skill.release-status",
+      "classification": "experimental",
+      "source": "manifest.json"
+    }
+  ]
+}

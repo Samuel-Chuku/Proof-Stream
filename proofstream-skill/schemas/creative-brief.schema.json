@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofstream.dev/schemas/creative-brief.schema.json",
+  "title": "ProofStream creative brief",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "medium", "objective", "audience", "format", "copy", "visual", "compliance", "provenance", "outputs"],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0" },
+    "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "medium": { "type": "string", "enum": ["flyer", "banner", "social", "presentation", "video", "motion"] },
+    "objective": { "type": "string", "minLength": 1 },
+    "audience": { "type": "string", "minLength": 1 },
+    "format": {
+      "type": "object",
+      "required": ["width", "height", "unit", "orientation"],
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "unit": { "type": "string", "enum": ["px", "mm", "in"] },
+        "orientation": { "type": "string", "enum": ["portrait", "landscape", "square"] },
+        "dpi": { "type": "number", "minimum": 1 },
+        "bleed": { "type": "number", "minimum": 0 },
+        "fps": { "type": "number", "exclusiveMinimum": 0 },
+        "durationSeconds": { "type": "number", "exclusiveMinimum": 0 },
+        "safeArea": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "copy": {
+      "type": "object",
+      "required": ["headline", "cta"],
+      "properties": {
+        "headline": { "type": "string", "minLength": 1 },
+        "subhead": { "type": "string" },
+        "body": { "type": "string" },
+        "cta": { "type": "string", "minLength": 1 },
+        "disclaimers": { "type": "array", "items": { "type": "string" } },
+        "sourceClaims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["claim", "status", "source"],
+            "properties": {
+              "claim": { "type": "string", "minLength": 1 },
+              "status": { "type": "string", "enum": ["verified", "experimental", "current-limitation", "roadmap", "not-currently-provided"] },
+              "source": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "visual": {
+      "type": "object",
+      "required": ["markUse", "typography", "palette"],
+      "properties": {
+        "markUse": { "type": "string", "enum": ["official", "text-only", "none"] },
+        "typography": { "type": "string", "minLength": 1 },
+        "palette": { "type": "object" },
+        "safeArea": { "type": "string" },
+        "negativePrompts": { "type": "array", "items": { "type": "string" } },
+        "motionNotes": { "type": "string" },
+        "altText": { "type": "string" },
+        "captions": { "type": "string" },
+        "transcript": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "compliance": {
+      "type": "object",
+      "required": ["approvedClaims", "forbiddenClaims", "assetRights", "accessibility"],
+      "properties": {
+        "approvedClaims": { "type": "array", "items": { "type": "string" } },
+        "forbiddenClaims": { "type": "array", "items": { "type": "string" } },
+        "assetRights": { "type": "string", "enum": ["confirmed", "pending", "not-required"] },
+        "accessibility": {
+          "type": "object",
+          "required": ["contrastChecked", "altText"],
+          "properties": {
+            "contrastChecked": { "type": "boolean" },
+            "altText": { "type": "string" },
+            "captions": { "type": "boolean" },
+            "transcript": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["sourceCommit", "briefOwner"],
+      "properties": {
+        "sourceCommit": { "type": "string", "minLength": 1 },
+        "briefOwner": { "type": "string", "minLength": 1 },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["filename", "type"],
+        "properties": {
+          "filename": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["png", "jpg", "webp", "svg", "pdf", "mp4", "mov", "srt", "json"] },
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

@@ -1,12 +1,7 @@
 {
-  "name": "proofstream",
-  "private": true,
-  "type": "module",
-  "packageManager": "pnpm@11.17.0",
-  "engines": {
-    "node": ">=22.13"
-  },
-  "scripts": {
+  "schemaVersion": "1.0.0",
+  "generatedFrom": "92b5e741947a73dc95f673adc8ff2431b7615aa1",
+  "commands": {
     "check:chain": "tsx --env-file=.env scripts/check-chain.ts",
     "circle:setup": "tsx --env-file=.env scripts/circle-setup.ts",
     "preflight:deploy": "tsx --env-file=.env scripts/preflight-deploy.ts",
@@ -60,20 +55,5 @@
     "skill:release-dry-run": "pnpm --filter proofstream-integration-skill generate:check && pnpm --filter proofstream-integration-skill test && pnpm --filter proofstream-integration-skill pack:release",
     "probe:policy": "tsx --env-file=.env scripts/probe-policy.ts",
     "sandbox:smoke": "tsx --env-file=.env scripts/sandbox-smoke.ts"
-  },
-  "devDependencies": {
-    "@types/express": "^5.0.0",
-    "@types/node": "^22.10.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.6.0"
-  },
-  "dependencies": {
-    "@circle-fin/developer-controlled-wallets": "^10.8.0",
-    "@circle-fin/x402-batching": "^3.2.0",
-    "@proofstream/config": "workspace:*",
-    "@x402/core": "^2.20.0",
-    "@x402/evm": "^2.20.0",
-    "express": "^5.2.1",
-    "viem": "^2.21.0"
   }
 }

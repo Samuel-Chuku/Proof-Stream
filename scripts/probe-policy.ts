@@ -34,7 +34,7 @@ const add = (name: string, ok: boolean, detail: string) => checks.push({ name, o
 
 const client = createPublicClient({ chain: arcTestnet, transport: http(process.env.ARC_RPC_URL) });
 
-const AGENT = (process.env.AGENT_ADDRESS ?? '0x2CD7cc0407218f905731F88C08EEB86a94dd634A') as Address;
+const AGENT = (process.env.AGENT_ADDRESS || '0x2CD7cc0407218f905731F88C08EEB86a94dd634A') as Address;
 const SOMEONE = '0x901788dC477C9B6fbA00e9344bd2d1bf71923f10' as Address;
 const NOBODY = '0x0000000000000000000000000000000000000000' as Address;
 
