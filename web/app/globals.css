@@ -3511,3 +3511,96 @@ input[type='range'].ps-range:disabled {
 @media (max-width: 720px) {
   .ps-bound-row { grid-template-columns: 1fr; }
 }
+
+/* The kind menu, hung off the band's own CHANGE control. Same three kinds in
+   the same order with the same marks as the gate: a shortcut, not a second
+   vocabulary. On the surface rather than in the band's invert, because it is a
+   menu sitting above the page, not part of the strip. */
+.ps-kindmenu {
+  position: relative;
+}
+
+.ps-kindmenu-panel {
+  position: absolute;
+  top: calc(100% + var(--ps-2));
+  right: 0;
+  z-index: 20;
+  min-width: 380px;
+  max-width: calc(100vw - var(--ps-5));
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+}
+
+.ps-kindmenu-item {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr max-content;
+  align-items: center;
+  gap: var(--ps-1) var(--ps-2);
+  width: 100%;
+  padding: var(--ps-2) var(--ps-3);
+  font: inherit;
+  text-align: left;
+  background: none;
+  color: inherit;
+  border: 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  cursor: pointer;
+}
+
+.ps-kindmenu-item:hover:not(:disabled) {
+  background: var(--ps-sunk);
+}
+
+.ps-kindmenu-item:disabled {
+  color: var(--ps-ink-faint);
+  cursor: not-allowed;
+}
+
+/* The one in force. Marked, not highlighted: a fill here would compete with
+   the band above, which is already saying the same thing. */
+.ps-kindmenu-item-current {
+  cursor: default;
+}
+
+.ps-kindmenu-mark {
+  color: var(--ps-ink-dim);
+}
+
+.ps-kindmenu-short {
+  grid-column: 3;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ps-kindmenu-compare {
+  display: block;
+  width: 100%;
+  padding: var(--ps-2) var(--ps-3);
+  font: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-align: left;
+  background: none;
+  color: var(--ps-ink-dim);
+  border: 0;
+  cursor: pointer;
+}
+
+.ps-kindmenu-compare:hover {
+  background: var(--ps-sunk);
+  color: var(--ps-ink);
+}
+
+@media (max-width: 720px) {
+  .ps-kindmenu { width: 100%; }
+  .ps-kindmenu-panel {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+  }
+  /* The short line drops under the name rather than squeezing it. */
+  .ps-kindmenu-item { grid-template-columns: max-content max-content 1fr; }
+  .ps-kindmenu-short { grid-column: 1 / -1; }
+}

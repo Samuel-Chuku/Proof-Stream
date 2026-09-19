@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import type { StreamMode } from '../../lib/create-stream';
 
 /// WHAT KIND OF STREAM, chosen before anything else is shown.
@@ -94,17 +95,106 @@ export function KindGate({ onChoose }: { onChoose: (m: StreamMode) => void }) {
   );
 }
 
-/// The chosen kind, in one line at the top of the form, with a way back.
-export function KindLine({ mode, onChange }: { mode: StreamMode; onChange: () => void }) {
+/// The chosen kind, in one line at the top of the form, and a menu to change
+/// it without leaving the form.
+///
+/// Returning to the gate was the only way back, which threw away the work
+/// already in the form to answer a question the band was already showing. The
+/// menu is the same three kinds in the same order with the same marks, so
+/// nothing new has to be learned; the gate stays one click away for anyone who
+/// wants the full paragraphs side by side.
+export function KindLine({
+  mode,
+  onSelect,
+  onCompare,
+}: {
+  mode: StreamMode;
+  onSelect: (m: StreamMode) => void;
+  /** Back to the gate, where all three carry their whole meaning. */
+  onCompare: () => void;
+}) {
   const k = KINDS.find((x) => x.mode === mode) ?? KINDS[0];
+  const [open, setOpen] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
+
+  // Close on Escape and on a click anywhere else, like every menu a user has
+  // ever met. `pointerdown` rather than `click` so the menu is gone before the
+  // thing underneath reacts.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const onDown = (e: PointerEvent) => {
+      if (!menu.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown);
+    };
+  }, [open]);
+
   return (
     <div className="ps-kindline">
       <KindMark kind={mode} size={16} />
       <span className="ps-label">{k.name}</span>
       <span className="ps-caption ps-kindline-short">{k.short}</span>
-      <button type="button" className="ps-chip" onClick={onChange}>
-        [ CHANGE ]
-      </button>
+
+      <div className="ps-kindmenu" ref={menu}>
+        <button
+          type="button"
+          className="ps-chip"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          [ CHANGE ] <span aria-hidden>{open ? '▴' : '▾'}</span>
+        </button>
+
+        {open && (
+          <div className="ps-kindmenu-panel" role="menu" aria-label="Kind of stream">
+            {KINDS.map((item) => {
+              const current = item.mode === mode;
+              const disabled = Boolean(item.soon);
+              return (
+                <button
+                  key={item.mode}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={current}
+                  disabled={disabled}
+                  className={`ps-kindmenu-item${current ? ' ps-kindmenu-item-current' : ''}`}
+                  onClick={() => {
+                    if (!disabled && !current) onSelect(item.mode as StreamMode);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="ps-kindmenu-mark" aria-hidden>
+                    {current ? '\u25CF' : '\u25CB'}
+                  </span>
+                  <KindMark kind={item.mode} size={16} />
+                  <span className="ps-label">{item.name}</span>
+                  <span className="ps-caption ps-kindmenu-short">
+                    {disabled ? item.soon : item.short}
+                  </span>
+                  {item.soon && <span className="ps-kind-soon">SOON</span>}
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              className="ps-kindmenu-compare ps-caption"
+              onClick={() => {
+                setOpen(false);
+                onCompare();
+              }}
+            >
+              [ COMPARE ALL THREE ]
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
