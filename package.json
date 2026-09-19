@@ -49,9 +49,11 @@
     "test:bind": "tsx --test agent/test/bind.test.ts",
     "test:withdraw-cap": "tsx --test web/test/withdraw-cap.test.ts",
     "test:ago": "tsx --test web/test/ago.test.ts",
+    "test:sweep": "tsx --test agent/test/reconcile-sweep.test.ts",
     "watch": "tsx --env-file-if-exists=.env scripts/watch.ts",
     "stream:status": "tsx --env-file=.env scripts/stream-status.ts",
     "probe:policy": "tsx --env-file=.env scripts/probe-policy.ts",
+    "revert:prepare": "tsx --env-file=.env scripts/policy-revert.ts",
     "sandbox:smoke": "tsx --env-file=.env scripts/sandbox-smoke.ts"
   },
   "devDependencies": {

@@ -159,6 +159,36 @@ async function recentlyMerged(repo: string, branch: string, sinceMs: number): Pr
     .map((p) => toMergedPr(p, repo));
 }
 
+/// How many times ONE sweep may retry ONE pull request before giving up on it
+/// until the process restarts.
+///
+/// Not a tuning knob, a cost bound. `alreadyJudged` deliberately ignores rows
+/// marked `judged: false` so a failed judgment can be retried — which was
+/// exactly right when reconciliation only ran at startup. On a timer, a pull
+/// request that fails for a standing reason (a model endpoint that is down, a
+/// diff that cannot be fetched) would be picked up again every sweep, forever,
+/// buying a second opinion each time it gets far enough. Three attempts is
+/// enough to ride out a transient failure and few enough to bound the spend.
+const MAX_ATTEMPTS = 3;
+
+/// `<stream>:<pr>` -> attempts made in this process.
+const attempts = new Map<string, number>();
+
+/// True while a pull request is still worth retrying.
+export function mayRetry(streamAddress: string, pr: number): boolean {
+  return (attempts.get(`${streamAddress.toLowerCase()}:${pr}`) ?? 0) < MAX_ATTEMPTS;
+}
+
+export function noteAttempt(streamAddress: string, pr: number): void {
+  const key = `${streamAddress.toLowerCase()}:${pr}`;
+  attempts.set(key, (attempts.get(key) ?? 0) + 1);
+}
+
+/// Exported for the tests, which must start from a known count.
+export function forgetAttempts(): void {
+  attempts.clear();
+}
+
 /// Judge anything merged that has no verdict. `process` is injected rather than
 /// imported so this module stays testable and cannot accidentally be the thing
 /// that pulls the whole pipeline into a script.
@@ -204,7 +234,9 @@ export async function reconcile(
       const spec = parseRepoSpec(entry.repo);
       const merged = await recentlyMerged(spec.repo, spec.branch, since);
       const judged = alreadyJudged(entry.stream);
-      const missed = merged.filter((pr) => !judged.has(pr.number)).slice(0, maxPerStream);
+      const missed = merged
+        .filter((pr) => !judged.has(pr.number) && mayRetry(entry.stream, pr.number))
+        .slice(0, maxPerStream);
 
       if (missed.length === 0) continue;
 
@@ -217,6 +249,10 @@ export async function reconcile(
       });
 
       for (const pr of missed) {
+        // Counted BEFORE the attempt, so a judgment that throws still burns
+        // one. Counting after would leave a pull request that fails every time
+        // on zero attempts for ever.
+        noteAttempt(entry.stream, pr.number);
         // Straight through the same gates a webhook would hit, including the
         // milestone-not-funded and wrong-repo checks. Reconciliation is a
         // different DOOR, never a different standard.
@@ -237,4 +273,70 @@ export async function reconcile(
       });
     }
   }
+}
+
+// --------------------------------------------------------------- the sweep
+//
+// Reconciliation used to run once, at startup, so a webhook lost while the
+// agent was up needed a restart to recover — and nobody restarts an agent
+// because nothing happened. On a timer it becomes what it was always meant to
+// be: a standing guarantee that merged work gets judged whether or not the
+// delivery arrived.
+//
+// The bounds that made the startup sweep safe are unchanged and still do the
+// work here: only merges after the milestone activated, only inside the
+// lookback window, at most a few per stream per sweep, only pull requests with
+// no verdict, and now at most MAX_ATTEMPTS tries each.
+
+let sweeping = false;
+let sweeps = 0;
+let lastSweepAt: string | null = null;
+
+/// What the health endpoint reports, so "is the sweep alive" is answerable
+/// without reading the journal.
+export function sweepStatus(): { everyMinutes: number; sweeps: number; lastSweepAt: string | null } {
+  return { everyMinutes: Number(env.reconcileEveryMinutes), sweeps, lastSweepAt };
+}
+
+/// Sweep now, then keep sweeping. Returns once the FIRST sweep is done, so
+/// startup can report what it found, exactly as the one-shot call did.
+export async function startReconcileLoop(
+  log: Logger,
+  process: (pr: MergedPr) => Promise<unknown>,
+): Promise<void> {
+  const everyMinutes = Number(env.reconcileEveryMinutes);
+
+  const sweep = async () => {
+    // A sweep that overruns its interval must not have a second one started on
+    // top of it: both would read the same ledger, find the same pull request,
+    // and pay to judge it twice.
+    if (sweeping) {
+      log({ event: 'reconcile_skipped', reason: 'the previous sweep is still running' });
+      return;
+    }
+    sweeping = true;
+    try {
+      await reconcile(log, process);
+      sweeps += 1;
+      lastSweepAt = new Date().toISOString();
+    } finally {
+      sweeping = false;
+    }
+  };
+
+  await sweep();
+
+  if (everyMinutes <= 0) {
+    log({ event: 'reconcile_loop_disabled', reason: 'RECONCILE_EVERY_MINUTES is zero' });
+    return;
+  }
+
+  const timer = setInterval(() => {
+    sweep().catch((err) =>
+      log({ event: 'reconcile_failed', message: err instanceof Error ? err.message : String(err) }),
+    );
+  }, everyMinutes * 60_000);
+
+  // The sweep must never be the reason the process cannot exit.
+  timer.unref?.();
 }
