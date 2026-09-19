@@ -1,6 +1,7 @@
 ---
 name: proofstream-integration
-description: Integrate, operate, inspect, debug, and create brand-safe ProofStream product and media experiences on Arc using verified contracts, agent workflows, evidence rules, UI patterns, and CLI references pinned to one ProofStream commit.
+description: This skill should be used when the user asks to "integrate ProofStream", "create or fund a ProofStream", "operate the ProofStream agent", "debug a certification or payout", "build a ProofStream dashboard", or create brand-safe ProofStream media from contract, agent, evidence, UI, and CLI references pinned to one ProofStream commit.
+version: 0.2.0
 metadata:
   short-description: Build and operate ProofStream integrations
 ---
@@ -11,7 +12,7 @@ Use this skill when building a product, agent, dashboard, operator workflow, or 
 
 ## Fast mental model
 
-ProofStream is an Arc-based USDC work-stream system. An employer creates and funds a `WorkStream` for a contributor and a milestone. An off-chain attestor collects external work evidence, asks a model to judge it, buys an independent verifier opinion through the implemented payment path, and submits a signed EIP-712 attestation. The contract verifies the signer, nonce, expiry, milestone, payee, and policy caps before crediting the contributor. The contributor pulls available USDC with `withdraw`.
+ProofStream is an Arc-based USDC work-stream system. An employer creates and funds a named, claimable, or public `WorkStream` for a milestone. An off-chain attestor collects external work evidence, runs an optional generated correctness suite in a sandbox, asks a model to judge the evidence, buys an independent verifier opinion through the implemented payment path, and submits a signed EIP-712 attestation. The contract verifies the signer, nonce, expiry, milestone, stream mode, earner identity, and policy caps before crediting a named contributor or a public earner.
 
 The contract is deterministic custody and accounting. GitHub, models, Circle wallets, RPCs, webhooks, and agent logs are off-chain dependencies. AI judgment is trusted interpretation, not trustless inference.
 
@@ -33,27 +34,30 @@ The contract is deterministic custody and accounting. GitHub, models, Circle wal
 1. Read the chain ID and addresses from the pinned compatibility metadata. Do not paste a README address into production code without checking its status. The current repository contains a WorkStream address conflict between `README.md` and `EVIDENCE.md`.
 2. Use the generated ABI and the repository-pinned viem version. Do not hand-maintain a partial ABI.
 3. Treat USDC amounts as six-decimal integers. Never use JavaScript floating point for a transfer.
-4. For every write, wait for a receipt with `status: success`, decode the expected event, and read post-state. A transaction hash is pending evidence, not a payout.
-5. Keep employer, contributor, attestor, verifier, and frontend keys separate. Never put a private key in a browser, example, prompt, log, or skill package.
-6. Make retries explicit. A read can retry with bounded backoff. A write must check current state and nonce first and must not blindly resubmit.
-7. Show pending, refused, failed, and unknown states honestly. Do not turn an agent verdict into an on-chain certification claim.
-8. Label any feature absent from `generated/consumables.json` as `Not currently provided`.
-9. For public creative, run `proofstream-skill creative-check <brief.json> --json`; use the pinned brand tokens and never imply that AI judgment is trustless or that a pending transaction is settled.
+4. Select the stream mode before building writes. Named streams use `withdraw`; claimable streams require a claim-authority signature before activation; public streams require an earner id, one-time payee binding, `withdrawFor`, and payout caps.
+5. For every write, wait for a receipt with `status: success`, decode the expected event, and read post-state. A transaction hash is pending evidence, not a payout.
+6. Keep employer, contributor, claim authority, attestor, verifier, and frontend keys separate. Never put a private key in a browser, example, prompt, log, or skill package.
+7. Make retries explicit. A read can retry with bounded backoff. A write must check current state and nonce first and must not blindly resubmit.
+8. Show pending, refused, failed, inconclusive, and unknown states honestly. Do not turn a generated test, model verdict, or transaction hash into an on-chain certification claim.
+9. Label any feature absent from `generated/consumables.json` as `Not currently provided`.
+10. For public creative, run `proofstream-skill creative-check <brief.json> --json`; use the pinned brand tokens and never imply that AI judgment is trustless or that a pending transaction is settled.
 
 ## Lifecycle in one view
 
 ```text
 employer wallet
+  -> choose named, claimable, or public mode
   -> deploy WorkStream
   -> register in StreamRegistry
   -> approve USDC and fund
-  -> open and activate milestone
+  -> claim if required, then activate the milestone
   -> agent receives verified external evidence
-  -> attestor judgment and verifier opinion
+  -> optional sandboxed correctness evidence
+  -> attestor judgment and paid verifier opinion
   -> EIP-712 attestation submitted
   -> contract checks signer, nonce, expiry, milestone, payee, and caps
-  -> certified credit becomes time-based earned/withdrawable USDC
-  -> contributor withdraws to an allowlisted payee
+  -> named credit or public earner shares become withdrawable USDC
+  -> contributor withdraws, or a bound public earner calls withdrawFor
 ```
 
 The agent does not custody the employer's stream funds and cannot mint arbitrary credit outside the contract's rules. The agent can still make a wrong judgment, submit a validly signed wrong judgment, spend verifier fees, or stop operating. See [references/security.md](references/security.md).
@@ -74,4 +78,4 @@ Read [references/integration-guide.md](references/integration-guide.md) before i
 
 ## Version and trust posture
 
-This package is experimental until its compatibility metadata, source conflicts, licensing, and runtime gates are resolved. It does not provide a public SDK, stable REST API, hosted webhook delivery service, or MCP server unless a future generated manifest says otherwise. It documents real interfaces and current limitations, not an idealized protocol.
+This 0.2.0 candidate is experimental and intentionally distinct from the published 0.1.1 package. It does not provide a public SDK, stable REST API, hosted webhook delivery service, or MCP server unless a future generated manifest says otherwise. It documents real interfaces and current limitations, not an idealized protocol.

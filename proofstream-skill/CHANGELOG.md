@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 - unreleased
+
+- Rebased the skill on ProofStream commit `92b5e741947a73dc95f673adc8ff2431b7615aa1`.
+- Added named, claimable, and public stream integration guidance.
+- Added public-earner identity, payee binding, proportional payout, and payout-cap references.
+- Added generated-correctness-suite, sandbox, evidence-improvement, and policy-probe guidance.
+- Refreshed generated ABIs, routes, commands, environment names, compatibility metadata, and checksums.
+
 ## 0.1.1 - patch
 
 - Synchronized published npm documentation and release metadata after the 0.1.0 publication.

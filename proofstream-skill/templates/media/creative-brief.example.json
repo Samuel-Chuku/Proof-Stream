@@ -53,7 +53,7 @@
     }
   },
   "provenance": {
-    "sourceCommit": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
+    "sourceCommit": "92b5e741947a73dc95f673adc8ff2431b7615aa1",
     "briefOwner": "ProofStream integration team",
     "notes": "Example brief. Replace sourceCommit only after re-auditing the repository."
   },

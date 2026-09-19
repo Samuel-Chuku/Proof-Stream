@@ -13,9 +13,21 @@ import { encodeFunctionData, erc20Abi, parseUnits } from 'viem';
 import { WORK_STREAM_BYTECODE } from './bytecode';
 import { REGISTRY_ADDRESS, USDC } from './chain';
 
+export type StreamMode = 'named' | 'public';
+
 export type StreamTerms = {
-  /** Who gets paid. */
+  /** Who this stream is for. `named` pays one person the employer already
+   *  knows. `public` names nobody: anyone whose merge is accepted earns a share,
+   *  and each earner binds their own payee later. Explicit rather than inferred
+   *  from an empty contributor, because the difference between "forgot to name
+   *  anyone" and "open to the world" must never be silent. */
+  mode: StreamMode;
+  /** Who gets paid on a named stream. Ignored on an open one. */
   contributor: `0x${string}`;
+  /** The address of the one-time key that authorises a claim, or absent for a
+   *  stream whose contributor is named at deploy. The PRIVATE key goes in the
+   *  link and is never stored. */
+  claimAuthority?: `0x${string}`;
   /** The attestor this stream appoints. */
   agent: `0x${string}`;
   /** What the agent judges work against. */
@@ -30,15 +42,27 @@ export type StreamTerms = {
    *  the repo string (`owner/name#branch`), so the employer controls it exactly
    *  as they control the repository, and the agent cannot choose its own. */
   branch: string;
+  /** GitHub logins whose merges count for this stream. Empty means any author,
+   *  which is how every stream behaved before this existed. An allowlist rather
+   *  than one login, because a person routinely has a personal and a work
+   *  account. */
+  authors?: string[];
   /** Per-unlock ceiling, human USDC. */
   maxTranche: string;
   /** Per-UTC-day ceiling, human USDC. */
   dailyUnlockCap: string;
-  /** The only address withdraw() may pay. */
+  /** The only address withdraw() may pay. Zero for a claimable stream: the
+   *  claimant becomes the payee. */
   payee: `0x${string}`;
+  /** PUBLIC STREAMS ONLY. Ceiling on one payout to an earner, human USDC. */
+  claimCap?: string;
+  /** PUBLIC STREAMS ONLY. Ceiling on payouts per UTC day, human USDC. */
+  dailyClaimCap?: string;
 };
 
 export const usdc = (human: string) => parseUnits(human, 6);
+
+export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
 /// Sensible caps derived from the budget.
 ///
@@ -70,7 +94,7 @@ export function suggestedCaps(budget: string) {
 /// still fix them — a reverted deploy costs gas and explains nothing.
 export function validate(terms: StreamTerms): string[] {
   const problems: string[] = [];
-  const zero = '0x0000000000000000000000000000000000000000';
+  const zero = ZERO_ADDRESS;
 
   if (!terms.milestone.trim()) problems.push('The milestone cannot be empty — it is what the agent judges against.');
   if (!/^[^/\s#]+\/[^/\s#]+$/.test(terms.repo)) problems.push('The repository must be owner/name.');
@@ -78,23 +102,71 @@ export function validate(terms: StreamTerms): string[] {
   // spec parses back to — a `#` here would split the string somewhere else.
   if (!terms.branch.trim()) problems.push('A branch is required — the agent only pays for work merged into it.');
   else if (!/^[\w.-]+(\/[\w.-]+)*$/.test(terms.branch.trim())) problems.push('That is not a valid branch name.');
-  for (const [label, value] of [
-    ['contributor', terms.contributor],
-    ['agent', terms.agent],
-    ['payee', terms.payee],
-  ] as const) {
-    if (!value || value === zero) problems.push(`The ${label} address is required.`);
-  }
+  if (!terms.agent || terms.agent === zero) problems.push('The agent address is required.');
 
   const budget = usdc(terms.budget || '0');
+
+  // WHO THIS IS FOR, which is what the contract enforces as exactly one mode.
+  const claimable = Boolean(terms.claimAuthority) && terms.claimAuthority !== zero;
+  if (terms.mode === 'public') {
+    // Nobody is named. The contract refuses this WITHOUT payout caps, so that
+    // an employer who simply forgot cannot deploy a stream open to the world.
+    if (claimable) problems.push('A public stream cannot also be a claim link.');
+    const claimCap = usdc(terms.claimCap || '0');
+    const dailyClaimCap = usdc(terms.dailyClaimCap || '0');
+    if (claimCap <= 0n) problems.push('A public stream needs a payout ceiling per withdrawal.');
+    if (dailyClaimCap < claimCap) {
+      problems.push('The daily payout ceiling cannot be below the per-withdrawal ceiling — the first payout of the day would never fit.');
+    }
+  } else {
+    const named = Boolean(terms.contributor) && terms.contributor !== zero;
+    if (named && claimable) {
+      problems.push('A stream cannot both name a contributor and be shared as a claim link. Choose one.');
+    } else if (!named && !claimable) {
+      problems.push('Name a contributor, or create a claim link for them to open.');
+    } else if (named && (!terms.payee || terms.payee === zero)) {
+      problems.push('The payee address is required when a contributor is named.');
+    }
+  }
+
   const maxTranche = usdc(terms.maxTranche || '0');
   const dailyCap = usdc(terms.dailyUnlockCap || '0');
 
   if (budget <= 0n) problems.push('The budget must be greater than zero.');
   if (terms.durationSeconds <= 0) problems.push('The duration must be greater than zero.');
   if (maxTranche <= 0n) problems.push('The per-unlock cap must be greater than zero.');
-  if (maxTranche > budget) problems.push('The per-unlock cap cannot exceed the budget.');
-  if (dailyCap < maxTranche) problems.push('The daily cap cannot be below the per-unlock cap.');
+
+  // THE CAPS MAY THROTTLE THE RATE, NEVER MAKE THE TOTAL UNREACHABLE.
+  //
+  // These mirror the contract's constructor exactly. They used to say the
+  // opposite: a cap ABOVE the budget was the error and a cap below it was a
+  // mere advisory, which is how a 100 USDC budget with a 30 USDC cap got
+  // deployed and sent 67 USDC back to the employer instead of the contributor.
+  if (budget > 0n && maxTranche < budget) {
+    problems.push(
+      'The per-unlock cap cannot be below the budget, or the agent could never certify the ' +
+        'milestone in full and the remainder would return to you instead of the contributor.',
+    );
+  }
+  // The daily cap is a RATE, so what matters is whether it can cover the budget
+  // across this milestone's own duration. Days round UP, matching the contract,
+  // so a milestone shorter than a day still gets a full day's allowance.
+  // Mirrors MAX_AUTHORS on the contract. Bounded because the AGENT reads this
+  // list on every judgment, so an unbounded one makes a stream expensive to
+  // serve.
+  const authors = (terms.authors ?? []).map((a) => a.trim()).filter(Boolean);
+  if (authors.length > 16) problems.push('At most 16 GitHub accounts can be named.');
+  if (authors.some((a) => !/^[A-Za-z0-9-]{1,39}$/.test(a))) {
+    problems.push('Each GitHub account must be a username, not a URL or an email.');
+  }
+
+  const days = BigInt(Math.max(1, Math.ceil(terms.durationSeconds / 86_400)));
+  if (budget > 0n && terms.durationSeconds > 0 && dailyCap * days < budget) {
+    problems.push(
+      `A daily cap of ${terms.dailyUnlockCap} USDC cannot reach the budget over ${days} day(s). ` +
+        'Raise the cap or lengthen the milestone.',
+    );
+  }
   return problems;
 }
 
@@ -112,27 +184,18 @@ export function advisories(terms: StreamTerms): string[] {
   const dailyCap = usdc(terms.dailyUnlockCap || '0');
   const maxTranche = usdc(terms.maxTranche || '0');
 
-  // A per-certification cap below the budget does not throttle a rogue agent so
-  // much as meter an honest contributor: the milestone can then only be paid in
-  // full across several
-  // certifications, and EACH ONE needs its own merge inside the window. When
-  // those merges never arrive, the remainder refunds to the employer, who keeps
-  // the finished work.
-  //
-  // On 2026-08-08 that cost a real contributor 67 of the 97 USDC both agents
-  // agreed was owed. Almost all of the damage came from nobody doing this
-  // arithmetic before deploying — which is exactly what a form is for. Listed
-  // first because it is the more expensive of the two mistakes.
-  if (maxTranche > 0n && budget > 0n && maxTranche < budget) {
-    const certifications = (budget + maxTranche - 1n) / maxTranche;
-    notes.push(
-      `A per-certification cap of ${terms.maxTranche} USDC against a ${terms.budget} USDC budget means the agent needs ${certifications} separate certifications to pay this milestone in full, and each one needs its own merge inside the milestone's window. Anything it never gets to certify returns to you rather than to the contributor. Leave the cap at the full budget unless you specifically want to throttle the rate.`,
-    );
-  }
+  // NOTE: the per-certification cap warning that used to live here is now an
+  // ERROR in `validate`. The contract refuses to deploy a stream whose caps
+  // could make the budget unreachable, so warning about it would be reporting
+  // the same thing twice, in two lists that mean different things.
 
+  // Still worth saying, and still not worth refusing. A daily ceiling under the
+  // budget is legitimate and is exactly how the policy-revert demo is set up.
+  // `validate` only refuses one that cannot reach the budget across the whole
+  // duration; this covers the rest.
   if (dailyCap > 0n && budget > 0n && dailyCap < budget) {
     notes.push(
-      `The daily cap of ${terms.dailyUnlockCap} USDC is below the ${terms.budget} USDC budget, so this milestone needs more than one day to pay out in full. That is allowed — it is what makes the agent hit its ceiling.`,
+      `The daily cap of ${terms.dailyUnlockCap} USDC is below the ${terms.budget} USDC budget, so this milestone needs more than one day to pay out in full. That is allowed, and it is what makes the agent hit its ceiling.`,
     );
   }
 
@@ -146,16 +209,27 @@ export function deployStream(terms: StreamTerms) {
     bytecode: WORK_STREAM_BYTECODE,
     args: [
       USDC,
-      terms.contributor,
+      // Exactly one of these is set. A named stream carries a contributor and a
+      // zero claim authority; a claimable one carries the reverse and binds both
+      // the contributor and the payee when someone opens the link.
+      // A public stream names nobody; the caps below are what make that a
+      // choice rather than an omission, and the constructor checks they are set.
+      terms.mode === 'public' ? ZERO_ADDRESS : terms.contributor || ZERO_ADDRESS,
+      terms.mode === 'public' ? ZERO_ADDRESS : terms.claimAuthority || ZERO_ADDRESS,
       terms.agent,
       terms.milestone,
       usdc(terms.budget),
       BigInt(terms.durationSeconds),
       formatRepoSpec(terms.repo, terms.branch),
+      (terms.authors ?? []).map((a) => a.trim()).filter(Boolean),
       {
         maxTranche: usdc(terms.maxTranche),
         dailyUnlockCap: usdc(terms.dailyUnlockCap),
-        payee: terms.payee,
+        payee: terms.mode === 'public' ? ZERO_ADDRESS : terms.payee || ZERO_ADDRESS,
+        // Payout caps exist only on a public stream. The constructor refuses
+        // them on a named one, so they are not a default to tune.
+        claimCap: terms.mode === 'public' ? usdc(terms.claimCap || '0') : 0n,
+        dailyClaimCap: terms.mode === 'public' ? usdc(terms.dailyClaimCap || '0') : 0n,
       },
     ],
   } as const;

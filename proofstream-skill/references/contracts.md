@@ -4,13 +4,17 @@ The canonical generated catalog is [generated/contracts-reference.md](../generat
 
 ## WorkStream model
 
-The contract stores immutable USDC, employer, contributor, and agent references. It stores milestone text and hash, budget, duration, funding, activation, certification progress, close state, policy caps, attestation nonce, and an EIP-712 domain separator. Public getters expose derived funding, activity, accrued, earned, withdrawable, target, and timing values. Exact tuple shapes and return types come from the ABI.
+The contract stores immutable USDC, employer, and agent references plus one of three payout modes. A named stream fixes the contributor at deployment. A claimable stream stores a claim authority and binds its contributor once through `claim`. A public stream has neither and credits opaque earner ids. The contract also stores milestone text and hash, budget, duration, funding, activation, certification progress, close state, author rules, certification and payout caps, attestation nonce, public-earner shares, and an EIP-712 domain separator. Exact tuple shapes and return types come from the ABI.
 
-Writes include funding, milestone opening and closing, certification, withdrawal, pause/resume, repository setting, and policy raising as present in the generated ABI. Permissions and custom errors must be read from the implementation and tests together, because an ABI does not encode all business preconditions.
+Writes include funding, claiming, milestone opening and closing, certification, named withdrawal, public payee binding and payout, pause/resume, repository and author setting, and policy raising as present in the generated ABI. Permissions and custom errors must be read from the implementation and tests together, because an ABI does not encode all business preconditions.
 
 ## Certification
 
-The attestor signs the exact EIP-712 domain and struct encoded by `WorkStream.sol` and mirrored in `agent/src/chain.ts`. The contract checks signature recovery, nonce, expiry, milestone identity, payee, tranche, daily cap, and policy constraints according to the pinned code. A caller can submit a signature, but only the configured agent signer should authorize it.
+The attestor signs the exact EIP-712 domain and struct encoded by `WorkStream.sol` and mirrored in `agent/src/chain.ts`. The contract checks signature recovery, nonce, expiry, milestone identity, earner-mode rules, tranche, daily cap, and policy constraints according to the pinned code. A public certification must carry a nonzero earner id; a named or claimed stream must carry zero. A caller can submit a signature, but only the configured agent signer should authorize it.
+
+## Claimable and public payouts
+
+For a claimable stream, verify the claim-authority signature over the caller's address, wait for `Claimed`, and reread `contributor`, `policy`, and activation state. For a public stream, use `earnerShare` and `earnerWithdrawable`; bind a payee once with an agent-signed `PAYEE_BINDING_TYPEHASH` authorization whose payee is also `msg.sender`; then call `withdrawFor`. Public payout caps are separate from certification caps.
 
 ## Registry
 
@@ -18,4 +22,4 @@ The attestor signs the exact EIP-712 domain and struct encoded by `WorkStream.so
 
 ## State transitions
 
-Build integration state from reads and events, not from UI route names. Keep these concepts distinct: deployed, registered, approved, funded, activated, active, paused, certified, closed, settled, earned, withdrawable, withdrawn, and unknown. See [lifecycle-and-money-flow.md](lifecycle-and-money-flow.md) for the safe sequence.
+Build integration state from reads and events, not from UI route names. Keep these concepts distinct: deployed, registered, named, awaiting claim, public, funded, activated, paused, certified, earner credited, payee bound, closed, settled, withdrawable, paid out, and unknown. See [lifecycle-and-money-flow.md](lifecycle-and-money-flow.md) for the safe sequence.

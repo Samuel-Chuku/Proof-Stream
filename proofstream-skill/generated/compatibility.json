@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0.0",
-  "skillVersion": "0.1.1",
+  "skillVersion": "0.2.0",
   "proofstreamRepository": "https://github.com/Samuel-Chuku/Proof-Stream",
-  "proofstreamCommit": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
+  "proofstreamCommit": "92b5e741947a73dc95f673adc8ff2431b7615aa1",
   "releaseStatus": "experimental",
   "chain": {
     "name": "Arc Testnet",
@@ -54,7 +54,7 @@
     }
   ],
   "bytecode": {
-    "WorkStreamSha256": "baddc86a7b9605e73c5010d7fe6c6e6391afc21238654a2cd10a3b093eed25ed",
+    "WorkStreamSha256": "bcd5419d80d3ebcc28006f3304f677d32c8e206cf922c81a4ffc7a52ecf3152e",
     "StreamRegistrySha256": "c1e3a345383cf9e365ded38713d779f6ad01903c6db338e79edecfa163ce9269"
   },
   "packageVersions": {

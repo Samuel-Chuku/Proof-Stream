@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { isOpen, type StreamSummary } from '../lib/registry';
+import { StreamVersion } from './stream-version';
 import { Amount } from './amount';
 import { Reveal } from './reveal';
 
@@ -151,7 +152,13 @@ export function StreamList({
                 )}
                 {s.repo || '(no repo set)'}
               </span>
-              <span className="ps-caption">MILESTONE {s.milestoneIndex}</span>
+              <span className="ps-caption">
+                MILESTONE {s.milestoneIndex}
+                {/* Only marked when it is NOT the current contract. Tagging
+                    every row with V2 would be noise on the common case; the
+                    thing worth seeing is the stream that behaves differently. */}
+                {s.version < 2 && <StreamVersion version={s.version} />}
+              </span>
               <span className={`ps-status ps-status-${statusKey(s)}`}>{statusLabel(s)}</span>
               <span className="ps-stream-figures">
                 <Amount raw={Number(s.earned)} size="m" suffix={false} /> of{' '}

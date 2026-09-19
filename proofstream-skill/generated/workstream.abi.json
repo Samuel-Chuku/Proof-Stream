@@ -13,6 +13,11 @@
         "internalType": "address"
       },
       {
+        "name": "_claimAuthority",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_agent",
         "type": "address",
         "internalType": "address"
@@ -38,6 +43,11 @@
         "internalType": "string"
       },
       {
+        "name": "_authors_",
+        "type": "string[]",
+        "internalType": "string[]"
+      },
+      {
         "name": "_policy",
         "type": "tuple",
         "internalType": "struct WorkStream.Policy",
@@ -56,6 +66,16 @@
             "name": "payee",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "claimCap",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "dailyClaimCap",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -90,6 +110,19 @@
   },
   {
     "type": "function",
+    "name": "CLAIM_TYPEHASH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "CLOSE_GRACE",
     "inputs": [],
     "outputs": [
@@ -104,6 +137,32 @@
   {
     "type": "function",
     "name": "DOMAIN_SEPARATOR",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_AUTHORS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "PAYEE_BINDING_TYPEHASH",
     "inputs": [],
     "outputs": [
       {
@@ -152,6 +211,47 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "authors",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string[]",
+        "internalType": "string[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bindPayee",
+    "inputs": [
+      {
+        "name": "earnerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payee_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -222,6 +322,11 @@
             "name": "milestoneHash",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "earnerId",
+            "type": "bytes32",
+            "internalType": "bytes32"
           }
         ]
       },
@@ -233,6 +338,58 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimAuthority",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claimDayBucket",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claimedToday",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -256,6 +413,44 @@
   },
   {
     "type": "function",
+    "name": "closedBps",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "closedTarget",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "contributor",
     "inputs": [],
     "outputs": [
@@ -263,6 +458,30 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "creditBps",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -297,6 +516,54 @@
     "type": "function",
     "name": "earned",
     "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "earnerShare",
+    "inputs": [
+      {
+        "name": "m",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "earnerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "earnerWithdrawable",
+    "inputs": [
+      {
+        "name": "m",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "earnerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -361,6 +628,19 @@
   {
     "type": "function",
     "name": "isActive",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isPublic",
     "inputs": [],
     "outputs": [
       {
@@ -474,6 +754,30 @@
   },
   {
     "type": "function",
+    "name": "paidTo",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "pause",
     "inputs": [],
     "outputs": [],
@@ -520,6 +824,25 @@
   },
   {
     "type": "function",
+    "name": "payeeOf",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "policy",
     "inputs": [],
     "outputs": [
@@ -537,6 +860,16 @@
         "name": "payee",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "claimCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "dailyClaimCap",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -576,6 +909,32 @@
     "type": "function",
     "name": "resume",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setAuthors",
+    "inputs": [
+      {
+        "name": "newAuthors",
+        "type": "string[]",
+        "internalType": "string[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setClaimAuthority",
+    "inputs": [
+      {
+        "name": "newAuthority",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -646,12 +1005,48 @@
   },
   {
     "type": "function",
+    "name": "version",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
     "name": "withdraw",
     "inputs": [
       {
         "name": "to",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawFor",
+    "inputs": [
+      {
+        "name": "m",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "earnerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       },
       {
         "name": "amount",
@@ -687,6 +1082,76 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "AuthorsSet",
+    "inputs": [
+      {
+        "name": "authors",
+        "type": "string[]",
+        "indexed": false,
+        "internalType": "string[]"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ClaimAuthoritySet",
+    "inputs": [
+      {
+        "name": "authority",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Claimed",
+    "inputs": [
+      {
+        "name": "contributor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EarnerCredited",
+    "inputs": [
+      {
+        "name": "milestone",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "earnerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "addedBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -845,6 +1310,56 @@
   },
   {
     "type": "event",
+    "name": "PaidOut",
+    "inputs": [
+      {
+        "name": "milestone",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "earnerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PayeeBound",
+    "inputs": [
+      {
+        "name": "earnerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payee",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PolicyRaised",
     "inputs": [
       {
@@ -935,6 +1450,16 @@
   },
   {
     "type": "error",
+    "name": "AlreadyBound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyClaimed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "AlreadyPaused",
     "inputs": []
   },
@@ -945,12 +1470,27 @@
   },
   {
     "type": "error",
+    "name": "BadCapPair",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BadCertification",
     "inputs": []
   },
   {
     "type": "error",
+    "name": "BadClaimSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BadNonce",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CapCannotStrandTheBudget",
     "inputs": []
   },
   {
@@ -961,6 +1501,16 @@
   {
     "type": "error",
     "name": "DailyCapExceeded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DailyClaimCapExceeded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EarnerOnNamedStream",
     "inputs": []
   },
   {
@@ -1000,7 +1550,17 @@
   },
   {
     "type": "error",
+    "name": "NoEarner",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotAnIncrease",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotClaimable",
     "inputs": []
   },
   {
@@ -1020,6 +1580,21 @@
   },
   {
     "type": "error",
+    "name": "NotPayee",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotPublic",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OverClaimCap",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "OverMaxTranche",
     "inputs": []
   },
@@ -1030,12 +1605,27 @@
   },
   {
     "type": "error",
+    "name": "RepoLocked",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "StaleAttestation",
     "inputs": []
   },
   {
     "type": "error",
+    "name": "StaleBinding",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "StreamIsPaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TooManyAuthors",
     "inputs": []
   },
   {

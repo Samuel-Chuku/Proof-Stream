@@ -1,19 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import { WORK_STREAM_ABI } from '@proofstream/config';
-import { type ContractFunctionName, createPublicClient, encodeFunctionData, http, parseAbiItem } from 'viem';
+import { createPublicClient, encodeFunctionData, http, parseAbi, parseAbiItem, type ContractFunctionName } from 'viem';
 import { arcTestnet } from 'viem/chains';
 import { env } from './env';
 import { pollUntilTerminal } from './poll';
 
 /// The names below are checked against the GENERATED ABI at compile time.
 ///
-/// This used to take a bare `string`, and `readContract` is called with
-/// `functionName as never`, so tsc could not see a name the contract does not
-/// have. That is exactly how `activatedAt` was read with no matching ABI entry
-/// on 2026-08-05: it compiled, the agent started, discovered zero streams, and
-/// looked like a registry fault. Now that the ABI is generated `as const`, viem
-/// can name every readable function and a typo fails the build instead.
+/// `readContract` is called with `functionName as never` when this takes a bare
+/// `string`, so tsc cannot see a name the contract does not have: reading a
+/// function with no matching ABI entry compiles, the agent starts, discovers
+/// zero streams, and looks like a registry fault. With the ABI generated
+/// `as const`, viem can name every readable function and a typo fails the build.
 type ReadFn = ContractFunctionName<typeof WORK_STREAM_ABI, 'view' | 'pure'>;
 
 
@@ -36,6 +35,9 @@ export type StreamState = {
   /** The repo this stream is about, registered on-chain by the employer. The
    *  agent watches what the contract tells it to, not what its own env says. */
   repo: string;
+  /** GitHub logins whose merges count for this stream. EMPTY MEANS ANY AUTHOR,
+   *  which is how every stream created before this existed behaves. */
+  authors: string[];
   /** Deposited so far toward this milestone's budget. */
   funded: bigint;
   /** USDC committed to this milestone. */
@@ -59,6 +61,15 @@ export type StreamState = {
   paused: boolean;
   maxTranche: bigint;
   dailyUnlockCap: bigint;
+  /** Which generation of the contract this is. Decides the SHAPE of what we
+   *  sign and call: v3 attestations carry an earner and v3's `policy()` returns
+   *  five fields, and both change the ABI selector, so the wrong shape is not a
+   *  wrong value — it is a call that cannot be decoded at all. 1 for a stream
+   *  that predates `version()`. */
+  version: number;
+  /** True on a stream that names nobody: anyone's accepted work earns a share
+   *  and the attestation must say who. */
+  isPublic: boolean;
 };
 
 export type Attestation = {
@@ -70,7 +81,22 @@ export type Attestation = {
   confidenceBps: bigint;
   issuedAt: bigint;
   milestoneHash: `0x${string}`;
+  /** WHO EARNED IT, opaque to the contract: keccak256("github:<numeric id>").
+   *  Required on a v3 public stream, zero on a v3 named one, and ABSENT on v1/v2,
+   *  whose attestation has no such field. */
+  earnerId?: `0x${string}`;
 };
+
+/// The shapes that changed between v2 and v3, hand-written because the
+/// generated ABI describes only the current contract and the agent still has
+/// to speak to every stream that exists. Two functions: the getter whose return
+/// grew, and the certification whose tuple grew. Everything else is identical.
+const LEGACY_ABI = parseAbi([
+  'function policy() view returns (uint256 maxTranche, uint256 dailyUnlockCap, address payee)',
+  'function certify((uint256 nonce,uint256 certifiedBps,uint256 prNumber,string commitSha,uint256 confidenceBps,uint256 issuedAt,bytes32 milestoneHash) a, bytes signature)',
+]);
+
+const ZERO_EARNER = `0x${'0'.repeat(64)}` as const;
 
 const publicClient = createPublicClient({ chain: arcTestnet, transport: http(env.arcRpcUrl) });
 const circle = initiateDeveloperControlledWalletsClient({
@@ -114,6 +140,7 @@ export async function readIdentity(
 
   const agent = await read<`0x${string}`>('agent');
   const repo = await read<string>('repo');
+  const authors = await readAuthors(read);
   // When this milestone's clock started. Reconciliation needs it: work merged
   // BEFORE a milestone existed was not done against it and must never be judged
   // by it. 0 means the budget is not fully deposited yet.
@@ -126,6 +153,25 @@ export async function readIdentity(
   // run its course. 0 means the milestone has not started.
   const endsAt = await read<bigint>('milestoneEndsAt');
   return { agent, repo, closed, endsAt, activatedAt };
+}
+
+
+/// `authors()` DOES NOT EXIST ON AN OLDER STREAM, and reading a function a
+/// contract does not have reverts. Every employer deploys their own copy, so
+/// streams predating this field stay live forever and the agent must keep
+/// serving them.
+///
+/// An empty list is the honest answer for those: it is exactly what the field
+/// means on a stream that never set one, and it is how every stream behaved
+/// before the field existed. Getting this wrong is not a cosmetic bug — the
+/// revert would take the whole `readStream` with it, and the agent would report
+/// that it could not judge any pre-existing stream at all.
+async function readAuthors(read: <T>(fn: ReadFn) => Promise<T>): Promise<string[]> {
+  try {
+    return await read<string[]>('authors');
+  } catch {
+    return [];
+  }
 }
 
 export async function readStream(streamAddress: `0x${string}`): Promise<StreamState> {
@@ -142,6 +188,7 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
   const milestone = await read<string>('milestone');
   const milestoneHash = await read<`0x${string}`>('milestoneHash');
   const repo = await read<string>('repo');
+  const authors = await readAuthors(read);
   const funded = await read<bigint>('funded');
   const budget = await read<bigint>('budget');
   const fullyFunded = await read<boolean>('fullyFunded');
@@ -153,12 +200,34 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
   const nonce = await read<bigint>('nonce');
   const accrued = await read<bigint>('accrued');
   const paused = await read<boolean>('paused');
-  const [maxTranche, dailyUnlockCap] = await read<[bigint, bigint, string]>('policy');
+  const version = await readVersion(read);
+
+  // `policy()` returns three fields before v3 and five from it, and viem cannot
+  // decode three words against a five-field ABI. Pick the ABI by version.
+  let maxTranche: bigint;
+  let dailyUnlockCap: bigint;
+  if (version >= 3) {
+    [maxTranche, dailyUnlockCap] = await read<[bigint, bigint, string, bigint, bigint]>('policy');
+  } else {
+    [maxTranche, dailyUnlockCap] = await withRetry(
+      () =>
+        publicClient.readContract({
+          address: streamAddress,
+          abi: LEGACY_ABI,
+          functionName: 'policy',
+        }) as Promise<[bigint, bigint, string]>,
+    );
+  }
+
+  const contributor = await read<string>('contributor');
+  const claimAuthority = version >= 2 ? await read<string>('claimAuthority') : '0x1';
+  const isPublic = version >= 3 && isZeroAddress(contributor) && isZeroAddress(claimAuthority);
 
   return {
     milestone,
     milestoneHash,
     repo,
+    authors,
     funded,
     budget,
     fullyFunded,
@@ -172,7 +241,22 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
     paused,
     maxTranche,
     dailyUnlockCap,
+    version,
+    isPublic,
   };
+}
+
+const isZeroAddress = (a: string) => /^0x0{40}$/i.test(a);
+
+/// `version()` does not exist before v2, and reading a function a contract
+/// lacks reverts. Same shape as `readAuthors`: the honest answer for such a
+/// stream is the generation that predates the getter.
+async function readVersion(read: <T>(fn: ReadFn) => Promise<T>): Promise<number> {
+  try {
+    return Number(await read<bigint>('version'));
+  } catch {
+    return 1;
+  }
 }
 
 /// EIP-712 payload. Domain and field order must match WorkStream.sol exactly —
@@ -183,7 +267,7 @@ export async function readStream(streamAddress: `0x${string}`): Promise<StreamSt
 /// so a signature made against stream A is rejected by stream B — which is the
 /// point: it stops an attestation being replayed across a multi-tenant fleet.
 /// Hardcoding one address here would silently break every stream but that one.
-function typedData(streamAddress: `0x${string}`, a: Attestation) {
+function typedData(streamAddress: `0x${string}`, a: Attestation, version: number) {
   return {
     types: {
       EIP712Domain: [
@@ -200,6 +284,11 @@ function typedData(streamAddress: `0x${string}`, a: Attestation) {
         { name: 'confidenceBps', type: 'uint256' },
         { name: 'issuedAt', type: 'uint256' },
         { name: 'milestoneHash', type: 'bytes32' },
+        // v3 adds the earner. A v2 stream's typehash has no such field, and a
+        // signature over the wrong struct recovers to the wrong address, which
+        // the contract reports as WrongSigner — a misleading error for what is
+        // really a version mismatch. Decided here, once, by the stream itself.
+        ...(version >= 3 ? [{ name: 'earnerId', type: 'bytes32' }] : []),
       ],
     },
     primaryType: 'Attestation',
@@ -217,6 +306,7 @@ function typedData(streamAddress: `0x${string}`, a: Attestation) {
       confidenceBps: a.confidenceBps.toString(),
       issuedAt: a.issuedAt.toString(),
       milestoneHash: a.milestoneHash,
+      ...(version >= 3 ? { earnerId: a.earnerId ?? ZERO_EARNER } : {}),
     },
   };
 }
@@ -225,14 +315,91 @@ function typedData(streamAddress: `0x${string}`, a: Attestation) {
 export async function signAttestation(
   streamAddress: `0x${string}`,
   a: Attestation,
+  version: number,
 ): Promise<`0x${string}`> {
   const res = await circle.signTypedData({
     walletId: env.agentWalletId,
-    data: JSON.stringify(typedData(streamAddress, a)),
+    data: JSON.stringify(typedData(streamAddress, a, version)),
   });
   const signature = res.data?.signature;
   if (!signature) throw new Error('Circle returned no signature');
   return signature as `0x${string}`;
+}
+
+/// What the agent signs when an earner chooses where to be paid, on a public
+/// stream. Same domain as the attestation, so a binding made for stream A is
+/// meaningless against stream B, and the PAYEE IS INSIDE THE STRUCT, so a
+/// signature lifted in transit authorises somebody else's address and does
+/// nothing for the thief. The contract also requires the payee to be the
+/// sender, which is why binding is safe to make permanent.
+export function bindingTypedData(
+  streamAddress: `0x${string}`,
+  earnerId: `0x${string}`,
+  payee: `0x${string}`,
+  deadline: bigint,
+) {
+  return {
+    types: {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ],
+      PayeeBinding: [
+        { name: 'earnerId', type: 'bytes32' },
+        { name: 'payee', type: 'address' },
+        { name: 'deadline', type: 'uint256' },
+      ],
+    },
+    primaryType: 'PayeeBinding',
+    domain: {
+      name: 'ProofStream',
+      version: '1',
+      chainId: arcTestnet.id,
+      verifyingContract: streamAddress,
+    },
+    message: { earnerId, payee, deadline: deadline.toString() },
+  };
+}
+
+export async function signPayeeBinding(
+  streamAddress: `0x${string}`,
+  earnerId: `0x${string}`,
+  payee: `0x${string}`,
+  deadline: bigint,
+): Promise<`0x${string}`> {
+  const res = await circle.signTypedData({
+    walletId: env.agentWalletId,
+    data: JSON.stringify(bindingTypedData(streamAddress, earnerId, payee, deadline)),
+  });
+  const signature = res.data?.signature;
+  if (!signature) throw new Error('Circle returned no signature');
+  return signature as `0x${string}`;
+}
+
+/// The two facts a binding request is checked against before anything is
+/// signed: whether the stream is public at all, and whether this earner has
+/// already chosen. `isPublic()` does not exist before v3, and a stream that
+/// cannot answer is by definition not public.
+export async function readBindingState(
+  streamAddress: `0x${string}`,
+  earnerId: `0x${string}`,
+): Promise<{ isPublic: boolean; payee: `0x${string}` }> {
+  const read = <T>(functionName: ReadFn, args: readonly unknown[] = []) =>
+    withRetry(
+      () =>
+        publicClient.readContract({
+          address: streamAddress,
+          abi: WORK_STREAM_ABI,
+          functionName: functionName as never,
+          args: args as never,
+        }) as Promise<T>,
+    );
+  const isPublic = await read<boolean>('isPublic').catch(() => false);
+  if (!isPublic) return { isPublic: false, payee: `0x${'0'.repeat(40)}` };
+  const payee = await read<`0x${string}`>('payeeOf', [earnerId]);
+  return { isPublic, payee };
 }
 
 export type CertifyResult = {
@@ -252,12 +419,34 @@ export async function sendCertification(
   streamAddress: `0x${string}`,
   a: Attestation,
   signature: `0x${string}`,
+  version: number,
 ): Promise<CertifyResult> {
-  const callData = encodeFunctionData({
-    abi: WORK_STREAM_ABI,
-    functionName: 'certify',
-    args: [a, signature],
-  });
+  // The tuple grew in v3, and a tuple's shape is part of the function selector,
+  // so this is not one call with an optional field: it is two different
+  // functions, and the current ABI can only name one of them.
+  const callData =
+    version >= 3
+      ? encodeFunctionData({
+          abi: WORK_STREAM_ABI,
+          functionName: 'certify',
+          args: [{ ...a, earnerId: a.earnerId ?? ZERO_EARNER }, signature],
+        })
+      : encodeFunctionData({
+          abi: LEGACY_ABI,
+          functionName: 'certify',
+          args: [
+            {
+              nonce: a.nonce,
+              certifiedBps: a.certifiedBps,
+              prNumber: a.prNumber,
+              commitSha: a.commitSha,
+              confidenceBps: a.confidenceBps,
+              issuedAt: a.issuedAt,
+              milestoneHash: a.milestoneHash,
+            },
+            signature,
+          ],
+        });
 
   const res = await circle.createContractExecutionTransaction({
     walletId: env.agentWalletId,

@@ -7,6 +7,15 @@ export async function verifyPayout(txHash: Hash, streamAddress: string) {
   const receipt = await client.getTransactionReceipt({ hash: txHash });
   if (receipt.status !== 'success') return { confirmed: false, reason: 'transaction-reverted', txHash };
   const getLogs = client.getLogs as unknown as (args: Record<string, unknown>) => Promise<Array<{ transactionHash?: string }>>;
-  const logs = await getLogs({ address: getAddress(streamAddress), abi: workstreamAbi as Abi, eventName: 'Withdrawn', fromBlock: receipt.blockNumber, toBlock: receipt.blockNumber });
-  return { confirmed: logs.some((log) => log.transactionHash === txHash), txHash, blockNumber: receipt.blockNumber.toString() };
+  const range = { address: getAddress(streamAddress), abi: workstreamAbi as Abi, fromBlock: receipt.blockNumber, toBlock: receipt.blockNumber };
+  const [named, publicPayout] = await Promise.all([
+    getLogs({ ...range, eventName: 'Withdrawn' }),
+    getLogs({ ...range, eventName: 'PaidOut' }),
+  ]);
+  const payoutEvent = named.some((log) => log.transactionHash === txHash)
+    ? 'Withdrawn'
+    : publicPayout.some((log) => log.transactionHash === txHash)
+      ? 'PaidOut'
+      : null;
+  return { confirmed: payoutEvent !== null, payoutEvent, txHash, blockNumber: receipt.blockNumber.toString() };
 }

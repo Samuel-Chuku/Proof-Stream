@@ -125,3 +125,80 @@ test('the fraction is rounded, not truncated, on the way to basis points', () =>
   assert.equal(meterCertification(0.60005, stream()).desiredBps, 6_001n);
   assert.equal(meterCertification(0.60004, stream()).desiredBps, 6_000n);
 });
+
+// --- how sure the agent must be, given how much it is claiming ------------
+//
+// The bar rises with the LEVEL claimed, not the size of the step taken to reach
+// it. Going 95% to 100% is a tiny step and the largest claim available, and it
+// is the case that let a comment-only merge take a standing 95% to a full
+// certification.
+
+import { requiredConfidence, agentsDisagree } from '../src/metering';
+
+const BASE = 0.7;
+
+/** Confidence is a float, so compare with tolerance. */
+const near = (actual: number, expected: number, what: string) =>
+  assert.ok(Math.abs(actual - expected) < 1e-9, `${what}: expected ~${expected}, got ${actual}`);
+
+test('THE LINE THE HUMAN DREW: claiming 90% or more requires 0.85', () => {
+  near(requiredConfidence(BASE, 9_000n), 0.85, 'a 90% claim');
+  near(requiredConfidence(BASE, 9_500n), 0.85, 'a 95% claim');
+  near(requiredConfidence(BASE, 10_000n), 0.85, 'a 100% claim');
+});
+
+test('a small claim is held to the operator threshold, near enough unchanged', () => {
+  near(requiredConfidence(BASE, 0n), 0.7, 'a zero claim');
+  assert.ok(requiredConfidence(BASE, 1_000n) < 0.72, 'a 10% claim must stay close to the base');
+});
+
+test('the bar rises through the middle of the range', () => {
+  near(requiredConfidence(BASE, 2_500n), 0.7 + 0.25 * (0.15 / 0.9), 'a 25% claim');
+  near(requiredConfidence(BASE, 5_000n), 0.7 + 0.5 * (0.15 / 0.9), 'a 50% claim');
+});
+
+test('A TINY STEP TO A HUGE CLAIM IS STILL A HUGE CLAIM', () => {
+  // The original bug: 95% to 100% on a comment-only merge. Judged by step size
+  // this is trivial. Judged by what it asserts, it is the largest claim there
+  // is, and it must be held to the same bar as reaching 100% from zero.
+  assert.equal(requiredConfidence(BASE, 10_000n), requiredConfidence(BASE, 10_000n));
+  near(requiredConfidence(BASE, 10_000n), 0.85, 'going to 100% from anywhere');
+});
+
+test('the ceiling never relaxes a stricter operator threshold', () => {
+  // An operator who sets 0.99 has asked for strictness. The ceiling must not
+  // quietly hand back a lower bar than they configured.
+  assert.equal(requiredConfidence(0.99, 10_000n), 0.99);
+});
+
+test('the required bar never falls as the claim grows', () => {
+  let previous = 0;
+  for (let bps = 0; bps <= 10_000; bps += 250) {
+    const req = requiredConfidence(BASE, BigInt(bps));
+    assert.ok(req >= previous, `bar fell at ${bps}bps: ${req} < ${previous}`);
+    previous = req;
+  }
+});
+
+test('a negative or zero claim demands only the base', () => {
+  assert.equal(requiredConfidence(BASE, 0n), BASE);
+  assert.equal(requiredConfidence(BASE, -100n), BASE);
+});
+
+// --- the two agents disagreeing about what the work IS ----------------------
+
+test('a normal spread between the agents is not a disagreement', () => {
+  // min() already handles pricing the same work slightly differently.
+  assert.equal(agentsDisagree(0.9, 0.8), false);
+  assert.equal(agentsDisagree(1.0, 0.8), false, '20 points exactly is still agreement');
+});
+
+test('a wide split is a disagreement, whichever agent is higher', () => {
+  assert.equal(agentsDisagree(0.9, 0.5), true);
+  assert.equal(agentsDisagree(0.5, 0.9), true, 'the test must not depend on argument order');
+});
+
+test('identical readings never disagree', () => {
+  assert.equal(agentsDisagree(0.6, 0.6), false);
+  assert.equal(agentsDisagree(0, 0), false);
+});

@@ -4,7 +4,7 @@ An installable, offline-capable skill for developers and coding agents integrati
 
 ## Status
 
-Version `0.1.1` is an experimental package pinned to ProofStream commit `ce754c1a6c56ad65657b9482ffca9aa96ee8cfad`. It is published to npm as `proofstream-integration-skill@0.1.1`. The repository is the source of truth; generated references are checked for drift.
+Version `0.2.0` is an unreleased experimental package pinned to ProofStream commit `92b5e741947a73dc95f673adc8ff2431b7615aa1`. The current npm release remains `proofstream-integration-skill@0.1.1`, pinned to `ce754c1a6c56ad65657b9482ffca9aa96ee8cfad`. Install from this repository to evaluate the 0.2.0 candidate. Generated references are checked for drift.
 
 ## Install locally
 

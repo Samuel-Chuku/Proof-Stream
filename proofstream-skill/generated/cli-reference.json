@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedFrom": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
+  "generatedFrom": "92b5e741947a73dc95f673adc8ff2431b7615aa1",
   "commands": {
     "check:chain": "tsx --env-file=.env scripts/check-chain.ts",
     "circle:setup": "tsx --env-file=.env scripts/circle-setup.ts",
@@ -32,17 +32,28 @@
     "test:poll": "tsx --test agent/test/poll.test.ts",
     "test:caps": "tsx --test web/test/caps.test.ts",
     "test:metering": "tsx --test agent/test/metering.test.ts",
+    "test:allowlist": "tsx --test web/test/author-allowlist.test.ts",
     "test:create-stream": "tsx --test web/test/create-stream.test.ts",
-    "watch": "tsx --env-file-if-exists=.env scripts/watch.ts",
-    "stream:status": "tsx --env-file=.env scripts/stream-status.ts",
+    "test:sandbox": "tsx --test agent/test/sandbox.test.ts",
+    "test:correctness": "tsx --test agent/test/correctness.test.ts",
+    "test:suite-cache": "tsx --test agent/test/suite-cache.test.ts",
+    "test:earner": "tsx --test agent/test/earner.test.ts",
+    "test:ceiling": "tsx --test agent/test/ceiling.test.ts",
     "test:reconcile": "tsx --test agent/test/reconcile-judged.test.ts",
     "test:failover": "tsx --test agent/test/llm-failover.test.ts",
+    "test:bind": "tsx --test agent/test/bind.test.ts",
+    "test:withdraw-cap": "tsx --test web/test/withdraw-cap.test.ts",
+    "test:ago": "tsx --test web/test/ago.test.ts",
+    "watch": "tsx --env-file-if-exists=.env scripts/watch.ts",
+    "stream:status": "tsx --env-file=.env scripts/stream-status.ts",
     "skill:generate": "pnpm --filter proofstream-integration-skill generate",
     "skill:check": "pnpm --filter proofstream-integration-skill generate:check && pnpm --filter proofstream-integration-skill test",
     "skill:test": "pnpm --filter proofstream-integration-skill test",
     "skill:creative-check": "pnpm --filter proofstream-integration-skill creative-check --json",
     "skill:pack": "pnpm --filter proofstream-integration-skill pack:release",
     "skill:install-test": "node proofstream-skill/test/install.test.mjs",
-    "skill:release-dry-run": "pnpm --filter proofstream-integration-skill generate:check && pnpm --filter proofstream-integration-skill test && pnpm --filter proofstream-integration-skill pack:release"
+    "skill:release-dry-run": "pnpm --filter proofstream-integration-skill generate:check && pnpm --filter proofstream-integration-skill test && pnpm --filter proofstream-integration-skill pack:release",
+    "probe:policy": "tsx --env-file=.env scripts/probe-policy.ts",
+    "sandbox:smoke": "tsx --env-file=.env scripts/sandbox-smoke.ts"
   }
 }

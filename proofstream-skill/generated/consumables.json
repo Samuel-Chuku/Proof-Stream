@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedFrom": "ce754c1a6c56ad65657b9482ffca9aa96ee8cfad",
+  "generatedFrom": "92b5e741947a73dc95f673adc8ff2431b7615aa1",
   "categories": [
     "on-chain",
     "off-chain",
@@ -9,10 +9,12 @@
     "cli"
   ],
   "onChain": [
-    "WorkStream",
+    "named WorkStream",
+    "claimable WorkStream",
+    "public WorkStream",
     "StreamRegistry",
     "USDC",
-    "EIP-712 attestation",
+    "EIP-712 attestation and payee binding",
     "contract events"
   ],
   "offChain": [
@@ -23,11 +25,14 @@
   "agent": [
     "attestor pipeline",
     "independent verifier review",
+    "sandboxed correctness evidence",
+    "public earner resolution and binding",
     "metering",
     "reconciliation"
   ],
   "webUi": [
     "Next.js App Router pages",
+    "named, claimable, and public stream flows",
     "viem readers and writers",
     "wallet and passkey paths"
   ],
@@ -44,7 +49,9 @@
     "preflight:register",
     "preflight:verifier",
     "preflight:withdraw",
+    "probe:policy",
     "review:test",
+    "sandbox:smoke",
     "seed",
     "skill:check",
     "skill:creative-check",
@@ -56,16 +63,25 @@
     "stream:status",
     "sweep",
     "sync:artifacts",
+    "test:ago",
+    "test:allowlist",
     "test:amounts",
+    "test:bind",
     "test:caps",
+    "test:ceiling",
+    "test:correctness",
     "test:create-stream",
+    "test:earner",
     "test:failover",
     "test:json",
     "test:metering",
     "test:poll",
     "test:reconcile",
     "test:repo",
+    "test:sandbox",
     "test:serialize",
+    "test:suite-cache",
+    "test:withdraw-cap",
     "verdict:test",
     "verifier:dev",
     "verify:once",

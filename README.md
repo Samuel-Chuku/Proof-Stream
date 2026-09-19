@@ -156,7 +156,7 @@ several pull requests and an incremental diff cannot answer a cumulative questio
 trivial merge **will** be judged against the finished work already in the branch, and can
 raise certification toward what that work is genuinely worth.
 
-We tested this rather than assuming it:
+Both cases behave as follows:
 
 | Merge | Verdict |
 | --- | --- |
@@ -197,8 +197,8 @@ wallet it signs attestations and sends transactions from, with no plaintext key 
   construction — its own wallet, own process, own model vendor, and it gathers its own
   evidence rather than trusting what the buyer sends — but it is not independently
   operated. Production would source verifiers from an open market.
-- **Verification fees are batched, not per-transaction.** Stated above, and repeated
-  because it is the easiest property to misread.
+- **Verification fees are batched, not per-transaction.** See the section above; a fee
+  is not one Arc transaction each.
 - **The model that actually ran cannot be proven.** The verifier is paid for a specific
   model, and nothing today forces it to have used one. A signed receipt carrying the provider's
   generation record would make a lie *attributable*, not impossible. Real proof needs TEE
@@ -221,7 +221,7 @@ wallet it signs attestations and sends transactions from, with no plaintext key 
   repository at any time, including mid-milestone. The dashboard hides the control once the
   agent has certified anything, but that guard is in the interface, not the contract, so a
   direct call is unaffected. It cannot un-certify past work; it redirects what is judged
-  next. A one-line contract change fixes it and we did not redeploy for it before submission.
+  next. A one-line contract change fixes it, and it is queued behind the next deployment.
 - **The judgment is only as good as the model.** An LLM reading a diff can be wrong, and
   can be fooled by a sufficiently deceptive PR. Below the confidence threshold the agent
   releases nothing, which bounds the failure without removing it.
@@ -299,27 +299,20 @@ ProofStream never custodies it.
 
 ### Bring your own model provider
 
-Nothing here is tied to a particular LLM vendor. Both judges call
-`POST {LLM_BASE_URL}/chat/completions`, so any OpenAI-compatible endpoint works — run it
-against a local model and no inference leaves your machine:
+Nothing here is tied to a particular vendor, and this repository does not choose
+one for you. Both judges call `POST {LLM_BASE_URL}/chat/completions`, so any endpoint
+serving that shape works, including one on your own machine — point it there and no
+inference leaves it.
 
-```bash
-LLM_BASE_URL=http://localhost:11434/v1     # Ollama
-LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_BASE_URL=https://api.together.xyz/v1
-LLM_BASE_URL=https://api.openai.com/v1
-```
-
-`LLM_BASE_URL` defaults to OpenRouter and `LLM_API_KEY` falls back to
-`OPENROUTER_API_KEY`, so existing setups keep working untouched. Set `AGENT_MODEL` and
-`VERIFIER_MODEL` to slugs **that provider** serves — carrying over a model name that only
-exists on OpenRouter is the usual failure after switching. `pnpm preflight:agent` catches
+`LLM_BASE_URL`, `LLM_API_KEY`, `AGENT_MODEL` and `VERIFIER_MODEL` are all **required and
+have no defaults**. Set the models to slugs **that provider** serves; carrying over a name
+from somewhere else is the usual failure after switching. `pnpm preflight:agent` catches
 it: it sends a one-token completion, so it verifies the endpoint, the key and the model
 name together rather than just checking a key exists.
 
-The defaults are free models, deliberately. The whole system is provider-agnostic because
-the interesting claim is that *an agent exercises judgment*, not that a particular vendor
-does — and a reviewer should be able to reproduce that on their own hardware.
+There are no defaults, deliberately. The whole system is provider-agnostic because the
+interesting claim is that *an agent exercises judgment*, not that a particular vendor does,
+and a reviewer should be able to reproduce that on their own hardware.
 
 Two judges from the same model is not a second opinion, so keep `AGENT_MODEL` and
 `VERIFIER_MODEL` different. To split them across providers entirely, run the attestor and
@@ -352,9 +345,8 @@ never a replacement.
 
 ## Roadmap
 
-- **Per-call pricing by model.** The verifier currently charges $0.005 while its own
-  inference costs ~$0.018 — it runs at a loss. Buyers should choose how many models review
-  their work, and the price should follow.
+- **Per-call pricing by model.** Buyers should be able to choose how many models review
+  their work, and how thoroughly, with the price following that choice.
 - **Model-provenance receipts**, signed by the verifier against the provider's generation
   record, so a false claim about which model ran is at least attributable.
 - **A verifier marketplace**, so the second opinion comes from an independent operator.

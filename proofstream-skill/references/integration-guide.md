@@ -6,15 +6,16 @@ Start read-only. Configure the pinned Arc chain and a verified WorkStream addres
 
 ## B to D. Create, fund, and configure
 
-Use the actual WorkStream constructor and generated ABI. A safe sequence is:
+Use the actual WorkStream constructor and generated ABI. Decide the mode first: a named stream supplies a contributor and no claim authority or payout caps; a claimable stream supplies a claim authority and no contributor; a public stream supplies neither and must carry nonzero payout caps with `dailyClaimCap >= claimCap`. A safe sequence is:
 
 1. deploy from the employer wallet, because `employer` is the deploying caller;
 2. wait for deployment receipt and verify bytecode;
 3. register the address if the agent should discover it;
 4. approve exact USDC units;
 5. fund and verify the `Funded` event plus `funded()` state;
-6. open the milestone with exact text, budget, and duration;
-7. wait for and verify every receipt before moving to the next step.
+6. for a claimable stream, collect a signature bound to the claimant address, call `claim`, and verify `Claimed` plus activation state;
+7. verify the stream mode, milestone, authors, policy, and activation state before work begins;
+8. wait for and verify every receipt before moving to the next step.
 
 Do not copy the current web flow's optimistic navigation as a final integration pattern. Make each step resumable from on-chain state.
 
@@ -28,7 +29,7 @@ Subscribe to actual contract events with a bounded block cursor. On reconnect, s
 
 ## H to I. Read payout state and withdraw
 
-Read `withdrawable()` immediately before presenting a withdrawal action. Check the caller and payee allowlist. Submit the exact integer amount, wait for the receipt, decode `Withdrawn`, reread the balance and withdrawable amount, and show a transaction link. If the call times out, query the receipt and event before retrying.
+For named and claimed streams, read `withdrawable()` immediately before presenting `withdraw`. For public streams, derive the authenticated earner id, read `payeeOf` and `earnerWithdrawable`, complete one-time `bindPayee` when needed, and present `withdrawFor`. Check the mode, caller, payee, milestone index, and applicable caps. Submit the exact integer amount, wait for the receipt, decode `Withdrawn` or `PaidOut`, reread state, and show a transaction link. If the call times out, query the receipt and event before retrying.
 
 ## J. React status
 
@@ -40,4 +41,4 @@ Decode the generated ABI event, verify the receipt status, verify the contract's
 
 ## N. Failures
 
-Handle wrong chain, missing code, insufficient gas, insufficient USDC, missing approval, registry rejection, webhook rejection, missing evidence, model refusal, verifier paid failure, stale attestation, bad nonce, cap failure, paused or closed state, RPC timeout, and withdrawal failure separately. Link each error to [troubleshooting.md](troubleshooting.md). A product must explain what happened and whether the user can retry.
+Handle wrong chain, missing code, invalid mode combinations, unclaimed streams, unresolved public earner ids, stale or copied binding signatures, insufficient gas, insufficient USDC, missing approval, registry rejection, webhook rejection, missing evidence, inconclusive correctness checks, model refusal, verifier paid failure, stale attestation, bad nonce, certification or payout cap failure, paused or closed state, RPC timeout, and withdrawal failure separately. Link each error to [troubleshooting.md](troubleshooting.md). A product must explain what happened and whether the user can retry.

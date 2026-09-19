@@ -4,6 +4,7 @@
 # GitHub App private key — never commit
 *.pem
 node_modules/
+.pnpm-store/
 out/
 cache/
 broadcast/
@@ -34,3 +35,11 @@ agent/*.jsonl
 
 # Reproducible skill release artifacts are generated locally and uploaded by CI.
 dist/
+# Older `npm pack` runs wrote temporary tarballs beside the skill package.
+proofstream-skill/*.tgz
+
+# Cached oracle suites. Runtime state for the same reason the ledgers above are:
+# written by the running agent, one file per milestone, and regenerated on
+# demand. Nothing here is source, and a deploy overwriting it would silently
+# reset the ruler every evidence comparison depends on.
+agent/suites/

@@ -17,8 +17,8 @@
 //
 // Indexing over an explicit list makes every slider position a real value, so
 // the DOM and React cannot disagree and both endpoints are always reachable.
-// This is the screen where a mis-set cap already sent 67 of 97 USDC back to an
-// employer instead of the contributor who earned it.
+// This is the screen where a mis-set cap sends most of a budget back to the
+// employer instead of to the contributor who earned it.
 
 /** Cap sliders move in whole USDC. Finer offers a decision nobody can ground. */
 export const CAP_STEP = 1_000_000;

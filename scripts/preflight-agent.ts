@@ -41,13 +41,14 @@ for (const name of requiredVars) {
   add(`env ${name}`, present, present ? 'set' : 'MISSING');
 }
 
-// LLM_API_KEY is the current name; OPENROUTER_API_KEY still works.
-const hasLlmKey = Boolean(process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY);
-if (!hasLlmKey) envOk = false;
+const hasLlmKey = Boolean(process.env.LLM_API_KEY);
+const hasLlmUrl = Boolean(process.env.LLM_BASE_URL);
+if (!hasLlmKey || !hasLlmUrl) envOk = false;
+add('env LLM_API_KEY', hasLlmKey, hasLlmKey ? 'set' : 'MISSING — set it');
 add(
-  'env LLM_API_KEY or OPENROUTER_API_KEY',
-  hasLlmKey,
-  hasLlmKey ? `via ${process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1'}` : 'MISSING — set one',
+  'env LLM_BASE_URL',
+  hasLlmUrl,
+  hasLlmUrl ? String(process.env.LLM_BASE_URL) : 'MISSING — no default, pick your provider',
 );
 
 // Either discovery mode is fine, but with neither the agent watches nothing.
@@ -84,14 +85,11 @@ try {
 // uses, so a green preflight means the running agent sees the same fleet.
 const { knownStreams, refresh } = await import('../agent/src/registry');
 
-// Capture the discovery log rather than discarding it. This check used to
-// report "no registered stream appoints this agent", which is a CAUSE, and it
-// was wrong: on 2026-08-19 both live streams did appoint this agent and were
-// simply past their milestone end. Refusing, expiring, settling and appointing
-// someone else are four different situations that all end in an empty list, and
-// naming the wrong one sends you to check REGISTRY_ADDRESS for hours. Same
-// discipline as the `unlock_failed` fix in 593f0ca: report what happened, not
-// what you assume caused it.
+// Capture the discovery log rather than discarding it, and report WHAT
+// happened rather than a guess at why. Refusing, expiring, settling and
+// appointing someone else are four different situations that all end in an
+// empty list; asserting one of them as the cause sends you to check
+// REGISTRY_ADDRESS for hours when the streams were simply past their end.
 const discovery: Record<string, number> = {};
 await refresh((entry) => {
   const event = String(entry.event ?? '');
@@ -126,17 +124,23 @@ add(
 /// none is green on plumbing but has nothing to do, so it is checked once.
 let liveStreams = 0;
 
-const ATTESTATION_TYPES = {
-  Attestation: [
-    { name: 'nonce', type: 'uint256' },
-    { name: 'certifiedBps', type: 'uint256' },
-    { name: 'prNumber', type: 'uint256' },
-    { name: 'commitSha', type: 'string' },
-    { name: 'confidenceBps', type: 'uint256' },
-    { name: 'issuedAt', type: 'uint256' },
-    { name: 'milestoneHash', type: 'bytes32' },
-  ],
-} as const;
+/// The struct the stream expects, BY VERSION. v3 added `earnerId`, and a
+/// signature over the wrong struct recovers to the wrong address — which this
+/// preflight would then report as the agent key being wrong, when the key is
+/// fine and the shape is not.
+const attestationTypes = (version: number) =>
+  ({
+    Attestation: [
+      { name: 'nonce', type: 'uint256' },
+      { name: 'certifiedBps', type: 'uint256' },
+      { name: 'prNumber', type: 'uint256' },
+      { name: 'commitSha', type: 'string' },
+      { name: 'confidenceBps', type: 'uint256' },
+      { name: 'issuedAt', type: 'uint256' },
+      { name: 'milestoneHash', type: 'bytes32' },
+      ...(version >= 3 ? [{ name: 'earnerId', type: 'bytes32' }] : []),
+    ],
+  }) as const;
 
 // Every served stream gets the full battery. The signature check is run PER
 // STREAM on purpose: each WorkStream builds its EIP-712 domain separator from
@@ -219,8 +223,9 @@ for (const entry of served) {
       confidenceBps: 10_000n,
       issuedAt: BigInt(Math.floor(Date.now() / 1000)),
       milestoneHash: stream.milestoneHash,
+      ...(stream.version >= 3 ? { earnerId: `0x${'0'.repeat(64)}` as `0x${string}` } : {}),
     };
-    const signature = await signAttestation(entry.stream, probe);
+    const signature = await signAttestation(entry.stream, probe, stream.version);
     const recovered = await recoverTypedDataAddress({
       domain: {
         name: 'ProofStream',
@@ -228,7 +233,7 @@ for (const entry of served) {
         chainId: arcTestnet.id,
         verifyingContract: entry.stream,
       },
-      types: ATTESTATION_TYPES,
+      types: attestationTypes(stream.version),
       primaryType: 'Attestation',
       message: probe,
       signature,
@@ -250,7 +255,7 @@ for (const entry of served) {
         chainId: arcTestnet.id,
         verifyingContract: '0x000000000000000000000000000000000000dEaD',
       },
-      types: ATTESTATION_TYPES,
+      types: attestationTypes(stream.version),
       primaryType: 'Attestation',
       message: probe,
       signature,
@@ -313,12 +318,12 @@ for (const entry of served) {
   }
 }
 
-// A real (tiny) completion rather than OpenRouter's /key endpoint, which no
-// other provider serves. This proves three things at once that a key lookup
-// cannot: the endpoint is reachable, the key is accepted, and AGENT_MODEL
-// actually exists on that provider — the last being the usual failure when
-// someone points LLM_BASE_URL somewhere new and keeps a model slug that only
-// OpenRouter has.
+// A real (tiny) completion rather than a key-lookup endpoint, which is not
+// something every provider serves. This proves three things at once that a key
+// lookup cannot: the endpoint is reachable, the key is accepted, and
+// AGENT_MODEL actually exists there — the last being the usual failure when
+// someone points LLM_BASE_URL somewhere new and keeps a model slug the new
+// provider has never heard of.
 try {
   const res = await fetch(`${env.llmBaseUrl}/chat/completions`, {
     method: 'POST',

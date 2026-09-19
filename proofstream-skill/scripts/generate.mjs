@@ -9,7 +9,7 @@ const exec = promisify(execFile);
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_ROOT = resolve(PACKAGE_ROOT, '..');
 const GENERATED = join(PACKAGE_ROOT, 'generated');
-const COMMIT = 'ce754c1a6c56ad65657b9482ffca9aa96ee8cfad';
+const COMMIT = '92b5e741947a73dc95f673adc8ff2431b7615aa1';
 
 async function json(path) { return JSON.parse(await readFile(path, 'utf8')); }
 function normalizeText(value) { return value.replaceAll('\r\n', '\n'); }
@@ -108,10 +108,10 @@ async function generateTo(outDir) {
   await put(join(outDir, 'consumables.json'), {
     schemaVersion: '1.0.0', generatedFrom: COMMIT,
     categories: ['on-chain', 'off-chain', 'agent', 'web-ui', 'cli'],
-    onChain: ['WorkStream', 'StreamRegistry', 'USDC', 'EIP-712 attestation', 'contract events'],
+    onChain: ['named WorkStream', 'claimable WorkStream', 'public WorkStream', 'StreamRegistry', 'USDC', 'EIP-712 attestation and payee binding', 'contract events'],
     offChain: ['GitHub webhook and diff evidence', 'JSONL agent logs', 'Circle Gateway and x402 payment'],
-    agent: ['attestor pipeline', 'independent verifier review', 'metering', 'reconciliation'],
-    webUi: ['Next.js App Router pages', 'viem readers and writers', 'wallet and passkey paths'],
+    agent: ['attestor pipeline', 'independent verifier review', 'sandboxed correctness evidence', 'public earner resolution and binding', 'metering', 'reconciliation'],
+    webUi: ['Next.js App Router pages', 'named, claimable, and public stream flows', 'viem readers and writers', 'wallet and passkey paths'],
     cli: Object.keys(commandFiles).sort(),
     absent: ['public SDK', 'stable REST API', 'hosted webhook delivery service', 'MCP server'],
   });

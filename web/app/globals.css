@@ -772,6 +772,803 @@ code {
   margin-top: var(--ps-1);
 }
 
+/* ---- Earners: the ledger of shares on an open stream --------- */
+
+/* Set like the transaction feed, because it is the same kind of thing: rows
+   the eye runs down, not panels. Five columns — who | share | can take | paid |
+   to — with the flexible one on WHO, so a long login pushes nothing else.
+
+   ONE GRID FOR THE WHOLE TABLE. The header and every row are `display:
+   contents`, so all their cells sit in the same five tracks and a column is a
+   column from top to bottom. Rows as independent grids drifted: "40%" and
+   "2.5%" started at different x, and a ledger whose figures do not align is
+   not a ledger. Row chrome therefore lives on the cells. */
+.ps-earners {
+  display: grid;
+  grid-template-columns: 1fr max-content max-content max-content max-content;
+  border-top: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+/* Spacing as cell padding rather than a column gap, so the row rules run
+   unbroken across the table instead of breaking into dashes at every gap. */
+.ps-earners-head > span:not(:first-child),
+.ps-earners-row > span:not(:first-child) {
+  padding-left: var(--ps-3);
+}
+
+.ps-earners-head,
+.ps-earners-row {
+  display: contents;
+}
+
+.ps-earners-head > span,
+.ps-earners-row > span {
+  display: flex;
+  align-items: center;
+  padding: var(--ps-2) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-earners-head > span {
+  color: var(--ps-ink-dim);
+  min-height: 24px;
+}
+
+.ps-earners-row > span {
+  min-height: 40px;
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+}
+
+/* Figures sit under their headings: the money and share columns are right
+   aligned, so magnitudes line up on the decimal like a printed ledger. */
+.ps-earners-head > span:not(:first-child),
+.ps-earners-row > span:not(:first-child) {
+  justify-content: flex-end;
+}
+
+/* The last row closes the ledger with the same weight it opened. */
+.ps-earners-row:last-child > span {
+  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-earners-who {
+  color: var(--ps-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An earner the ledger has not named yet. The chain knows the hash; we have
+   not seen the judgment that paired it with a login. Dim, and honest about it. */
+.ps-earners-hash {
+  color: var(--ps-ink-faint);
+}
+
+.ps-earners-share {
+  color: var(--ps-ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Under 720 the ledger becomes a list. One column, left aligned, every figure
+   introduced by its column name in caption ink, and the name across the top
+   of each block. Right-aligned max-content cells in a two-column grid clipped
+   at the viewport edge, which is what this replaces. */
+@media (max-width: 720px) {
+  .ps-earners {
+    grid-template-columns: 1fr;
+  }
+  .ps-earners-head {
+    display: none;
+  }
+  .ps-earners-head > span:not(:first-child),
+  .ps-earners-row > span:not(:first-child) {
+    padding-left: 0;
+    justify-content: flex-start;
+  }
+  .ps-earners-row > span {
+    min-width: 0;
+    min-height: 28px;
+    padding: var(--ps-1) 0;
+    border-bottom: 0;
+    gap: var(--ps-2);
+  }
+  .ps-earners-row > span[data-col]::before {
+    content: attr(data-col);
+    font-size: var(--ps-size-label);
+    line-height: var(--ps-lh-label);
+    letter-spacing: var(--ps-track-label);
+    color: var(--ps-ink-dim);
+    min-width: 72px;
+  }
+  .ps-earners-row > .ps-earners-who {
+    padding-top: var(--ps-3);
+    white-space: normal;
+  }
+  .ps-earners-row > .ps-earners-to {
+    padding-bottom: var(--ps-3);
+    border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  }
+  .ps-earners-row:last-child > .ps-earners-to {
+    border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+  }
+}
+
+/* ---- What kind of stream: the gate ----------------------------- */
+
+/* Three panels, whole meaning on each, choose one to continue. Panels rather
+   than buttons because this is the one moment that wants all three paragraphs
+   visible at once, side by side, to be compared. Each is the raised surface
+   the funding gate uses, and hover borders in green-deep like every button,
+   which is a ring and not a fill. Nothing here is green as a fill: choosing a
+   kind moves no money. */
+.ps-gatekind-lede {
+  margin: 0 0 var(--ps-4);
+  color: var(--ps-ink-dim);
+}
+
+.ps-gatekind-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ps-4);
+  margin-bottom: var(--ps-6);
+}
+
+.ps-gatekind-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  border-radius: var(--ps-r-0);
+  box-shadow: var(--ps-shadow-2);
+  cursor: pointer;
+}
+
+/* BOLD ON HOVER: the whole panel inverts, band and body alike, with the
+   green-deep ring every button gets. A border change alone read as nothing
+   at three panels wide. Inverted ink is the system's one strong fill that
+   is not money. */
+.ps-gatekind-panel:hover:not(:disabled) {
+  border-color: var(--ps-green-deep);
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+}
+
+.ps-gatekind-panel:hover:not(:disabled) .ps-gatekind-head {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border-bottom-color: var(--ps-invert-ink);
+}
+
+.ps-gatekind-panel:hover:not(:disabled) .ps-gatekind-what,
+.ps-gatekind-panel:hover:not(:disabled) .ps-gatekind-cta {
+  color: var(--ps-invert-ink);
+}
+
+/* The panel physically lands on the page, like every button. */
+.ps-gatekind-panel:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: var(--ps-shadow-pressed);
+}
+
+.ps-gatekind-panel:disabled {
+  color: var(--ps-ink-faint);
+  border-color: var(--ps-ink-faint);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* THE BAND. A sunk well across the top of each panel carrying the mark and
+   the name, closed by a structural rule. It is what makes three panels three
+   different things at a glance, before any sentence is read. */
+.ps-gatekind-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-3);
+  padding: var(--ps-3) var(--ps-4);
+  background: var(--ps-sunk);
+  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-gatekind-head > .ps-label {
+  flex: 1;
+}
+
+.ps-gatekind-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-3);
+  flex: 1;
+  padding: var(--ps-4);
+}
+
+.ps-gatekind-panel:disabled .ps-gatekind-head {
+  color: var(--ps-ink-faint);
+  border-bottom-color: var(--ps-ink-faint);
+}
+
+/* The mark inherits the ink around it, so it inverts and dims with it. */
+.ps-kind-mark {
+  flex: none;
+  display: block;
+}
+
+.ps-gatekind-what {
+  margin: 0;
+  flex: 1;
+}
+
+.ps-gatekind-panel:disabled .ps-gatekind-what {
+  color: var(--ps-ink-faint);
+}
+
+/* The call to action reads as the button's own label, at the foot. */
+.ps-gatekind-cta {
+  color: var(--ps-ink);
+}
+
+.ps-gatekind-panel:disabled .ps-gatekind-cta {
+  color: var(--ps-ink-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* A kind the contract supports and the app cannot yet offer. */
+.ps-kind-soon {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  padding: 0 var(--ps-1);
+  border: var(--ps-bw-hair) solid currentColor;
+  border-radius: var(--ps-r-1);
+}
+
+@media (max-width: 720px) {
+  .ps-gatekind-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- The chosen kind, one line at the top of the form ---------- */
+
+/* THE KEY STAYS PRESSED. The panel chosen at the gate carries on as one
+   inverted band across the top of the form, mark and name in inverted ink,
+   so what kind of stream this is stays readable from anywhere on the page.
+   Inverted, not green: green is money the agent released, and choosing a kind
+   released nothing. */
+.ps-kindline {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-3);
+  padding: var(--ps-3) var(--ps-4);
+  margin-bottom: var(--ps-2);
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+}
+
+.ps-kindline > .ps-label {
+  color: var(--ps-invert-ink);
+}
+
+.ps-kindline-short {
+  flex: 1;
+  color: var(--ps-invert-ink);
+  opacity: 0.72;
+  text-transform: none;
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The way back, in the band's own ink so it does not read as a second panel. */
+.ps-kindline > .ps-chip {
+  color: var(--ps-invert-ink);
+  border-color: var(--ps-invert-ink);
+  background: transparent;
+}
+
+@media (max-width: 720px) {
+  .ps-kindline {
+    flex-wrap: wrap;
+  }
+  .ps-kindline-short {
+    flex-basis: 100%;
+    white-space: normal;
+  }
+}
+
+/* ---- Steps that fold ---------------------------------------- */
+
+/* Each numbered step opens and closes at will. The header IS the section rule
+   the page always used, so a closed step is the same ledger line with a mark
+   at its end: a check once nothing in it is blocking, and a caret saying which
+   way it will go. The body is the fields exactly as before, no panel. */
+.ps-step-fold > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.ps-step-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The mark sits AFTER the dashed line. The rule's ::after is the line and is
+   last in source order; `order` moves the mark past it to the right edge. */
+.ps-step-fold-state {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-2);
+  color: var(--ps-ink-dim);
+}
+
+.ps-step-fold-done .ps-step-fold-state {
+  color: var(--ps-ink);
+}
+
+.ps-step-fold-caret {
+  color: var(--ps-ink-dim);
+}
+
+/* A closed step keeps the rule's bottom margin so the next line does not
+   crowd it; an open one lets its body provide the spacing. */
+.ps-step-fold[open] > summary {
+  margin-bottom: var(--ps-4);
+}
+
+.ps-step-fold-body {
+  margin-bottom: var(--ps-2);
+}
+
+/* The two payout ceilings, side by side, in one field. */
+.ps-mode-caps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-2);
+}
+
+.ps-mode-cap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-1);
+}
+
+@media (max-width: 480px) {
+  .ps-mode-caps {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Docs: headings that can be found -------------------- */
+
+/* The sub-heading inside a docs section. It replaced a dim caption that faded
+   into the paragraph under it, so a reader scanning for one guarantee could
+   not find it. Full ink, bold, data size, with a short structural rule at its
+   left so the eye catches it running down the page. Not display face: that is
+   for section titles, and a sub-heading in Silkscreen competed with them. */
+.ps-docs-h {
+  margin: var(--ps-5) 0 var(--ps-2);
+  padding-left: var(--ps-3);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink);
+  font-family: var(--ps-mono);
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  font-weight: 700;
+  color: var(--ps-ink);
+}
+
+.ps-docs-lede {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  max-width: 64ch;
+}
+
+/* ---- Docs: the flow diagram ------------------------------ */
+
+/* Boxed steps joined by arrows, wrapping rather than shrinking. A box is a
+   small raised surface with a hard shadow, same as a button that does nothing:
+   it looks like a thing, not a caption. */
+.ps-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--ps-2) 0;
+  margin: var(--ps-4) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-flow-step {
+  display: flex;
+  align-items: stretch;
+}
+
+.ps-flow-arrow {
+  align-self: center;
+  padding: 0 var(--ps-2);
+  font-size: var(--ps-size-data-m);
+  color: var(--ps-ink-dim);
+}
+
+.ps-flow-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-1);
+  min-width: 128px;
+  max-width: 176px;
+  padding: var(--ps-2) var(--ps-3);
+  background: var(--ps-surface);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-1);
+}
+
+.ps-flow-n {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  color: var(--ps-ink-faint);
+}
+
+.ps-flow-label {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ps-ink);
+}
+
+.ps-flow-note {
+  font-size: var(--ps-size-label);
+  line-height: var(--ps-lh-label);
+  color: var(--ps-ink-dim);
+}
+
+/* ---- Docs: the four fill states ---------------------------- */
+
+.ps-fills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-2);
+  margin: var(--ps-4) 0;
+}
+
+.ps-fills-row {
+  display: grid;
+  grid-template-columns: var(--ps-cell-w) 192px 1fr;
+  align-items: center;
+  gap: var(--ps-3);
+}
+
+/* A real cell, so the legend is the thing it describes. */
+.ps-fills-cell {
+  cursor: default;
+  border: var(--ps-bw-hair) solid var(--ps-rule);
+}
+
+.ps-fills-name {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  color: var(--ps-ink);
+}
+
+.ps-fills-what {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+@media (max-width: 720px) {
+  .ps-fills-row {
+    grid-template-columns: var(--ps-cell-w) 1fr;
+  }
+  .ps-fills-what {
+    grid-column: 2;
+  }
+}
+
+/* ---- Docs: two clocks ---------------------------------------- */
+
+.ps-clocks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-3);
+  margin: var(--ps-4) 0;
+}
+
+.ps-clocks-row {
+  display: grid;
+  grid-template-columns: 232px max-content 1fr;
+  align-items: center;
+  gap: var(--ps-3);
+}
+
+.ps-clocks-who {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  color: var(--ps-ink-dim);
+}
+
+.ps-clocks-result .ps-clocks-who {
+  color: var(--ps-ink);
+}
+
+/* A smaller bar than the hero's, and no hover cursor: this one is a picture. */
+.ps-clocks-bar {
+  margin: 0;
+  box-shadow: var(--ps-shadow-1);
+}
+
+.ps-clocks-cell {
+  width: 12px;
+  height: 20px;
+  cursor: default;
+}
+
+.ps-clocks-fig {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+.ps-clocks-result .ps-clocks-fig {
+  color: var(--ps-ink);
+}
+
+@media (max-width: 720px) {
+  .ps-clocks-row {
+    grid-template-columns: 1fr;
+    gap: var(--ps-1);
+  }
+}
+
+/* ---- Docs: the three kinds ------------------------------------ */
+
+.ps-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ps-4);
+  margin: var(--ps-4) 0;
+}
+
+.ps-kinds-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-2);
+  padding: var(--ps-3);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink);
+  background: var(--ps-sunk);
+}
+
+.ps-kinds-dim {
+  color: var(--ps-ink-faint);
+  border-left-color: var(--ps-ink-faint);
+}
+
+.ps-kinds-name {
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.ps-kinds-who {
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+.ps-kinds-dim .ps-kinds-who {
+  color: var(--ps-ink-faint);
+}
+
+@media (max-width: 720px) {
+  .ps-kinds {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Built on Arc: the tools ledger ---------------------------- */
+
+/* One row per piece of infrastructure: what it is, what it does HERE, and
+   whether it is live or next. LIVE is full ink and NEXT is dim, so the eye
+   separates what a reader can go and verify from what is still designed. Not
+   green either way: infrastructure is not money. */
+.ps-tools-ledger {
+  border-top: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-tools-row {
+  display: grid;
+  grid-template-columns: 176px 1fr max-content;
+  gap: var(--ps-4);
+  align-items: start;
+  padding: var(--ps-3) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-tools-row:last-child {
+  border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+}
+
+.ps-tools-name {
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+  color: var(--ps-ink);
+}
+
+.ps-tools-role {
+  margin: 0;
+  color: var(--ps-ink-dim);
+}
+
+.ps-tools-state {
+  color: var(--ps-ink-faint);
+  padding: 0 var(--ps-1);
+  border: var(--ps-bw-hair) solid currentColor;
+  border-radius: var(--ps-r-1);
+  line-height: var(--ps-lh-label);
+}
+
+.ps-tools-live {
+  color: var(--ps-ink);
+}
+
+@media (max-width: 720px) {
+  .ps-tools-row {
+    grid-template-columns: 1fr max-content;
+  }
+  .ps-tools-role {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- Home: the statistics strip -------------------------------- */
+
+/* Six figures at hero size in one framed strip. A count in the masthead's
+   caption line was invisible; these are the numbers a judge checks, and they
+   get the weight the stream bar's readout gets. Not green, even "withdrawn":
+   the bar is where released money is green, and a summary is a summary. */
+.ps-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: var(--ps-5) 0;
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  background: var(--ps-surface);
+}
+
+.ps-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-1);
+  padding: var(--ps-4);
+  border-right: var(--ps-bw-hair) solid var(--ps-border);
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-stat:nth-child(3n) {
+  border-right: 0;
+}
+
+.ps-stat:nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+
+.ps-stat-fig {
+  font-size: var(--ps-size-data-xl);
+  line-height: var(--ps-lh-data-xl);
+  font-variant-numeric: tabular-nums;
+  color: var(--ps-ink);
+}
+
+.ps-stat > .ps-label {
+  color: var(--ps-ink-dim);
+}
+
+@media (max-width: 720px) {
+  .ps-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ps-stat:nth-child(3n) {
+    border-right: var(--ps-bw-hair) solid var(--ps-border);
+  }
+  .ps-stat:nth-child(2n) {
+    border-right: 0;
+  }
+  .ps-stat:nth-last-child(-n + 3) {
+    border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  }
+  .ps-stat:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
+
+/* ---- Author allowlist ------------------------------------ */
+
+/* NOT GREEN, and it will be tempting. This decides whose merges the agent will
+   even look at, so it feels important — but green means USDC the agent has
+   released, and a list of usernames is not money. */
+.ps-allow-open {
+  width: 100%;
+  text-align: left;
+}
+
+/* The chosen names, on the form itself. A setting that silently withholds
+   somebody's pay must be readable without reopening the dialog. */
+.ps-allow-summary {
+  margin: var(--ps-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-allow-summary li {
+  padding: var(--ps-1) 0 var(--ps-1) var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+  position: relative;
+}
+
+.ps-allow-summary li::before {
+  content: '\2022';
+  position: absolute;
+  left: 0;
+  color: var(--ps-ink-faint);
+}
+
+/* Input and its button on one line, the button sized to its text. */
+.ps-allow-entry {
+  display: flex;
+  gap: var(--ps-2);
+}
+
+.ps-allow-entry .ps-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ps-allow-entry .ps-button {
+  flex: 0 0 auto;
+}
+
+/* THE PALETTE HAS NO RED, so a rejected name is stated in inverted ink rather
+   than coloured. It is the same treatment a policy revert gets, for the same
+   reason: it has to stop the reader without introducing a second accent. */
+.ps-allow-problem {
+  margin: 0;
+  padding: var(--ps-2);
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+}
+
+.ps-allow-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+}
+
+.ps-allow-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-2);
+  padding: var(--ps-2) 0;
+  border-bottom: var(--ps-bw-hair) dashed var(--ps-border);
+  font-size: var(--ps-size-data-m);
+  line-height: var(--ps-lh-data-m);
+}
+
 /* ---- Home ------------------------------------------------ */
 
 .ps-lede {
@@ -2440,4 +3237,450 @@ input[type='range'].ps-range:disabled {
    The information is in the colour and the text, not the animation. */
 @media (prefers-reduced-motion: reduce) {
   .ps-scan i { animation: none; background: var(--ps-green); }
+}
+
+/* ---- Contract generation.
+ *
+ * A version is not money, so nothing here is green. It is also not a status, so
+ * it gets no fill: a dithered background at this size read as a rendering
+ * artefact rather than a label. Hairline border, dim ink, and out of the way. */
+.ps-version {
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+  font-size: var(--ps-size-caption);
+  letter-spacing: var(--ps-track-label);
+  padding: 0 var(--ps-1);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+  color: var(--ps-ink-faint);
+}
+
+/* Inline with the caption it follows, so a list row never gains a second line
+ * just to hold a footnote. */
+.ps-caption .ps-version {
+  margin-left: var(--ps-1);
+  vertical-align: baseline;
+}
+
+/* ---- Sandbox evidence.
+ *
+ * The one panel on the page reporting something EXECUTED rather than judged.
+ * Deliberately quiet: it sits inside a verdict, it is not a second showpiece,
+ * and nothing in it is green because tests passing is not money moving. */
+.ps-sandbox {
+  margin-top: var(--ps-3);
+  padding: var(--ps-3);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-left: var(--ps-bw-struct) solid var(--ps-ink-dim);
+  background: var(--ps-sunk);
+}
+
+/* Tabular figures, because this is a count and a count should not jitter. */
+.ps-sandbox-score {
+  font-size: var(--ps-size-data-m);
+  font-variant-numeric: tabular-nums;
+  color: var(--ps-ink);
+}
+
+.ps-sandbox-what {
+  margin: var(--ps-2) 0 0;
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+}
+
+/* THE WHOLE PANEL IS ONE LINE UNTIL ASKED.
+ *
+ * The headline is the entire claim for a reader skimming a page of verdicts:
+ * code ran somewhere isolated, and here is the score. Everything under it
+ * answers a doubt, and the reader who has one is the reader willing to click.
+ *
+ * The summary row stays on the 4px grid and keeps the score right-aligned, so a
+ * column of these reads as a column whether open or shut. */
+.ps-sandbox summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ps-sandbox summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The score sits hard right, and the caret after it states which way it moves. */
+.ps-sandbox-score {
+  margin-left: auto;
+}
+
+.ps-sandbox summary::after {
+  content: '\25B8';
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox[open] summary::after {
+  content: '\25BE';
+}
+
+.ps-sandbox-mark {
+  flex: none;
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox-body {
+  margin-top: var(--ps-3);
+  padding-top: var(--ps-3);
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+}
+
+/* WHAT THE SUITE CHECKED. A total cannot tell a suite that probed the milestone
+ * from one that never touched it, so the names are what make this evidence
+ * rather than a score. NOT GREEN: tests passing is not money released. */
+.ps-sandbox-checked {
+  margin-top: var(--ps-3);
+}
+
+.ps-sandbox-checked ul {
+  margin: var(--ps-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-sandbox-checked li {
+  padding: var(--ps-1) 0 var(--ps-1) var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink-dim);
+  position: relative;
+}
+
+.ps-sandbox-checked li::before {
+  content: '\2713';
+  position: absolute;
+  left: 0;
+  color: var(--ps-ink-faint);
+}
+
+.ps-sandbox-failures {
+  margin-top: var(--ps-3);
+  padding-top: var(--ps-3);
+  border-top: var(--ps-bw-hair) dashed var(--ps-border);
+}
+
+/* A failing test name is the most useful thing on this page for a contributor:
+ * a concrete case to reproduce rather than a score to argue with. Given room. */
+.ps-sandbox-failures ul {
+  margin: var(--ps-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ps-sandbox-failures li {
+  padding: var(--ps-1) 0 var(--ps-1) var(--ps-3);
+  font-size: var(--ps-size-body);
+  line-height: var(--ps-lh-body);
+  color: var(--ps-ink);
+  position: relative;
+}
+
+.ps-sandbox-failures li::before {
+  content: '×';
+  position: absolute;
+  left: 0;
+  color: var(--ps-ink-dim);
+}
+
+.ps-sandbox .ps-caption {
+  margin: var(--ps-2) 0 0;
+}
+
+/* The milestone field is not one setting among nine: it is the text the agent
+ * judges every merge against, and the only field on the form a contributor's
+ * pay depends on. Given weight so it reads as the thing being written. */
+.ps-label-lead {
+  font-size: var(--ps-size-label);
+  color: var(--ps-ink);
+  font-weight: 700;
+}
+
+/* ── The earner's page ───────────────────────────────────────────────────────
+   Same frame as the passkey panel: hard shadow, surface ground, no radius past
+   chips. Nothing here is green except the WITHDRAW button, which moves
+   released USDC and is the one button allowed to be. */
+
+/* The headline: everything released to this person and not yet taken. Ink,
+   not green, because it is a sum over streams rather than one bar's release;
+   the green lives on the stream pages where it can be counted. */
+.ps-earner-total {
+  margin: 0 0 var(--ps-4);
+}
+
+.ps-earner-total .ps-label {
+  color: var(--ps-ink-dim);
+  margin: var(--ps-1) 0 0;
+}
+
+.ps-earner-actions {
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+  background: var(--ps-surface);
+  padding: var(--ps-4);
+  margin: var(--ps-4) 0 var(--ps-5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ps-2);
+}
+
+.ps-earner-actions .ps-body { margin: 0; max-width: 62ch; }
+.ps-earner-actions .ps-caption { margin: 0; max-width: 72ch; }
+.ps-earner-actions .ps-label { margin: 0; }
+.ps-earner-actions code { font: inherit; }
+
+/* Two ways to be paid, side by side. Each is a well, not a card: the panel
+   around them is the card. */
+.ps-earner-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-3);
+  width: 100%;
+  margin-top: var(--ps-2);
+}
+
+.ps-earner-option {
+  background: var(--ps-sunk);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  padding: var(--ps-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ps-2);
+}
+
+.ps-earner-option .ps-input { width: 100%; }
+
+.ps-earner-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-2);
+}
+
+/* The moment before a permanent choice. Sunk, framed, and the address in a
+   chip so the eye lands on what is about to be fixed for ever. */
+.ps-earner-confirm {
+  width: 100%;
+  background: var(--ps-sunk);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  padding: var(--ps-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ps-2);
+}
+
+.ps-earner-withdraw {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ps-2) var(--ps-3);
+}
+
+/* The amount sits inside the bracketed label, so it inherits the button's
+   size rather than the component's own. */
+.ps-earner-withdraw .ps-amount { font-size: inherit; line-height: inherit; }
+.ps-earner-withdraw .ps-amount-fraction,
+.ps-earner-withdraw .ps-amount-suffix { color: inherit; }
+
+@media (max-width: 720px) {
+  .ps-earner-options { grid-template-columns: 1fr; }
+  .ps-earner-actions { padding: var(--ps-3); }
+}
+
+/* A milestone that has closed, noted beside its index. */
+.ps-earnings-note { margin-left: var(--ps-2); }
+
+/* The two ways a stream can know you, one row each. A well, not a panel: this
+   is the page's header material, and the streams below are the content. */
+.ps-identities {
+  background: var(--ps-sunk);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  padding: var(--ps-3);
+  margin: 0 0 var(--ps-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-3);
+}
+
+.ps-identity {
+  display: grid;
+  grid-template-columns: 64px 1fr max-content;
+  align-items: center;
+  gap: var(--ps-2) var(--ps-3);
+}
+
+.ps-identity > .ps-label { color: var(--ps-ink-dim); }
+.ps-identity > .ps-caption { margin: 0; }
+.ps-identity form { margin: 0; }
+
+.ps-identity-value {
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
+}
+
+.ps-identity-wallets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ps-1) var(--ps-2);
+}
+
+@media (max-width: 720px) {
+  .ps-identity { grid-template-columns: 1fr; }
+}
+
+/* Where each stream pays: one row per wallet, the streams as chips that jump
+   to their section. Hairline rows like the tx feed, no panel, so it reads as
+   an index rather than another block. ◆ bound on a public stream, ○ fixed on
+   a named one. */
+.ps-bound {
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+  margin: 0 0 var(--ps-4);
+}
+
+.ps-bound-intro {
+  margin: var(--ps-1) 0;
+}
+
+.ps-bound-row {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  gap: var(--ps-2) var(--ps-3);
+  min-height: 32px;
+  padding: var(--ps-1) 0;
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-bound-row:last-child {
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-bound-streams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-1) var(--ps-2);
+}
+
+.ps-bound-streams .ps-chip {
+  text-decoration: none;
+}
+
+.ps-bound-kind {
+  color: var(--ps-ink-faint);
+}
+
+@media (max-width: 720px) {
+  .ps-bound-row { grid-template-columns: 1fr; }
+}
+
+/* The kind menu, hung off the band's own CHANGE control. Same three kinds in
+   the same order with the same marks as the gate: a shortcut, not a second
+   vocabulary. On the surface rather than in the band's invert, because it is a
+   menu sitting above the page, not part of the strip. */
+.ps-kindmenu {
+  position: relative;
+}
+
+.ps-kindmenu-panel {
+  position: absolute;
+  top: calc(100% + var(--ps-2));
+  right: 0;
+  z-index: 20;
+  min-width: 380px;
+  max-width: calc(100vw - var(--ps-5));
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+}
+
+.ps-kindmenu-item {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr max-content;
+  align-items: center;
+  gap: var(--ps-1) var(--ps-2);
+  width: 100%;
+  padding: var(--ps-2) var(--ps-3);
+  font: inherit;
+  text-align: left;
+  background: none;
+  color: inherit;
+  border: 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  cursor: pointer;
+}
+
+.ps-kindmenu-item:hover:not(:disabled) {
+  background: var(--ps-sunk);
+}
+
+.ps-kindmenu-item:disabled {
+  color: var(--ps-ink-faint);
+  cursor: not-allowed;
+}
+
+/* The one in force. Marked, not highlighted: a fill here would compete with
+   the band above, which is already saying the same thing. */
+.ps-kindmenu-item-current {
+  cursor: default;
+}
+
+.ps-kindmenu-mark {
+  color: var(--ps-ink-dim);
+}
+
+.ps-kindmenu-short {
+  grid-column: 3;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ps-kindmenu-compare {
+  display: block;
+  width: 100%;
+  padding: var(--ps-2) var(--ps-3);
+  font: inherit;
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-align: left;
+  background: none;
+  color: var(--ps-ink-dim);
+  border: 0;
+  cursor: pointer;
+}
+
+.ps-kindmenu-compare:hover {
+  background: var(--ps-sunk);
+  color: var(--ps-ink);
+}
+
+@media (max-width: 720px) {
+  .ps-kindmenu { width: 100%; }
+  .ps-kindmenu-panel {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+  }
+  /* The short line drops under the name rather than squeezing it. */
+  .ps-kindmenu-item { grid-template-columns: max-content max-content 1fr; }
+  .ps-kindmenu-short { grid-column: 1 / -1; }
+}
+
+/* When a decision was made, inside the outcome label so the strip keeps its
+   height. Faint: the row is about what the agent decided, not when. */
+.ps-verdict-when {
+  margin-left: var(--ps-2);
+  color: var(--ps-ink-faint);
 }

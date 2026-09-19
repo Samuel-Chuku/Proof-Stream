@@ -31,12 +31,18 @@ contract StreamRegistryTest is Test {
         return new WorkStream(
             USDC,
             contributor,
+            address(0),
             whichAgent,
             "Milestone 1: ship the ledger module",
             40e6,
             6 hours,
             repo,
-            WorkStream.Policy({maxTranche: 4e6, dailyUnlockCap: 50e6, payee: payee})
+            new string[](0),
+            // CT-1: `maxTranche` may not sit below the budget, or the agent could
+            // never certify the milestone in full and the remainder would refund
+            // to the employer. These are fixtures for registry behaviour, so the
+            // caps just need to be legal.
+            WorkStream.Policy({maxTranche: 40e6, dailyUnlockCap: 50e6, payee: payee, claimCap: 0, dailyClaimCap: 0})
         );
     }
 

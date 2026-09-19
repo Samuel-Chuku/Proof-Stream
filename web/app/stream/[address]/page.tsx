@@ -1,10 +1,12 @@
 import { EXPLORER_URL, formatUsdc, parseRepoSpec, parseUsdcLoose } from '@proofstream/config';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
+import { readEarners } from '../../../lib/earners';
 import { readStreamTransactions } from '../../../lib/onchain';
 import { listStreams } from '../../../lib/registry';
 import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
+import { Ago } from '../../ago';
 import { AgentMark } from '../../agent-mark';
 import { Footer } from '../../footer';
 import { Amount } from '../../amount';
@@ -12,10 +14,12 @@ import { HumanMark } from '../../human-mark';
 import { PasskeyWithdraw } from '../../passkey-withdraw';
 import { StreamActions } from '../../stream-actions';
 import { AgentWatch } from '../../agent-watch';
+import { Earners, OpenChip } from '../../earners';
 import { LockedFigure } from '../../stream-bar';
 import { Reveal } from '../../reveal';
 import { TxDecision } from '../../tx-decision';
 import { VerdictBody } from '../../verdict-body';
+import { StreamVersion } from '../../stream-version';
 
 // The chain and the agent logs both move while the page is open.
 export const dynamic = 'force-dynamic';
@@ -27,14 +31,6 @@ function formatCeiling(raw: string): string {
   const usdc = Number(raw) / 1e6;
   return Number.isInteger(usdc) ? usdc.toFixed(0) : String(usdc);
 }
-
-/// Transaction rows are sorted newest-first and routinely span several days, so
-/// a bare clock time reads as out of order — 08:41 sitting above 21:07 looks
-/// wrong until you notice they are different days. Date first, UTC stated once
-/// in the caption above the list rather than on every row.
-const stamp = (iso: string) =>
-  `${iso.slice(8, 10)} ${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(11, 19)}`;
-const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 /// Label sitting on a dashed rule, left-aligned.
 function SectionRule({ children }: { children: string }) {
@@ -98,6 +94,23 @@ export default async function StreamPage({
     fresh,
   );
 
+  // WHO EARNED IT, for an open stream. The chain stores a hash per earner; the
+  // agent's ledger is the only place that hash sits next to a login, so the
+  // two are joined here. A named stream reads nothing and renders nothing.
+  const earners =
+    stream?.isPublic
+      ? await readEarners(
+          address,
+          stream.milestoneIndex,
+          BigInt(mySummary?.registeredAtBlock ?? (process.env.REGISTRY_DEPLOY_BLOCK || '54593230')),
+          fresh,
+        )
+      : [];
+  const earnerNames = new Map<string, string>();
+  for (const v of verdicts) {
+    if (v.earnerId && v.author) earnerNames.set(v.earnerId.toLowerCase(), v.author);
+  }
+
   return (
     <main>
       <header className="ps-masthead">
@@ -109,6 +122,8 @@ export default async function StreamPage({
                 <AddressChip address={stream.address} href={`${EXPLORER_URL}/address/${stream.address}`} />
                 <span>ARC TESTNET · 5042002</span>
                 <span>MILESTONE {stream.milestoneIndex}</span>
+                <StreamVersion version={stream.version} />
+                {stream.isPublic && <OpenChip />}
               </>
             ) : (
               <span>ARC TESTNET · 5042002</span>
@@ -195,12 +210,21 @@ export default async function StreamPage({
               </dd>
               <dt>Paid to</dt>
               <dd>
-                <AddressChip
-                  address={stream.contributor as `0x${string}`}
-                  href={`${EXPLORER_URL}/address/${stream.contributor}`}
-                />
-                {stream.payee.toLowerCase() !== stream.contributor.toLowerCase() &&
-                  ' — withdrawals reach the allowlisted payee, not this address'}
+                {stream.isPublic ? (
+                  <>
+                    <b>whoever ships</b> — anyone whose merge the agent accepts earns a share, and
+                    chooses where it is paid
+                  </>
+                ) : (
+                  <>
+                    <AddressChip
+                      address={stream.contributor as `0x${string}`}
+                      href={`${EXPLORER_URL}/address/${stream.contributor}`}
+                    />
+                    {stream.payee.toLowerCase() !== stream.contributor.toLowerCase() &&
+                      ' — withdrawals reach the allowlisted payee, not this address'}
+                  </>
+                )}
               </dd>
               <dt>Budget</dt>
               <dd>{(Number(stream.budget) / 1e6).toFixed(2)} USDC</dd>
@@ -209,8 +233,24 @@ export default async function StreamPage({
                 {formatCeiling(stream.maxTranche)} USDC per certification ·{' '}
                 {(Number(stream.dailyUnlockCap) / 1e6).toFixed(0)} USDC per day
               </dd>
+              {stream.isPublic && (
+                <>
+                  <dt>Payout ceiling</dt>
+                  <dd>
+                    {formatCeiling(stream.claimCap)} USDC per withdrawal ·{' '}
+                    {(Number(stream.dailyClaimCap) / 1e6).toFixed(0)} USDC per day, across all earners
+                  </dd>
+                </>
+              )}
             </dl>
           </div>
+
+          {stream.isPublic && (
+            <>
+              <SectionRule>EARNERS</SectionRule>
+              <Earners earners={earners} names={earnerNames} explorer={EXPLORER_URL} />
+            </>
+          )}
 
           <SectionRule>AGENT DECISIONS</SectionRule>
 
@@ -232,8 +272,8 @@ export default async function StreamPage({
 
           <SectionRule>ON-CHAIN TRANSACTIONS</SectionRule>
           <p className="ps-caption ps-tx-intro">
-            NEWEST FIRST · TIMES UTC · EVERY ROW LINKS TO ARC EXPLORER, SO NOTHING HERE HAS TO BE
-            TAKEN ON TRUST
+            NEWEST FIRST · ANYTHING OLDER THAN A DAY SHOWS ITS UTC DATE, AND EVERY TIME CARRIES THE
+            EXACT ONE · EVERY ROW LINKS TO ARC EXPLORER, SO NOTHING HERE HAS TO BE TAKEN ON TRUST
           </p>
 
           <h3 className="ps-subhead">
@@ -246,7 +286,7 @@ export default async function StreamPage({
               <Reveal initial={3} noun="unlocks">
                 {settled.map((v, i) => (
                   <div className="ps-tx-row" key={`${v.at}-tx-${i}`}>
-                    <span className="ps-tx-time">{stamp(v.at)}</span>
+                    <Ago className="ps-tx-time" iso={v.at} />
                     <span className="ps-tx-action">UNLOCK</span>
                     {/* parseUsdc, not `Number(x) * 1e6`: the log stores a decimal
                         string, and multiplying it lands a hair off the integer
@@ -289,7 +329,7 @@ export default async function StreamPage({
               <Reveal initial={3} noun="actions">
                 {humanTxs.map((t) => (
                   <div className="ps-tx-row ps-tx-row-human" key={t.txHash}>
-                    <span className="ps-tx-time">{stamp(new Date(t.at * 1000).toISOString())}</span>
+                    <Ago className="ps-tx-time" iso={new Date(t.at * 1000).toISOString()} />
                     <span className="ps-tx-action">
                       <span
                         className={`ps-tx-by ${t.by === 'CONTRIBUTOR' ? 'ps-tx-by-contrib' : 'ps-tx-by-owner'}`}
@@ -322,38 +362,51 @@ export default async function StreamPage({
         </>
       )}
 
-      <SectionRule>WHAT THE AGENTS SPENT ON THIS STREAM</SectionRule>
+      <SectionRule>WHAT THE AGENT PAID ANOTHER AGENT</SectionRule>
       {decisions.length === 0 ? (
         <p className="ps-body">
-          Nothing yet. The agents only spend when there is work to judge — the attestor pays for its
-          own reasoning, and pays the verifier $0.005 for a second opinion, out of their own
-          wallets.
+          Nothing yet. The attestor buys a second opinion before it certifies anything, and pays for
+          it out of its own wallet in USDC. No work to judge, nothing bought.
         </p>
       ) : (
         <>
           <p className="ps-body">
-            <b>${spend.total.toFixed(4)}</b> of the agents&rsquo; own money, to decide{' '}
-            {decisions.length} pull request{decisions.length === 1 ? '' : 's'} on this stream.
+            <b>${spend.verificationFees.toFixed(4)}</b> in USDC, from the attestor&rsquo;s own wallet
+            to the verifier&rsquo;s, for {spend.paidReviews} second opinion
+            {spend.paidReviews === 1 ? '' : 's'} across {decisions.length} judged pull request
+            {decisions.length === 1 ? '' : 's'}. That is one agent paying another for a service, with
+            no human approving the transfer.
           </p>
-          <div className="ps-figures">
-            <div>
-              <span className="ps-caption">ATTESTOR REASONING</span>
-              <span className="ps-num">${spend.attestorInference.toFixed(4)}</span>
-            </div>
-            <div>
-              <span className="ps-caption">VERIFIER REASONING</span>
-              <span className="ps-num">${spend.verifierInference.toFixed(4)}</span>
-            </div>
-            <div>
-              <span className="ps-caption">
-                SECOND OPINIONS BOUGHT ({spend.paidReviews})
+          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+            REFUSING IS FREE · NO SECOND OPINION IS BOUGHT WHEN THE ATTESTOR DECLINES ON ITS OWN
+          </p>
+          <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
+            ● THESE FEES SETTLE IN GATEWAY BATCHES, SO THEY HAVE NO INDIVIDUAL TRANSACTION ON ARC
+          </p>
+
+          {/* Inference is what it cost the agents to think, billed by whoever
+              serves the model. It is an operating cost, not a payment on these
+              rails, and adding it to the figure above would overstate what
+              moved in USDC. Kept because it is honest and small, set apart
+              because it is a different kind of number. */}
+          <details className="ps-notice">
+            <summary>
+              <span className="ps-notice-mark" aria-hidden>
+                ○
               </span>
-              <span className="ps-num">${spend.verificationFees.toFixed(4)}</span>
-            </div>
-          </div>
-          <p className="ps-caption" style={{ marginTop: 'var(--ps-3)' }}>
-            REFUSING IS FREE — NO SECOND OPINION IS BOUGHT WHEN THE ATTESTOR DECLINES ON ITS OWN
-          </p>
+              <span className="ps-notice-title">
+                It also cost them ${(spend.attestorInference + spend.verifierInference).toFixed(4)} to
+                think
+              </span>
+              <span className="ps-notice-more">DETAIL ▾</span>
+            </summary>
+            <p className="ps-notice-detail">
+              Inference, billed to the agents by whoever serves their models: $
+              {spend.attestorInference.toFixed(4)} for the attestor&rsquo;s reasoning and $
+              {spend.verifierInference.toFixed(4)} for the verifier&rsquo;s. It is what running them
+              costs, not money that moved between them, so it is kept out of the figure above.
+            </p>
+          </details>
         </>
       )}
       <Footer />
@@ -423,6 +476,9 @@ function VerdictCard({ event }: { event: AgentEvent }) {
           <b className="ps-verdict-agent">ATTESTOR</b>
           <span className="ps-label ps-verdict-outcome">
             PR #{event.pr} · {outcome}
+            {/* Faint, and inside the existing label line, so the strip keeps
+                its height. Tracking a live run is mostly "how long ago". */}
+            <Ago className="ps-verdict-when" iso={event.at} />
           </span>
         </span>
 

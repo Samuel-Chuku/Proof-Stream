@@ -2,6 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { AuthorAllowlist } from './author-allowlist';
+import { KindGate, KindLine } from './stream-kind';
+import { isAddress } from 'viem';
 import { useAccount, useConfig, useDeployContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { AGENT_ADDRESS, EXPLORER } from '../../lib/chain';
@@ -60,7 +63,26 @@ export default function NewStream() {
   // and must then stop moving under them.
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
+  // THE GATE. Nothing below the masthead renders until a kind is chosen, and
+  // "change" sends you back here without losing anything typed.
+  const [chosen, setChosen] = useState(false);
+
+  // WHICH STEPS ARE OPEN. Only the first on arrival. Satisfying a step opens
+  // the next one once, and after that the page never fights the reader: they
+  // open and close whatever they like. `revealed` remembers which steps have
+  // had their one automatic opening, so collapsing a step stays collapsed.
+  const [openSteps, setOpenSteps] = useState<Set<number>>(() => new Set([1]));
+  const [revealed, setRevealed] = useState<Set<number>>(() => new Set([1]));
+  const toggleStep = (n: number) =>
+    setOpenSteps((o) => {
+      const next = new Set(o);
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      return next;
+    });
+
   const [terms, setTerms] = useState<StreamTerms>({
+    mode: 'named',
     contributor: '' as `0x${string}`,
     agent: AGENT_ADDRESS,
     milestone: '',
@@ -68,8 +90,13 @@ export default function NewStream() {
     durationSeconds: 1800,
     repo: '',
     branch: '',
+    authors: [],
     ...suggestedCaps(INITIAL_BUDGET),
     payee: '' as `0x${string}`,
+    // Open-stream payout caps. They mirror the budget the same way the
+    // certification caps do, and stop moving once edited by hand.
+    claimCap: suggestedCaps(INITIAL_BUDGET).maxTranche,
+    dailyClaimCap: suggestedCaps(INITIAL_BUDGET).dailyUnlockCap,
   });
 
   // The repo list only exists once GitHub is connected; a 401 here is the
@@ -151,6 +178,40 @@ export default function NewStream() {
 
   const problems = validate({ ...terms, durationSeconds });
   const notes = advisories({ ...terms, durationSeconds });
+
+  // WHEN A STEP IS DONE, for the check mark in its header. Each is the plain
+  // condition, not a search through `problems` for a matching sentence: a
+  // check mark means "nothing in this step is blocking", and that has to stay
+  // true if the wording of a problem ever changes.
+  const capsOk = (per: string | undefined, day: string | undefined) => {
+    const a = Number(per) || 0;
+    const b = Number(day) || 0;
+    return a > 0 && b >= a;
+  };
+  const stepDone: Record<number, boolean> = {
+    1: isConnected,
+    2: terms.repo !== '' && terms.branch !== '',
+    3:
+      terms.mode === 'public'
+        ? capsOk(terms.claimCap, terms.dailyClaimCap)
+        : isAddress(terms.contributor) && isAddress(terms.payee),
+    4:
+      (Number(terms.budget) || 0) > 0 &&
+      durationSeconds > 0 &&
+      terms.milestone.trim() !== '' &&
+      capsOk(terms.maxTranche, terms.dailyUnlockCap),
+  };
+
+  // Open the step after a newly satisfied one, once.
+  useEffect(() => {
+    for (const n of [1, 2, 3]) {
+      if (stepDone[n] && !revealed.has(n + 1)) {
+        setRevealed((r) => new Set(r).add(n + 1));
+        setOpenSteps((o) => new Set(o).add(n + 1));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepDone[1], stepDone[2], stepDone[3]]);
   const ready = isConnected && problems.length === 0 && terms.repo !== '' && terms.branch !== '';
 
   async function run() {
@@ -227,6 +288,8 @@ export default function NewStream() {
       budget: value,
       maxTranche: touched.maxTranche ? t.maxTranche : caps.maxTranche,
       dailyUnlockCap: touched.dailyUnlockCap ? t.dailyUnlockCap : caps.dailyUnlockCap,
+      claimCap: touched.claimCap ? t.claimCap : caps.maxTranche,
+      dailyClaimCap: touched.dailyClaimCap ? t.dailyClaimCap : caps.dailyUnlockCap,
     }));
   }
 
@@ -241,9 +304,22 @@ export default function NewStream() {
         </div>
       </header>
 
-      <div className="ps-section-rule">
-        <span className="ps-label">1 · YOUR WALLET</span>
-      </div>
+      {!chosen ? (
+        <KindGate
+          onChoose={(mode) => {
+            set('mode', mode);
+            setChosen(true);
+          }}
+        />
+      ) : (
+        <>
+      <KindLine
+        mode={terms.mode}
+        onSelect={(mode) => set('mode', mode)}
+        onCompare={() => setChosen(false)}
+      />
+
+      <Step n={1} title="YOUR WALLET" done={stepDone[1]} open={openSteps.has(1)} onToggle={() => toggleStep(1)}>
       <Connect />
       {address && (
         <p className="ps-caption" style={{ marginTop: 'var(--ps-2)' }}>
@@ -251,9 +327,9 @@ export default function NewStream() {
         </p>
       )}
 
-      <div className="ps-section-rule">
-        <span className="ps-label">2 · THE REPOSITORY</span>
-      </div>
+      </Step>
+
+      <Step n={2} title="THE REPOSITORY" done={stepDone[2]} open={openSteps.has(2)} onToggle={() => toggleStep(2)}>
       {repos === null ? (
         <p className="ps-caption">LOADING…</p>
       ) : repos.length === 0 ? (
@@ -347,23 +423,85 @@ export default function NewStream() {
         </>
       )}
 
-      <div className="ps-section-rule">
-        <span className="ps-label">3 · THE TERMS</span>
-      </div>
+      </Step>
 
+      <Step
+        n={3}
+        title={terms.mode === 'public' ? 'PAYOUT RULES' : 'WHO GETS PAID'}
+        done={stepDone[3]}
+        open={openSteps.has(3)}
+        onToggle={() => toggleStep(3)}
+      >
       <div className="ps-form">
+        {terms.mode === 'named' ? (
+          <Field
+            label="THEIR WALLET"
+            caption="Only this address can trigger a withdrawal."
+          >
+            <input
+              className="ps-input"
+              value={terms.contributor}
+              placeholder="[ 0x… ]"
+              aria-label="Contributor wallet"
+              onChange={(e) => setContributor(e.target.value as `0x${string}`)}
+            />
+          </Field>
+        ) : (
+          // The two payout ceilings, side by side in one field. They default
+          // to the budget so nothing throttles an earner unless the employer
+          // decides it should.
+          <Field
+            label="PAYOUT CEILING"
+            caption="The most any one earner can take per withdrawal, and the most that can leave per day across all of them."
+          >
+            <div className="ps-mode-caps">
+              <label className="ps-mode-cap">
+                <span className="ps-caption">PER WITHDRAWAL</span>
+                <input
+                  className="ps-input ps-num"
+                  value={terms.claimCap ?? ''}
+                  inputMode="decimal"
+                  onChange={(e) => {
+                    edit('claimCap');
+                    set('claimCap', e.target.value);
+                  }}
+                />
+              </label>
+              <label className="ps-mode-cap">
+                <span className="ps-caption">PER DAY</span>
+                <input
+                  className="ps-input ps-num"
+                  value={terms.dailyClaimCap ?? ''}
+                  inputMode="decimal"
+                  onChange={(e) => {
+                    edit('dailyClaimCap');
+                    set('dailyClaimCap', e.target.value);
+                  }}
+                />
+              </label>
+            </div>
+          </Field>
+        )}
+
         <Field
-          label="WHO GETS PAID"
-          caption="The contributor's wallet. Only this address can trigger a withdrawal."
+          label={terms.mode === 'named' ? 'WHOSE MERGES COUNT' : 'WHO MAY EARN'}
+          caption={
+            terms.mode === 'named'
+              ? "Optional. Empty means any author's merges are judged."
+              : 'Optional. Empty means anyone. Named accounts are the only ones whose merges earn a share.'
+          }
         >
-          <input
-            className="ps-input"
-            value={terms.contributor}
-            placeholder="[ 0x… ]"
-            onChange={(e) => setContributor(e.target.value as `0x${string}`)}
+          <AuthorAllowlist
+            authors={terms.authors ?? []}
+            onChange={(authors) => setTerms((t) => ({ ...t, authors }))}
           />
         </Field>
+      </div>
 
+      </Step>
+
+      <Step n={4} title="THE TERMS" done={stepDone[4]} open={openSteps.has(4)} onToggle={() => toggleStep(4)}>
+      <div className="ps-form">
         <Field
           label="MILESTONE BUDGET"
           caption="You deposit this in full before the stream starts. Nothing is owed until you do."
@@ -435,6 +573,10 @@ export default function NewStream() {
         </Field>
       </div>
 
+      {/* A payout address belongs to a named stream. On an open one each
+          earner binds their own, so the field would be asking a question the
+          contract cannot use the answer to. */}
+      {terms.mode === 'named' && (
       <details className="ps-advanced">
         <summary className="ps-label">ADVANCED — PAYOUT ADDRESS ▾</summary>
         <div className="ps-form">
@@ -455,9 +597,11 @@ export default function NewStream() {
 
         </div>
       </details>
+      )}
 
       <Field
-        label="ACCEPTANCE CRITERIA"
+        lead
+        label="ACCEPTANCE CRITERIA (THE MILESTONE)"
         caption="The agent reads this verbatim when deciding whether a merged pull request satisfies the milestone. This field is the product — be specific."
       >
         <textarea
@@ -469,8 +613,10 @@ export default function NewStream() {
         />
       </Field>
 
+      </Step>
+
       <div className="ps-section-rule">
-        <span className="ps-label">4 · CREATE IT</span>
+        <span className="ps-label">5 · CREATE IT</span>
       </div>
 
       {problems.length > 0 && (
@@ -558,7 +704,52 @@ export default function NewStream() {
           FUNDED AND ACCRUING — THE AGENT WILL JUDGE THE NEXT PULL REQUEST MERGED INTO {terms.branch} ON {terms.repo}
         </p>
       )}
+        </>
+      )}
     </main>
+  );
+}
+
+/// One numbered step, openable and closable at will, with a check mark once
+/// nothing in it is blocking. The header is the section rule the page already
+/// used, so a closed step reads as the same ledger line it always was, with a
+/// mark. The body is a plain block: no shadow, no panel, the fields as before.
+function Step({
+  n,
+  title,
+  done,
+  open,
+  onToggle,
+  children,
+}: {
+  n: number;
+  title: string;
+  done: boolean;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <details
+      className={`ps-step-fold${done ? ' ps-step-fold-done' : ''}`}
+      open={open}
+      onToggle={(e) => {
+        // Only act on a real change, so the controlled `open` and the DOM stay
+        // agreed and a re-render does not re-fire the handler.
+        if ((e.currentTarget as HTMLDetailsElement).open !== open) onToggle();
+      }}
+    >
+      <summary className="ps-section-rule ps-step-fold-head">
+        <span className="ps-label">
+          {n} · {title}
+        </span>
+        <span className="ps-step-fold-state ps-label" aria-hidden>
+          {done ? '✓' : ''}
+          <span className="ps-step-fold-caret">{open ? '▾' : '▸'}</span>
+        </span>
+      </summary>
+      <div className="ps-step-fold-body">{children}</div>
+    </details>
   );
 }
 
@@ -566,14 +757,18 @@ function Field({
   label,
   caption,
   children,
+  lead,
 }: {
   label: string;
   caption?: string;
   children: React.ReactNode;
+  /** The one field on this form that IS the product. Set on the milestone so it
+   *  reads as the thing being written rather than as one setting among nine. */
+  lead?: boolean;
 }) {
   return (
     <div className="ps-field">
-      <label className="ps-label">{label}</label>
+      <label className={`ps-label${lead ? ' ps-label-lead' : ''}`}>{label}</label>
       {children}
       {caption && <span className="ps-caption">{caption}</span>}
     </div>

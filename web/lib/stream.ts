@@ -2,17 +2,16 @@
 // may ever be imported by a client component — the browser gets numbers, never
 // the transport.
 import { USDC_ADDRESS, WORK_STREAM_ABI } from '@proofstream/config';
-import { type ContractFunctionName, createPublicClient, erc20Abi, http } from 'viem';
+import { createPublicClient, erc20Abi, http, parseAbi, type ContractFunctionName } from 'viem';
 import { arcTestnet } from 'viem/chains';
 
 /// The names below are checked against the GENERATED ABI at compile time.
 ///
-/// This used to take a bare `string`, and `readContract` is called with
-/// `functionName as never`, so tsc could not see a name the contract does not
-/// have. That is exactly how `activatedAt` was read with no matching ABI entry
-/// on 2026-08-05: it compiled, the agent started, discovered zero streams, and
-/// looked like a registry fault. Now that the ABI is generated `as const`, viem
-/// can name every readable function and a typo fails the build instead.
+/// `readContract` is called with `functionName as never` when this takes a bare
+/// `string`, so tsc cannot see a name the contract does not have: reading a
+/// function with no matching ABI entry compiles, the agent starts, discovers
+/// zero streams, and looks like a registry fault. With the ABI generated
+/// `as const`, viem can name every readable function and a typo fails the build.
 type ReadFn = ContractFunctionName<typeof WORK_STREAM_ABI, 'view' | 'pure'>;
 
 
@@ -33,6 +32,18 @@ export type Stream = {
   activatedAt: number;
   fullyFunded: boolean;
   milestoneIndex: number;
+  /** Which generation of the contract this stream is.
+   *
+   *  Every employer deploys their own copy, so streams from every past
+   *  deployment stay live and keep their own behaviour forever. A stream that
+   *  cannot answer is by definition version 1: the view did not exist yet. */
+  version: number;
+  /** True on a stream that names nobody: anyone's accepted work earns a share
+   *  and each earner binds their own payee. Always false before v3. */
+  isPublic: boolean;
+  /** Open-stream payout ceilings, USDC units. "0" on a named stream. */
+  claimCap: string;
+  dailyClaimCap: string;
   /** The agent's standing verdict on this milestone, 0-10_000. Monotonic. */
   certifiedBps: number;
   /** What the agent certified is owed: budget × certifiedBps. The clock never
@@ -87,6 +98,12 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
   }
 }
 
+/// `policy()` as it was before v3. The generated ABI describes only the current
+/// contract, and this page has to render every stream that exists.
+const LEGACY_POLICY_ABI = parseAbi([
+  'function policy() view returns (uint256 maxTranche, uint256 dailyUnlockCap, address payee)',
+]);
+
 /// One stream's full state. The address is a parameter now that the app serves
 /// many streams; WORKSTREAM_ADDRESS remains the fallback so a single-stream
 /// deployment keeps working with no configuration change.
@@ -104,6 +121,17 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
     client.readContract({ address, abi: WORK_STREAM_ABI, functionName: functionName as never }) as Promise<T>;
 
   try {
+    // FIRST, AND ON ITS OWN. `version()` does not exist on a v1 stream, so the
+    // call reverts, and inside a multicall that revert takes every other read
+    // down with it. Asked separately, a revert is the answer. It has to come
+    // before the batch because it decides the SHAPE of one read in it:
+    // `policy()` returns three fields before v3 and five from it, and three
+    // words cannot be decoded against a five-field ABI.
+    const version = await client
+      .readContract({ address, abi: WORK_STREAM_ABI, functionName: 'version' as never })
+      .then((v) => Number(v))
+      .catch(() => 1);
+
     // Fired together on purpose — the multicall batcher turns them into one
     // request. Awaiting them one at a time is what made this page take 5s.
     const [
@@ -114,7 +142,11 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       nonce, agent,
     ] = await withRetry(() =>
       Promise.all([
-        read<[bigint, bigint, `0x${string}`]>('policy'),
+        version >= 3
+          ? read<[bigint, bigint, `0x${string}`, bigint, bigint]>('policy')
+          : (client.readContract({ address, abi: LEGACY_POLICY_ABI, functionName: 'policy' }) as Promise<
+              [bigint, bigint, `0x${string}`]
+            >),
         client.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [address] }),
         read<string>('milestone'),
         read<string>('repo'),
@@ -143,6 +175,11 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
     );
 
     const [maxTranche, dailyUnlockCap, payee] = policy;
+    // Five fields from v3; the legacy read returns three and these stay zero.
+    const claimCap = (policy as unknown[])[3] as bigint | undefined;
+    const dailyClaimCap = (policy as unknown[])[4] as bigint | undefined;
+    const zero = /^0x0{40}$/i;
+    const isPublic = version >= 3 && zero.test(contributor) && (claimCap ?? 0n) > 0n;
 
     return {
       address,
@@ -154,6 +191,10 @@ export async function readStream(streamAddress?: string): Promise<Stream | null>
       activatedAt: Number(activatedAt),
       fullyFunded,
       milestoneIndex: Number(milestoneIndex),
+      version,
+      isPublic,
+      claimCap: (claimCap ?? 0n).toString(),
+      dailyClaimCap: (dailyClaimCap ?? 0n).toString(),
       certifiedBps: Number(certifiedBps),
       target: target.toString(),
       earned: earned.toString(),

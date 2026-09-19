@@ -10,7 +10,7 @@ The repository provides systemd units under `deploy/`, attestor and verifier sta
 
 ## Monitoring
 
-Monitor health, registry refresh age, webhook acceptance, evidence-to-verdict latency, verifier fee balance, Circle wallet status, RPC failures, nonce gaps, certification receipts, reconciliation backlog, and withdrawable balances. Alert on repeated timeouts and paid failures. The current repository does not provide a durable queue, global paid-call kill switch, or complete circuit-breaker layer.
+Monitor health, registry refresh age, webhook acceptance, evidence-to-verdict latency, correctness-suite cache age and sandbox failures, verifier fee balance, Circle wallet status, RPC failures, nonce gaps, certification receipts, public binding and payout failures, reconciliation backlog, and withdrawable balances. Alert on repeated timeouts and paid failures. Store `agent/suites/` and JSONL ledgers outside deploy-overwritten paths in production. The current repository does not provide a durable queue, global paid-call kill switch, or complete circuit-breaker layer.
 
 ## Recovery
 
