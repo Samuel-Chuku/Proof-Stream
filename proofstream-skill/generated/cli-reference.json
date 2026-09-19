@@ -44,6 +44,7 @@
     "test:bind": "tsx --test agent/test/bind.test.ts",
     "test:withdraw-cap": "tsx --test web/test/withdraw-cap.test.ts",
     "test:ago": "tsx --test web/test/ago.test.ts",
+    "test:sweep": "tsx --test agent/test/reconcile-sweep.test.ts",
     "watch": "tsx --env-file-if-exists=.env scripts/watch.ts",
     "stream:status": "tsx --env-file=.env scripts/stream-status.ts",
     "skill:generate": "pnpm --filter proofstream-integration-skill generate",
@@ -54,6 +55,7 @@
     "skill:install-test": "node proofstream-skill/test/install.test.mjs",
     "skill:release-dry-run": "pnpm --filter proofstream-integration-skill generate:check && pnpm --filter proofstream-integration-skill test && pnpm --filter proofstream-integration-skill pack:release",
     "probe:policy": "tsx --env-file=.env scripts/probe-policy.ts",
+    "revert:prepare": "tsx --env-file=.env scripts/policy-revert.ts",
     "sandbox:smoke": "tsx --env-file=.env scripts/sandbox-smoke.ts"
   }
 }

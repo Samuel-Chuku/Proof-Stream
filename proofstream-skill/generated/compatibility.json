@@ -38,7 +38,7 @@
     },
     {
       "contract": "WorkStream",
-      "address": "0xA84746722727e04eba331fB3AFD7D0940B815161",
+      "address": null,
       "chainId": 5042002,
       "status": "conflicted",
       "purpose": "EVIDENCE current contract",
