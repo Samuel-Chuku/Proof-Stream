@@ -313,7 +313,11 @@ export default function NewStream() {
         />
       ) : (
         <>
-      <KindLine mode={terms.mode} onChange={() => setChosen(false)} />
+      <KindLine
+        mode={terms.mode}
+        onSelect={(mode) => set('mode', mode)}
+        onCompare={() => setChosen(false)}
+      />
 
       <Step n={1} title="YOUR WALLET" done={stepDone[1]} open={openSteps.has(1)} onToggle={() => toggleStep(1)}>
       <Connect />
