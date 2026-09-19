@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedFrom": "92b5e741947a73dc95f673adc8ff2431b7615aa1",
+  "appRouterFiles": [
+    "api/earnings/bind/route.ts",
+    "api/earnings/logout/route.ts",
+    "api/earnings/wallet/route.ts",
+    "api/github/branches/route.ts",
+    "api/github/callback/route.ts",
+    "api/github/login/route.ts",
+    "api/github/repos/route.ts",
+    "docs/page.tsx",
+    "earnings/page.tsx",
+    "landing/page.tsx",
+    "new/page.tsx",
+    "page.tsx",
+    "stream/[address]/page.tsx",
+    "streams/page.tsx"
+  ]
+}

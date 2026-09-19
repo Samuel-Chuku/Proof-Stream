@@ -7,7 +7,8 @@ import { FillStates, Flow, Kinds, TwoClocks } from './diagrams';
 
 export const metadata = {
   title: 'How ProofStream works',
-  description: 'The protocol, the guarantees, the three kinds of stream, the contract addresses, and the limitations.',
+  description:
+    'The protocol, its guarantees and limitations, and install instructions for ProofStream agents and developers.',
 };
 
 const REGISTRY = process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? '';
@@ -404,6 +405,95 @@ export default function Docs() {
         Every action in this interface also exists as a terminal command. The UI is a second front
         door, never a replacement.
       </p>
+
+      <Rule>DEVELOPER SKILL</Rule>
+      <p className="ps-body">
+        The ProofStream Integration Skill is the agent-facing documentation package. It is pinned to
+        a ProofStream commit, includes generated contract and environment references, and works
+        offline after installation. It can guide an agent through integration, operations, security,
+        UI states, and brand-safe media briefs. It does not contain private keys, a hosted API, or an
+        image/video generator.
+      </p>
+
+      <div className="ps-doc-install-grid">
+        <section className="ps-doc-install-card">
+          <p className="ps-label">NPM / NPX</p>
+          <h2 className="ps-display-l">Install from npm</h2>
+          <p className="ps-body">
+            The package is configured as <code>proofstream-integration-skill</code>, with the
+            <code>proofstream-skill</code> binary. Version <code>0.1.1</code> is published and can be
+            installed directly with npx.
+          </p>
+          <pre className="ps-code-block"><code>{`npx proofstream-integration-skill init --agent codex
+npx proofstream-integration-skill doctor`}</code></pre>
+          <p className="ps-caption">NPM RELEASE 0.1.1 · PINNED TO PROOFSTREAM COMMIT CE754C1</p>
+        </section>
+
+        <section className="ps-doc-install-card">
+          <p className="ps-label">LOCAL / OFFLINE</p>
+          <h2 className="ps-display-l">Use the repository</h2>
+          <p className="ps-body">
+            Clone a release tag or unpack the GitHub Release ZIP. From the repository root, install
+            dependencies, regenerate references, then install the skill into the project that the
+            agent will edit.
+          </p>
+          <pre className="ps-code-block"><code>{`git clone https://github.com/Samuel-Chuku/Proof-Stream
+cd Proof-Stream
+pnpm install --frozen-lockfile
+pnpm --filter proofstream-integration-skill generate
+node proofstream-skill/bin/proofstream-skill.mjs doctor`}</code></pre>
+        </section>
+      </div>
+
+      <Rule>INSTALL FOR YOUR AGENT</Rule>
+      <p className="ps-body">
+        Run these commands from the product repository where the agent will work. The installer
+        copies the complete, versioned package and refuses to replace an unrelated directory. Each
+        target is deliberately project-local so the skill travels with the codebase and can be
+        audited offline.
+      </p>
+      <div className="ps-doc-agent-grid">
+        <section className="ps-doc-agent-card">
+          <p className="ps-label">CODEX DESKTOP OR CODEX CLI</p>
+          <p className="ps-body">Use the Codex target. Codex can then read <code>.codex/skills/proofstream-integration/SKILL.md</code>.</p>
+          <pre className="ps-code-block"><code>{`node proofstream-skill/bin/proofstream-skill.mjs init --agent codex --target .
+node proofstream-skill/bin/proofstream-skill.mjs doctor --path .codex/skills/proofstream-integration`}</code></pre>
+        </section>
+        <section className="ps-doc-agent-card">
+          <p className="ps-label">CLAUDE DESKTOP OR CLAUDE CODE</p>
+          <p className="ps-body">Use the Claude target. Claude can then read <code>.claude/skills/proofstream-integration/SKILL.md</code>.</p>
+          <pre className="ps-code-block"><code>{`node proofstream-skill/bin/proofstream-skill.mjs init --agent claude --target .
+node proofstream-skill/bin/proofstream-skill.mjs doctor --path .claude/skills/proofstream-integration`}</code></pre>
+        </section>
+        <section className="ps-doc-agent-card">
+          <p className="ps-label">ANY OTHER CODING AGENT</p>
+          <p className="ps-body">Use the generic target. Point the agent at the installed <code>SKILL.md</code> or let it discover <code>.agents/skills</code>.</p>
+          <pre className="ps-code-block"><code>{`node proofstream-skill/bin/proofstream-skill.mjs init --agent generic --target .
+node proofstream-skill/bin/proofstream-skill.mjs doctor --path .agents/skills/proofstream-integration`}</code></pre>
+        </section>
+      </div>
+
+      <Rule>AGENT STARTING ORDER</Rule>
+      <ol className="ps-numbered">
+        <li className="ps-body"><b>Read the pinned version.</b> Start with <code>SKILL.md</code>, then check <code>generated/compatibility.json</code> and <code>generated/consumables.json</code>.</li>
+        <li className="ps-body"><b>Choose the right reference.</b> Contracts and events live in <code>references/contracts.md</code>; money flows in <code>references/integration-guide.md</code>; agent judgment in <code>references/agents-and-verification.md</code>.</li>
+        <li className="ps-body"><b>Validate before writing.</b> Run <code>proofstream-skill doctor</code>. For flyers, banners, social graphics, decks, or motion, create a brief from <code>templates/media/</code> and run <code>proofstream-skill creative-check brief.json --json</code>.</li>
+        <li className="ps-body"><b>Verify every write.</b> Wait for a successful receipt, decode the expected event, and read post-state. A transaction hash is not proof of a payout.</li>
+      </ol>
+
+      <Rule>REFERENCE MAP</Rule>
+      <div className="ps-doc-reference-list">
+        <a href="https://github.com/Samuel-Chuku/Proof-Stream/tree/main/proofstream-skill" target="_blank" rel="noreferrer" className="ps-doc-reference">
+          <span className="ps-label">SKILL PACKAGE</span><span className="ps-body">Installable package, CLI, generated references, examples, schemas, and templates ↗</span>
+        </a>
+        <a href="https://github.com/Samuel-Chuku/Proof-Stream/blob/main/proofstream-skill/references/contracts.md" target="_blank" rel="noreferrer" className="ps-doc-reference">
+          <span className="ps-label">CONTRACTS</span><span className="ps-body">Functions, events, errors, permissions, state transitions, and ABIs ↗</span>
+        </a>
+        <a href="https://github.com/Samuel-Chuku/Proof-Stream/blob/main/proofstream-skill/references/creative-production.md" target="_blank" rel="noreferrer" className="ps-doc-reference">
+          <span className="ps-label">MEDIA</span><span className="ps-body">Brand-safe prompts and production rules for flyers, banners, social, decks, and motion ↗</span>
+        </a>
+      </div>
+      <p className="ps-caption">THE SITE PAGE IS A DISCOVERY SURFACE. THE PINNED SKILL PACKAGE IS THE MACHINE-READABLE SOURCE FOR AGENTS.</p>
 
       {/* ------------------------------------------------------------ */}
       <Rule>LIMITATIONS, NAMED</Rule>

@@ -33,6 +33,11 @@ export function middleware(req: NextRequest) {
     if (pathname === '/') {
       return NextResponse.rewrite(new URL('/landing', req.url));
     }
+    // Public documentation is intentionally available on the apex. It is the
+    // discovery surface for developers who have not entered the app yet.
+    if (pathname === '/docs' || pathname.startsWith('/docs/')) {
+      return NextResponse.next();
+    }
     return NextResponse.redirect(`https://${appHost}${pathname}${search}`, 308);
   }
 

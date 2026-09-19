@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "proofstream-integration",
+  "displayName": "ProofStream Integration",
+  "skillVersion": "0.2.0",
+  "cli": "proofstream-skill",
+  "proofstream": {
+    "repository": "https://github.com/Samuel-Chuku/Proof-Stream",
+    "commit": "92b5e741947a73dc95f673adc8ff2431b7615aa1"
+  },
+  "entrypoint": "SKILL.md",
+  "compatibility": "generated/compatibility.json",
+  "integrity": "generated/checksums.json"
+}

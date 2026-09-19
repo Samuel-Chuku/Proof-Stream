@@ -1,0 +1,7 @@
+interface:
+  display_name: "ProofStream Integration"
+  short_description: "Build ProofStream integrations and brand media"
+  brand_color: "#00FF00"
+  default_prompt: "Use $proofstream-integration to integrate or operate a ProofStream work stream."
+policy:
+  allow_implicit_invocation: true

@@ -533,6 +533,73 @@ textarea.ps-input {
   margin: 0 0 var(--ps-4);
 }
 
+/* ---- Documentation installation surfaces ----------------- */
+
+.ps-doc-install-grid,
+.ps-doc-agent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ps-4);
+  margin: var(--ps-4) 0 var(--ps-6);
+}
+
+.ps-doc-agent-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ps-doc-install-card,
+.ps-doc-agent-card {
+  min-width: 0;
+  padding: var(--ps-4);
+  background: var(--ps-surface);
+  border: var(--ps-bw-struct) solid var(--ps-rule);
+  box-shadow: var(--ps-shadow-2);
+}
+
+.ps-doc-install-card h2 {
+  margin: var(--ps-2) 0 var(--ps-3);
+  font-size: var(--ps-size-section);
+  line-height: var(--ps-lh-section);
+}
+
+.ps-doc-agent-card .ps-body {
+  margin: var(--ps-2) 0 var(--ps-3);
+}
+
+.ps-code-block {
+  overflow-x: auto;
+  margin: var(--ps-3) 0;
+  padding: var(--ps-3);
+  background: var(--ps-dark);
+  color: var(--ps-paper);
+  border: var(--ps-bw-hair) solid var(--ps-rule);
+  font: var(--ps-size-label)/1.6 var(--ps-mono);
+  white-space: pre;
+}
+
+.ps-doc-reference-list {
+  display: grid;
+  gap: 0;
+  margin: var(--ps-3) 0 var(--ps-4);
+  border-top: var(--ps-bw-hair) solid var(--ps-rule);
+}
+
+.ps-doc-reference {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.35fr) 1fr;
+  gap: var(--ps-3);
+  align-items: baseline;
+  padding: var(--ps-3) 0;
+  border-bottom: var(--ps-bw-hair) solid var(--ps-rule);
+  text-decoration: none;
+}
+
+.ps-doc-reference:hover .ps-body,
+.ps-doc-reference:focus-visible .ps-body {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 code {
   font-family: var(--ps-mono);
   background: var(--ps-sunk);
@@ -2715,6 +2782,12 @@ a.ps-stream-row:hover {
 
   .ps-live { padding: var(--ps-3); }
   .ps-live-line { font-size: 12px; }
+
+  .ps-doc-install-grid,
+  .ps-doc-agent-grid { grid-template-columns: 1fr; }
+  .ps-doc-install-card,
+  .ps-doc-agent-card { padding: var(--ps-3); }
+  .ps-doc-reference { grid-template-columns: 1fr; gap: var(--ps-1); }
 
   /* Hashes and addresses are the one content that cannot wrap on a word
      boundary, and they are what pushes a phone into horizontal scrolling. */
