@@ -273,6 +273,18 @@ export function EarnerActions({ position: p, login }: { position: Position; logi
               <AddressChip address={stream.address} href={`${EXPLORER}/address/${stream.address}`} /> ·
               NOTHING ELSE
             </p>
+            {/* SAY IT BEFORE IT IS PERMANENT. A passkey wallet has no seed
+                phrase and can only be driven from this site, so binding to one
+                ties this stream's pay to this site staying up. The earnings
+                page can move the money out afterwards, and that sentence is
+                the difference between a convenience and a trap. */}
+            {chosen.toLowerCase() === passkeyAddress?.toLowerCase() && (
+              <p className="ps-caption">
+                THIS IS A PASSKEY WALLET. IT HAS NO SEED PHRASE AND CAN ONLY BE OPERATED FROM THIS
+                SITE, ON THIS DEVICE. YOU CAN MOVE USDC OUT OF IT TO ANY ADDRESS FROM THIS PAGE, AND
+                YOU SHOULD NOT LEAVE MONEY SITTING IN IT.
+              </p>
+            )}
             <div className="ps-earner-buttons">
               <button
                 type="button"
