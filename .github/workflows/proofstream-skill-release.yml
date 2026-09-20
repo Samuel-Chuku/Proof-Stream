@@ -12,6 +12,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     environment: proofstream-skill-release
+    # The `secrets` context is NOT available in a step-level `if:`, so
+    # `if: secrets.X == 'true'` is always false and the publish step below was
+    # silently skipped on every release. Read it into the job's env, where the
+    # context IS available, and condition on that.
+    env:
+      PROOFSTREAM_NPM_PUBLISH: ${{ secrets.PROOFSTREAM_NPM_PUBLISH }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,14 +47,20 @@ jobs:
       - name: Require release metadata
         shell: bash
         run: |
-          test -f proofstream-skill/../dist/proofstream-skill/*.zip
-          test -f proofstream-skill/../dist/proofstream-skill/*.sha256
+          # `test -f <glob>` takes the glob's EXPANSION as its arguments, so two
+          # matches make it "binary operator expected" rather than a clean
+          # failure. Count the matches instead.
+          shopt -s nullglob
+          zips=(dist/proofstream-skill/*.zip)
+          sums=(dist/proofstream-skill/*.sha256)
+          test "${#zips[@]}" -ge 1
+          test "${#sums[@]}" -ge 1
           node -e "const c=require('./proofstream-skill/generated/compatibility.json'); if(c.releaseStatus !== 'stable') process.exit(1)"
           test -n "$PROOFSTREAM_RELEASE_LICENSE_CONFIRMED"
         env:
           PROOFSTREAM_RELEASE_LICENSE_CONFIRMED: ${{ secrets.PROOFSTREAM_RELEASE_LICENSE_CONFIRMED }}
       - name: Publish npm package
-        if: ${{ secrets.PROOFSTREAM_NPM_PUBLISH == 'true' }}
+        if: ${{ env.PROOFSTREAM_NPM_PUBLISH == 'true' }}
         run: pnpm --filter proofstream-integration-skill publish --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

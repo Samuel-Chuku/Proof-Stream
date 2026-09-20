@@ -5,7 +5,6 @@
     "contracts/out/WorkStream.sol/WorkStream.json",
     "contracts/out/StreamRegistry.sol/StreamRegistry.json",
     "README.md",
-    "EVIDENCE.md",
     ".env.example",
     "web/lib/chain.ts"
   ],

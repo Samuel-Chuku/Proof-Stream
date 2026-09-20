@@ -30,19 +30,11 @@
     },
     {
       "contract": "WorkStream",
-      "address": "0xF6362b807915FD998a03FaEc73361166333F4Ac9",
+      "address": "0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9",
       "chainId": 5042002,
-      "status": "conflicted",
-      "purpose": "README deployment table",
+      "status": "example-only",
+      "purpose": "one deployed stream, for reading along; discover streams through StreamRegistry",
       "source": "README.md"
-    },
-    {
-      "contract": "WorkStream",
-      "address": null,
-      "chainId": 5042002,
-      "status": "conflicted",
-      "purpose": "EVIDENCE current contract",
-      "source": "EVIDENCE.md"
     },
     {
       "contract": "GatewayWallet",
@@ -68,7 +60,6 @@
     "contracts/out/WorkStream.sol/WorkStream.json",
     "contracts/out/StreamRegistry.sol/StreamRegistry.json",
     "README.md",
-    "EVIDENCE.md",
     ".env.example",
     "web/lib/chain.ts"
   ],

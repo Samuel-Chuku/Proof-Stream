@@ -31,7 +31,7 @@ The contract is deterministic custody and accounting. GitHub, models, Circle wal
 
 ## Non-negotiable integration rules
 
-1. Read the chain ID and addresses from the pinned compatibility metadata. Do not paste a README address into production code without checking its status. The current repository contains a WorkStream address conflict between `README.md` and `EVIDENCE.md`.
+1. Read the chain ID and addresses from the pinned compatibility metadata. Do not paste a README address into production code without checking its status. There is no single `WorkStream` address to integrate against: every employer deploys their own and announces it to `StreamRegistry`, so discover streams by reading `StreamRegistered` logs. The one `WorkStream` in the metadata is marked `example-only` and is there to read along with on the explorer.
 2. Use the generated ABI and the repository-pinned viem version. Do not hand-maintain a partial ABI.
 3. Treat USDC amounts as six-decimal integers. Never use JavaScript floating point for a transfer.
 4. Select the stream mode before building writes. Named streams use `withdraw`; claimable streams require a claim-authority signature before activation; public streams require an earner id, one-time payee binding, `withdrawFor`, and payout caps.
