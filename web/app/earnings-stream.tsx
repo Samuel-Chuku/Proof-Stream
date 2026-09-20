@@ -24,13 +24,39 @@ function formatCeiling(raw: string): string {
 /// like this.
 export function EarningsStream({ position: p, login }: { position: Position; login: string | null }) {
   const spec = parseRepoSpec(p.repo);
+  const owed = p.earnings.reduce((sum, e) => sum + BigInt(e.withdrawable), 0n);
+  const paid = p.earnings.reduce((sum, e) => sum + BigInt(e.paid), 0n);
+
   return (
-    <section id={p.address}>
-      <div className="ps-section-rule">
-        <span className="ps-label">
-          {spec.repo.toUpperCase()} · MILESTONE {p.milestoneIndex}
+    // OPEN WHERE THERE IS MONEY, CLOSED WHERE THERE IS NOT. Somebody with ten
+    // streams behind them is here for the one that owes them, and a page that
+    // opens every stream in full makes them scroll past their own history to
+    // find it. A settled stream still reads at a glance from its summary line.
+    <details className="ps-stream-fold" id={p.address} open={owed > 0n}>
+      <summary>
+        <span className="ps-stream-fold-who">
+          <span className="ps-label">{spec.repo}</span>
+          <span className="ps-caption">
+            MILESTONE {p.milestoneIndex} · {p.kind === 'named' ? 'NAMED' : 'PUBLIC'} ·{' '}
+            {p.state.toUpperCase()}
+          </span>
         </span>
-      </div>
+        <span className="ps-stream-fold-figure">
+          {owed > 0n ? (
+            <>
+              <Amount raw={owed} size="m" />
+              <span className="ps-caption">TO TAKE</span>
+            </>
+          ) : paid > 0n ? (
+            <span className="ps-caption">PAID OUT</span>
+          ) : (
+            <span className="ps-caption">NOTHING OWED</span>
+          )}
+        </span>
+        <span className="ps-stream-fold-caret" aria-hidden>
+          ▾
+        </span>
+      </summary>
 
       <p className="ps-milestone">{p.milestone}</p>
 
@@ -112,6 +138,6 @@ export function EarningsStream({ position: p, login }: { position: Position; log
       </div>
 
       <EarnerActions position={p} login={login} />
-    </section>
+    </details>
   );
 }

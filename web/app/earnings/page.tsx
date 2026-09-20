@@ -54,18 +54,29 @@ export default async function Earnings({
         fresh={fresh}
       />
 
-      <div className="ps-section-rule">
-        <span className="ps-label">WHAT THIS PAGE WILL NEVER ASK</span>
-      </div>
-      <p className="ps-body">
-        A token approval, a permit, or a signature over anything but a stream&rsquo;s own contract.
-        The transactions here are <code>withdraw</code> on a named stream, and on a public one{' '}
-        <code>bindPayee</code>, which records where you are paid, then <code>withdrawFor</code>, which
-        pays you. Every one goes to a stream address shown on this page, and every one is refused by
-        the contract unless your own wallet sends it. If a page that looks like this asks for anything
-        else, it is not this page. Reach it from the address bar or the STREAMS list, never from a link
-        someone sent you.
-      </p>
+      {/* THE SECURITY CLAIM, SHORT ENOUGH TO READ. It was a paragraph, and a
+          paragraph at the bottom of a page is decoration: the person being
+          phished does not read it. Three lines and a fold. */}
+      <section className="ps-never">
+        <p className="ps-label">THIS PAGE ONLY EVER ASKS FOR TWO THINGS</p>
+        <ul className="ps-never-list">
+          <li>
+            <code>bindPayee</code>, which records where a public stream pays you. Moves no money.
+          </li>
+          <li>
+            <code>withdrawFor</code> or <code>withdraw</code>, which pays you.
+          </li>
+        </ul>
+        <details className="ps-never-more">
+          <summary className="ps-caption">NEVER AN APPROVAL OR A PERMIT ▾</summary>
+          <p className="ps-body">
+            Both calls go to a stream address shown on this page, and the contract refuses either
+            unless your own wallet sends it. A page that asks you to approve a token, sign a permit,
+            or sign anything that is not one of those two calls is not this page. Reach this one from
+            the address bar or the STREAMS list, never from a link somebody sent you.
+          </p>
+        </details>
+      </section>
 
       <Footer />
     </main>

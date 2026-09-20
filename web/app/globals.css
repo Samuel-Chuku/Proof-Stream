@@ -3684,3 +3684,138 @@ input[type='range'].ps-range:disabled {
   margin-left: var(--ps-2);
   color: var(--ps-ink-faint);
 }
+
+/* ── The earnings ledger, folded ─────────────────────────────────────────────
+   One stream per row, open where there is money to take. The summary line is
+   the ledger line the page always used: name on the left, figure on the right,
+   a caret saying which way it will go. */
+.ps-stream-fold {
+  border-top: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-stream-fold:last-of-type {
+  border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+}
+
+.ps-stream-fold > summary {
+  display: grid;
+  grid-template-columns: 1fr max-content 16px;
+  align-items: center;
+  gap: var(--ps-2) var(--ps-3);
+  padding: var(--ps-3) 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ps-stream-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ps-stream-fold > summary:hover .ps-stream-fold-caret {
+  color: var(--ps-ink);
+}
+
+.ps-stream-fold-who {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-1);
+  min-width: 0;
+}
+
+.ps-stream-fold-who > .ps-label {
+  text-transform: none;
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ps-stream-fold-who > .ps-caption {
+  margin: 0;
+}
+
+.ps-stream-fold-figure {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ps-2);
+}
+
+.ps-stream-fold-figure > .ps-caption {
+  margin: 0;
+}
+
+.ps-stream-fold-caret {
+  color: var(--ps-ink-faint);
+  transition: none;
+}
+
+.ps-stream-fold[open] > summary .ps-stream-fold-caret {
+  transform: rotate(180deg);
+}
+
+/* The body sits inside the row, indented to the rule so the fold reads as one
+   thing rather than a panel that appeared. */
+.ps-stream-fold > *:not(summary) {
+  margin-left: var(--ps-3);
+}
+
+.ps-stream-fold .ps-section-rule:first-of-type {
+  margin-top: 0;
+}
+
+@media (max-width: 560px) {
+  .ps-stream-fold > summary {
+    grid-template-columns: 1fr 16px;
+  }
+  .ps-stream-fold-figure {
+    grid-column: 1;
+  }
+  .ps-stream-fold > *:not(summary) {
+    margin-left: 0;
+  }
+}
+
+/* ── What this page will never ask ───────────────────────────────────────────
+   Three lines, not a paragraph. The person being phished does not read a
+   paragraph at the foot of a page. */
+.ps-never {
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  background: var(--ps-sunk);
+  padding: var(--ps-3);
+  margin: var(--ps-5) 0 var(--ps-4);
+}
+
+.ps-never > .ps-label {
+  margin: 0 0 var(--ps-2);
+  color: var(--ps-ink-dim);
+}
+
+.ps-never-list {
+  margin: 0;
+  padding-left: var(--ps-4);
+  font-size: var(--ps-size-detail);
+  line-height: var(--ps-lh-detail);
+}
+
+.ps-never-list code {
+  font: inherit;
+}
+
+.ps-never-more {
+  margin-top: var(--ps-2);
+}
+
+.ps-never-more > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--ps-ink-dim);
+}
+
+.ps-never-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ps-never-more .ps-body {
+  margin: var(--ps-2) 0 0;
+  max-width: 68ch;
+}

@@ -18,8 +18,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BINDING_TTL_SECONDS, earnerId } from '@proofstream/config';
 import { isAddress } from 'viem';
+import { env } from './env';
 import { readBindingState, signPayeeBinding } from './chain';
-import { isServed } from './registry';
 
 export type BindRequest = { stream: `0x${string}`; payee: `0x${string}`; token: string };
 
@@ -58,25 +58,51 @@ async function whoIs(token: string): Promise<{ id: number; login: string } | und
 
 type Reply = { status: number; body: Record<string, unknown> };
 
+/// Whether this agent may sign a binding for this stream, and why not.
+///
+/// THE GATE IS THE CONTRACT'S OWN APPOINTMENT, never the registry cache.
+/// `isServed` was the check here, and it was wrong in a way that only shows up
+/// late: the registry drops a stream once its milestone has ended, which is
+/// right for certifying and disastrous for collecting. An earner who comes back
+/// a day after the deadline to bind a payee would have been told the stream
+/// does not exist, while the contract still held their money and would still
+/// have paid them. `agent` is immutable, so this answer never expires.
+///
+/// Pure, so the decision is testable without a chain.
+export function bindRefusal(state: {
+  isPublic: boolean;
+  appointedAgent: string;
+  ourAgent: string;
+  payee: string;
+  earnerId: `0x${string}`;
+}): Reply | null {
+  if (state.appointedAgent.toLowerCase() !== state.ourAgent.toLowerCase()) {
+    // 404 rather than 403: this agent has nothing to say about that stream,
+    // and should not imply it knows which streams exist.
+    return { status: 404, body: { error: 'that stream did not appoint this agent' } };
+  }
+  if (!state.isPublic) {
+    return { status: 400, body: { error: 'that stream names its contributor, so there is nothing to bind' } };
+  }
+  if (!ZERO.test(state.payee)) {
+    // Not an error from the earner's side: they already chose, and the answer
+    // is where. The web app shows the bound address and offers withdrawal.
+    return { status: 409, body: { error: 'already bound', earnerId: state.earnerId, payee: state.payee } };
+  }
+  return null;
+}
+
 export async function bind(body: unknown, authorization: string | undefined): Promise<Reply> {
   const parsed = parseBindRequest(body, authorization);
   if (typeof parsed === 'string') return { status: 400, body: { error: parsed } };
-
-  // Refuse a stream this agent does not serve BEFORE touching GitHub or the
-  // chain. 404 rather than 403: an unknown stream is not a credential failure.
-  if (!isServed(parsed.stream)) return { status: 404, body: { error: 'not a stream this agent serves' } };
 
   const user = await whoIs(parsed.token);
   if (!user) return { status: 401, body: { error: 'GitHub did not recognise that token' } };
   const id = earnerId('github', user.id);
 
   const state = await readBindingState(parsed.stream, id);
-  if (!state.isPublic) return { status: 400, body: { error: 'that stream names its contributor, so there is nothing to bind' } };
-  if (!ZERO.test(state.payee)) {
-    // Not an error from the earner's side: they already chose, and the answer
-    // is where. The web app shows the bound address and offers withdrawal.
-    return { status: 409, body: { error: 'already bound', earnerId: id, payee: state.payee } };
-  }
+  const refusal = bindRefusal({ ...state, ourAgent: env.agentAddress, earnerId: id });
+  if (refusal) return refusal;
 
   const deadline = BigInt(Math.floor(Date.now() / 1000) + BINDING_TTL_SECONDS);
   const signature = await signPayeeBinding(parsed.stream, id, parsed.payee, deadline);

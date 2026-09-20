@@ -6,6 +6,7 @@ import { AddressChip, truncate } from './address-chip';
 import { Amount } from './amount';
 import { Connect } from './connect';
 import { EarningsStream } from './earnings-stream';
+import { PasskeySweep } from './passkey-sweep';
 import type { Position } from '../lib/earnings';
 import {
   authenticatePasskey,
@@ -244,6 +245,10 @@ export function EarningsLedger({
           {positions.map((p) => (
             <EarningsStream key={`${p.address}:${p.earnerId ?? 'named'}`} position={p} login={login} />
           ))}
+
+          {/* Only renders when this device holds a passkey wallet. It is the
+              way out of an account that can otherwise only be driven here. */}
+          <PasskeySweep />
         </>
       )}
     </>

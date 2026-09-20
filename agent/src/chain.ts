@@ -97,6 +97,7 @@ const LEGACY_ABI = parseAbi([
 ]);
 
 const ZERO_EARNER = `0x${'0'.repeat(64)}` as const;
+const ZERO_ADDRESS = `0x${'0'.repeat(40)}` as const;
 
 const publicClient = createPublicClient({ chain: arcTestnet, transport: http(env.arcRpcUrl) });
 const circle = initiateDeveloperControlledWalletsClient({
@@ -385,7 +386,7 @@ export async function signPayeeBinding(
 export async function readBindingState(
   streamAddress: `0x${string}`,
   earnerId: `0x${string}`,
-): Promise<{ isPublic: boolean; payee: `0x${string}` }> {
+): Promise<{ isPublic: boolean; payee: `0x${string}`; appointedAgent: `0x${string}` }> {
   const read = <T>(functionName: ReadFn, args: readonly unknown[] = []) =>
     withRetry(
       () =>
@@ -396,10 +397,14 @@ export async function readBindingState(
           args: args as never,
         }) as Promise<T>,
     );
+  // WHO THE STREAM APPOINTED, from the stream itself. This is the whole
+  // authority question for a binding: `agent` is immutable, so a stream that
+  // names us asked for our signature and a stream that does not never can.
+  const appointedAgent = await read<`0x${string}`>('agent').catch(() => ZERO_ADDRESS);
   const isPublic = await read<boolean>('isPublic').catch(() => false);
-  if (!isPublic) return { isPublic: false, payee: `0x${'0'.repeat(40)}` };
+  if (!isPublic) return { isPublic: false, payee: ZERO_ADDRESS, appointedAgent };
   const payee = await read<`0x${string}`>('payeeOf', [earnerId]);
-  return { isPublic, payee };
+  return { isPublic, payee, appointedAgent };
 }
 
 export type CertifyResult = {
