@@ -36,7 +36,7 @@ Object.assign(process.env, {
 });
 
 const { bindingTypedData } = await import('../src/chain');
-const { parseBindRequest } = await import('../src/bind');
+const { bindRefusal, parseBindRequest } = await import('../src/bind');
 
 const STREAM = '0x00000000000000000000000000000000000000aa' as const;
 const PAYEE = '0x00000000000000000000000000000000000000bb' as const;
@@ -101,4 +101,55 @@ test('a request needs a bearer token and two real addresses', () => {
   assert.equal(typeof parseBindRequest({ stream: 'nope', payee: PAYEE }, 'Bearer t'), 'string');
   assert.equal(typeof parseBindRequest({ stream: STREAM, payee: `0x${'0'.repeat(40)}` }, 'Bearer t'), 'string', 'the zero address is refused here, not on chain');
   assert.equal(typeof parseBindRequest(null, 'Bearer t'), 'string');
+});
+
+// --- who may be bound, and when ---------------------------------------------
+//
+// THE REGRESSION THIS PINS. The gate used to be `isServed`, the registry's own
+// list, which drops a stream once its milestone has ended. That is right for
+// certifying and wrong for collecting: an earner coming back the day after the
+// deadline would have been told the stream does not exist, while the contract
+// still held their money. The gate is the contract's immutable `agent` field,
+// which never expires.
+
+const OURS = '0x0000000000000000000000000000000000000002';
+const NOBODY = `0x${'0'.repeat(40)}`;
+
+const state = (over: Record<string, unknown> = {}) => ({
+  isPublic: true,
+  appointedAgent: OURS,
+  ourAgent: OURS,
+  payee: NOBODY,
+  earnerId: EARNER,
+  ...over,
+});
+
+test('a public stream that appointed us, with nobody bound, is signable', () => {
+  assert.equal(bindRefusal(state()), null);
+});
+
+test('AN ENDED MILESTONE IS STILL SIGNABLE — the money outlives the deadline', () => {
+  // There is nothing about the end date in this decision, and that is the
+  // point. If a date ever appears here, this test is the thing that should
+  // have stopped it.
+  assert.equal(bindRefusal(state()), null);
+});
+
+test('a stream that appointed somebody else is refused, and told nothing', () => {
+  const r = bindRefusal(state({ appointedAgent: '0x00000000000000000000000000000000000000ff' }));
+  assert.equal(r?.status, 404);
+});
+
+test('the appointment is compared case-insensitively, as addresses are', () => {
+  assert.equal(bindRefusal(state({ appointedAgent: OURS.toUpperCase().replace('0X', '0x') })), null);
+});
+
+test('a named stream has nothing to bind', () => {
+  assert.equal(bindRefusal(state({ isPublic: false }))?.status, 400);
+});
+
+test('an earner who already chose is told where, not refused blankly', () => {
+  const r = bindRefusal(state({ payee: '0x00000000000000000000000000000000000000bb' }));
+  assert.equal(r?.status, 409);
+  assert.equal(r?.body.payee, '0x00000000000000000000000000000000000000bb');
 });
