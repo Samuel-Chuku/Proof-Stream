@@ -125,6 +125,10 @@ export const env = {
   // than silently meaning "off".
   reconcileLookbackHours: Number(process.env.RECONCILE_LOOKBACK_HOURS || 24),
   reconcileMaxPrs: Number(process.env.RECONCILE_MAX_PRS || 5),
+  /// How often to sweep for merges the webhook never delivered. Zero sweeps
+  /// once at startup and never again, which is how this behaved before the
+  /// loop existed.
+  reconcileEveryMinutes: Number(process.env.RECONCILE_EVERY_MINUTES || 15),
   webhookSecret: required('GITHUB_WEBHOOK_SECRET'),
 
   // --- Inference provider --------------------------------------------------

@@ -82,7 +82,11 @@ async function generateTo(outDir) {
   await put(join(outDir, 'routes.json'), { schemaVersion: '1.0.0', generatedFrom: COMMIT, appRouterFiles: routeFiles.sort() });
 
   const readme = await readFile(join(REPO_ROOT, 'README.md'), 'utf8');
-  const evidence = await readFile(join(REPO_ROOT, 'EVIDENCE.md'), 'utf8');
+  // EVIDENCE.md IS DELIBERATELY NOT READ HERE. It is regenerated from live
+  // chain state by `pnpm evidence`, so making it an input meant every evidence
+  // refresh left these files stale and failed CI on the branch that did it.
+  // It also has no single "current contract" any more: the registry does, and
+  // a per-stream address is not a fact about the integration surface.
   const chainText = await readFile(join(REPO_ROOT, 'web', 'lib', 'chain.ts'), 'utf8');
   const compatibility = {
     schemaVersion: '1.0.0',
@@ -94,14 +98,17 @@ async function generateTo(outDir) {
     addresses: [
       { contract: 'USDC', address: '0x3600000000000000000000000000000000000000', chainId: 5042002, status: 'verified-source', purpose: 'web chain constant', source: 'web/lib/chain.ts' },
       { contract: 'StreamRegistry', address: pickAddress(readme, 'StreamRegistry'), chainId: 5042002, status: 'verified-source', purpose: 'README deployment table', source: 'README.md' },
-      { contract: 'WorkStream', address: pickAddress(readme, 'WorkStream'), chainId: 5042002, status: 'conflicted', purpose: 'README deployment table', source: 'README.md' },
-      { contract: 'WorkStream', address: pickAddress(evidence, 'Current contract'), chainId: 5042002, status: 'conflicted', purpose: 'EVIDENCE current contract', source: 'EVIDENCE.md' },
+      // NO SINGLE WORKSTREAM ADDRESS, on purpose. Every employer deploys their
+      // own, and the registry is how they are found, so an integration reads
+      // StreamRegistered logs, never a pasted address. The README's example
+      // stream is carried as an example and labelled as one.
+      { contract: 'WorkStream', address: pickAddress(readme, 'Example `WorkStream`'), chainId: 5042002, status: 'example-only', purpose: 'one deployed stream, for reading along; discover streams through StreamRegistry', source: 'README.md' },
       { contract: 'GatewayWallet', address: pickAddress(readme, 'GatewayWallet'), chainId: 5042002, status: 'verified-source', purpose: 'README deployment table', source: 'README.md' },
     ],
     bytecode: { WorkStreamSha256: await digest(workstream.bytecode), StreamRegistrySha256: await digest(registry.bytecode) },
     packageVersions: Object.fromEntries(packages.map((pkg) => [pkg.name, pkg.version || 'workspace'])) ,
     generatedAt: 'SOURCE_DATE_EPOCH_OR_COMMIT_TIME',
-    sources: ['contracts/out/WorkStream.sol/WorkStream.json', 'contracts/out/StreamRegistry.sol/StreamRegistry.json', 'README.md', 'EVIDENCE.md', '.env.example', 'web/lib/chain.ts'],
+    sources: ['contracts/out/WorkStream.sol/WorkStream.json', 'contracts/out/StreamRegistry.sol/StreamRegistry.json', 'README.md', '.env.example', 'web/lib/chain.ts'],
   };
   if (!chainText.includes('5042002')) compatibility.warnings = ['Chain ID must be reverified against source.'];
   await put(join(outDir, 'compatibility.json'), compatibility);

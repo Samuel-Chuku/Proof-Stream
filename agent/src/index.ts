@@ -4,7 +4,7 @@ import { handleBind } from './bind';
 import { env, ledgerPath } from './env';
 import { parseMergedPr, verifySignature, webhookSecretFor } from './github';
 import { log, processPr } from './pipeline';
-import { reconcile } from './reconcile';
+import { startReconcileLoop, sweepStatus } from './reconcile';
 import { isServed, knownStreams, startRegistry } from './registry';
 
 // Three ways in, and the difference between them is only WHICH SECRET signs the
@@ -60,6 +60,8 @@ createServer((req, res) => {
         agent: env.agentAddress,
         registry: env.registryAddress,
         streams: knownStreams().map((s) => ({ stream: s.stream, repo: s.repo })),
+        // Whether the sweep is alive, without reading the journal.
+        reconcile: sweepStatus(),
       }),
     );
     return;
@@ -164,10 +166,13 @@ createServer((req, res) => {
     console.log(`  serving:      ${s.repo} → ${s.stream}`);
   }
 
-  // Catch anything merged while this process was not listening. Runs after the
-  // fleet is known, and deliberately does not block startup — the webhook
-  // endpoint is already accepting deliveries by now.
-  reconcile(registryLog, processPr).catch((err) =>
+  // Catch anything merged while this process was not listening, then keep
+  // catching it: a delivery lost while the agent is UP would otherwise wait for
+  // a restart that nobody has a reason to perform. Runs after the fleet is
+  // known, and deliberately does not block startup — the webhook endpoint is
+  // already accepting deliveries by now.
+  console.log(`  reconcile:    every ${env.reconcileEveryMinutes} min, ${env.reconcileLookbackHours}h lookback`);
+  startReconcileLoop(registryLog, processPr).catch((err) =>
     registryLog({ event: 'reconcile_failed', message: err instanceof Error ? err.message : String(err) }),
   );
 });

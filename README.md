@@ -20,10 +20,16 @@ Three things are true of every payout in this repo, and each is checkable on-cha
 
 ## Deployed on Arc Testnet (chain 5042002)
 
+**The registry is the address that matters.** Every employer deploys their own
+`WorkStream`, announces it to `StreamRegistry`, and the agent and the app find
+it by reading that log, so there is no single stream address to integrate
+against. The stream below is one deployed example, good for reading along on
+the explorer and nothing else.
+
 | What | Address |
 | --- | --- |
-| `WorkStream` | [`0xF6362b807915FD998a03FaEc73361166333F4Ac9`](https://testnet.arcscan.app/address/0xF6362b807915FD998a03FaEc73361166333F4Ac9) |
 | `StreamRegistry` | [`0x528B36beF91B338166F08aA41676e9f1f1BF019f`](https://testnet.arcscan.app/address/0x528B36beF91B338166F08aA41676e9f1f1BF019f) |
+| Example `WorkStream` | [`0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9`](https://testnet.arcscan.app/address/0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9) |
 | Employer / treasury | [`0xe9d2E5521573D73471497C368F3454d710170477`](https://testnet.arcscan.app/address/0xe9d2E5521573D73471497C368F3454d710170477) |
 | Attestor agent (Circle developer-controlled wallet) | [`0x2CD7cc0407218f905731F88C08EEB86a94dd634A`](https://testnet.arcscan.app/address/0x2CD7cc0407218f905731F88C08EEB86a94dd634A) |
 | Verifier agent (Circle developer-controlled wallet) | [`0xa7aaa2324cb141a332b22c5eac12f75b46cdeb50`](https://testnet.arcscan.app/address/0xa7aaa2324cb141a332b22c5eac12f75b46cdeb50) |
