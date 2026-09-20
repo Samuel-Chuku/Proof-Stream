@@ -3819,3 +3819,30 @@ input[type='range'].ps-range:disabled {
   margin: var(--ps-2) 0 0;
   max-width: 68ch;
 }
+
+/* One cell of released USDC, on a stream that still owes you some. The same
+   12x20 cell the stream bar is built from, so the green means exactly what it
+   means everywhere else: the agent certified this and the clock delivered it. */
+.ps-fold-cell {
+  display: inline-block;
+  width: 12px;
+  height: 20px;
+  background: var(--ps-green);
+  box-shadow: inset 0 0 0 1px var(--ps-green-deep);
+  vertical-align: -4px;
+}
+
+/* A summary row with money in it is worth more ink than one without. */
+.ps-stream-fold:has(.ps-fold-cell) > summary .ps-stream-fold-who > .ps-label {
+  color: var(--ps-ink);
+}
+
+/* MONEY ON A GREEN BUTTON MUST BE READ. `<Amount>` sets its own ink, which is
+   light in the dark palette, so the figure came out white on green: the one
+   number on the button, and the least legible thing on it. Every part of the
+   amount takes the on-green ink instead. */
+.ps-button-primary .ps-amount-whole,
+.ps-button-primary .ps-amount-fraction,
+.ps-button-primary .ps-amount-suffix {
+  color: var(--ps-on-green);
+}

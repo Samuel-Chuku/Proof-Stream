@@ -44,6 +44,12 @@ export function EarningsStream({ position: p, login }: { position: Position; log
         <span className="ps-stream-fold-figure">
           {owed > 0n ? (
             <>
+              {/* GREEN, AND LAWFULLY SO. This is USDC the agent certified and
+                  the clock released: the same money the stream bar fills a
+                  cell for. One cell is the app's own word for it, and a row of
+                  text saying "TO TAKE" was not enough to find money on a page
+                  of settled streams. */}
+              <span className="ps-fold-cell" aria-hidden />
               <Amount raw={owed} size="m" />
               <span className="ps-caption">TO TAKE</span>
             </>

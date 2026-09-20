@@ -149,6 +149,11 @@ export function EarnerActions({ position: p, login }: { position: Position; logi
       const hash = await bundler.sendUserOperation({
         account,
         calls: [{ to: streamAddress, abi: WORK_STREAM_ABI, functionName: call.functionName, args: call.args }],
+        // GAS STATION IS OPT-IN, PER CALL. Without this the bundler has no
+        // paymaster and refuses the operation outright as missing parameters,
+        // which is what a passkey earner saw instead of a signature prompt.
+        // A passkey wallet holds no gas by design, so this is not a nicety.
+        paymaster: true,
       });
       const receipt = await bundler.waitForUserOperationReceipt({ hash });
       return receipt.receipt.transactionHash;

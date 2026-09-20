@@ -77,6 +77,7 @@ export function PasskeyWithdraw({ stream }: { stream: Stream }) {
             args: [stream.payee as `0x${string}`, withdrawable],
           },
         ],
+        paymaster: true,
       });
 
       // A user operation hash is not a transaction hash. Waiting for the

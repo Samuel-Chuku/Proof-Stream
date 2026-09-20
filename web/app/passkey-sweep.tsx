@@ -75,6 +75,8 @@ export function PasskeySweep() {
             args: [destination as `0x${string}`, held],
           },
         ],
+        // Sponsored, so moving the money out never needs the money for gas.
+        paymaster: true,
       });
       // A user operation hash is not a transaction hash; the receipt is what
       // carries the one an explorer can open.
