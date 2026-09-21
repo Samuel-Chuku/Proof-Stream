@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { BrandMark } from './brand-mark';
 import { Connect } from './connect';
 import { ThemeToggle } from './theme-toggle';
@@ -25,6 +26,31 @@ const LINKS = [
 
 export function Nav({ landing = false }: { landing?: boolean }) {
   const pathname = usePathname();
+
+  // THE PHONE GETS A MENU, THE DESKTOP GETS THE STRIP, from one set of links.
+  //
+  // Under 720px the strip wrapped onto four lines and took the top half of the
+  // first screen before any content. The industry answer is a bar with the
+  // wordmark and one MENU control, and a panel that drops below it holding
+  // everything the strip held. The links and wallet controls are rendered ONCE
+  // and only re-laid: on desktop the drawer is `display: contents`, so the DOM
+  // and the CSS the desktop strip has always had are untouched.
+  const [open, setOpen] = useState(false);
+
+  // A menu that stays open across navigation is a menu covering the page the
+  // person just asked for. Close on every route change, and on Escape.
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', onKey);
+    // The page behind must not scroll while the panel is over it.
+    document.body.classList.add('ps-menu-open');
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.classList.remove('ps-menu-open');
+    };
+  }, [open]);
 
   // The landing page is a different job from the app, so it gets a different
   // strip: the wordmark and one way in. No section links, because there are no
@@ -52,13 +78,26 @@ export function Nav({ landing = false }: { landing?: boolean }) {
   }
 
   return (
-    <nav className="ps-nav">
+    <nav className={`ps-nav${open ? ' ps-nav-open' : ''}`}>
       <div className="ps-nav-inner">
         <Link href="/" className="ps-nav-mark">
           <BrandMark size={18} />
           PROOFSTREAM
         </Link>
 
+        {/* Phone only. Text, not a hamburger glyph: the system draws no icons
+            it does not need, and the word is clearer than three lines. */}
+        <button
+          type="button"
+          className="ps-nav-menu"
+          aria-expanded={open}
+          aria-controls="ps-nav-drawer"
+          onClick={() => setOpen((v) => !v)}
+        >
+          [ {open ? 'CLOSE' : 'MENU'} ]
+        </button>
+
+        <div id="ps-nav-drawer" className="ps-nav-drawer">
         <div className="ps-nav-links">
           {LINKS.map((link) => {
             const active =
@@ -81,7 +120,12 @@ export function Nav({ landing = false }: { landing?: boolean }) {
           <Connect />
           <ThemeToggle />
         </div>
+        </div>
       </div>
+
+      {/* Tapping the page behind closes the menu, like every drawer a person
+          has met. Phone only; it does not exist at desktop widths. */}
+      {open && <div className="ps-nav-backdrop" onClick={() => setOpen(false)} aria-hidden />}
     </nav>
   );
 }
