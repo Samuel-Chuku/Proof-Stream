@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { erc20Abi, isAddress } from 'viem';
 import { createBundlerClient } from 'viem/account-abstraction';
 import { useReadContract } from 'wagmi';
+import { formatUsdc, parseUsdcLoose } from '@proofstream/config';
 import { AddressChip } from './address-chip';
 import { Amount } from './amount';
 import { arcTestnet, EXPLORER, USDC } from '../lib/chain';
@@ -28,6 +29,11 @@ import { recallCredential, smartAccountFor } from '../lib/passkey';
 export function PasskeySweep() {
   const [address, setAddress] = useState<`0x${string}` | null>(null);
   const [to, setTo] = useState('');
+  // How much to move: typed exactly, or set by a share. The shares fill the
+  // box rather than replacing it, so "half" and "exactly 20" are the same
+  // control. Empty means "all of it", which is what most people want and what
+  // the button says in that case.
+  const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
@@ -55,6 +61,10 @@ export function PasskeySweep() {
   const held = (balance as bigint | undefined) ?? 0n;
   const destination = to.trim();
   const valid = isAddress(destination) && !/^0x0{40}$/i.test(destination);
+  const amount = typed.trim() === '' ? held : parseUsdcLoose(typed);
+  const tooMuch = amount > held;
+  const share = held > 0n ? Number((amount * 100n) / held) : 0;
+  const all = typed.trim() === '' || amount === held;
 
   async function move() {
     setBusy(true);
@@ -72,7 +82,7 @@ export function PasskeySweep() {
             to: USDC,
             abi: erc20Abi,
             functionName: 'transfer',
-            args: [destination as `0x${string}`, held],
+            args: [destination as `0x${string}`, amount],
           },
         ],
         // Sponsored, so moving the money out never needs the money for gas.
@@ -112,18 +122,65 @@ export function PasskeySweep() {
         ONLY THIS SITE AND THIS DEVICE CAN SPEND FROM IT. MOVE IT TO A WALLET YOU HOLD.
       </p>
 
-      <div className="ps-repoint-row">
+      <input
+        className="ps-input"
+        value={to}
+        placeholder="[ 0x… THE ADDRESS TO SEND IT TO ]"
+        aria-label="Destination address"
+        onChange={(e) => setTo(e.target.value)}
+      />
+
+      {/* The amount, and the drawer beside it. A share writes the exact
+          figure into the box, so what will be sent is always the number on
+          screen and never a percentage the person has to work out. */}
+      <div className="ps-sweep-row">
         <input
-          className="ps-input"
-          value={to}
-          placeholder="[ 0x… THE ADDRESS TO SEND IT TO ]"
-          aria-label="Destination address"
-          onChange={(e) => setTo(e.target.value)}
+          className="ps-input ps-sweep-input ps-num"
+          inputMode="decimal"
+          value={typed}
+          placeholder={`[ ${formatUsdc(held)} ]`}
+          aria-label="Amount to move, in USDC"
+          onChange={(e) => setTyped(e.target.value.replace(/[^0-9.]/g, ''))}
         />
-        <button type="button" className="ps-button" disabled={busy || !valid || held === 0n} onClick={move}>
-          [ {busy ? 'SENDING…' : 'MOVE IT ALL OUT'} ]
-        </button>
+        <div className="ps-sweep-shares" role="group" aria-label="Set the amount as a share">
+          {[25, 50, 75, 100].map((n) => (
+            <button
+              key={n}
+              type="button"
+              aria-pressed={held > 0n && share === n && !(n === 100 && typed.trim() === '')}
+              className={`ps-chip ps-sweep-share${share === n ? ' ps-sweep-share-on' : ''}`}
+              onClick={() => setTyped(n === 100 ? '' : formatUsdc((held * BigInt(n)) / 100n))}
+            >
+              {n}%
+            </button>
+          ))}
+        </div>
       </div>
+
+      {tooMuch && (
+        <p className="ps-caption">
+          THAT IS MORE THAN IT HOLDS. THE MOST YOU CAN MOVE IS {formatUsdc(held)} USDC.
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="ps-button ps-sweep-go"
+        disabled={busy || !valid || amount === 0n || tooMuch}
+        onClick={move}
+      >
+        [{' '}
+        {busy ? (
+          'SENDING…'
+        ) : all ? (
+          'MOVE IT ALL OUT'
+        ) : (
+          <>
+            MOVE <Amount raw={amount} size="s" /> OUT
+          </>
+        )}{' '}
+        ]
+      </button>
 
       {to.length > 0 && !valid && <p className="ps-caption">THAT IS NOT AN ARC ADDRESS</p>}
       {held === 0n && <p className="ps-caption">NOTHING TO MOVE YET</p>}

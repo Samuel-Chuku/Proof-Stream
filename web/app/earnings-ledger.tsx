@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { AddressChip, truncate } from './address-chip';
+import { parseRepoSpec } from '@proofstream/config';
+import { AddressChip } from './address-chip';
 import { Amount } from './amount';
 import { Connect } from './connect';
 import { EarningsStream } from './earnings-stream';
@@ -205,11 +206,19 @@ export function EarningsLedger({
       ) : (
         <>
           {byPayee.size > 0 && (
-            <div className="ps-bound" role="table" aria-label="Where each stream pays you">
+            <div className="ps-bound" role="table" aria-label="Which wallet each stream pays">
+              {/* A WALLET, THEN THE STREAMS THAT PAY IT. The stream used to be a
+                  truncated address chip, which looks exactly like a wallet chip,
+                  so a row of two hashes read as two wallets. A stream is named
+                  by its repository here, which is how a person knows it. */}
               <p className="ps-caption ps-bound-intro">
-                PAID TO · BOUND ON A PUBLIC STREAM, FIXED AT CREATION ON A NAMED ONE · EACH LIVES ON
-                THAT STREAM&rsquo;S CONTRACT AND CANNOT BE CHANGED
+                PAID TO · WHICH WALLET EACH STREAM PAYS · ◆ BOUND BY YOU · ○ FIXED WHEN THE STREAM
+                WAS MADE
               </p>
+              <div className="ps-bound-head ps-label" role="row">
+                <span role="columnheader">WALLET</span>
+                <span role="columnheader">PAID BY</span>
+              </div>
               {[...byPayee.entries()].map(([key, list]) => (
                 <div className="ps-bound-row" role="row" key={key}>
                   <span role="cell">
@@ -220,12 +229,18 @@ export function EarningsLedger({
                       <a
                         key={`${p.address}:${p.earnerId ?? 'named'}`}
                         href={`#${p.address}`}
-                        className="ps-chip"
-                        title={`${p.kind === 'public' ? 'bound' : 'fixed'} · ${p.repo}`}
+                        className="ps-bound-stream"
+                        title={`${p.address} · ${p.kind === 'public' ? 'bound by you' : 'fixed when the stream was made'}`}
                       >
-                        {truncate(p.address)}
                         <span className="ps-bound-kind" aria-hidden>
                           {p.kind === 'public' ? '◆' : '○'}
+                        </span>
+                        {parseRepoSpec(p.repo).repo}
+                        {/* Milestone and the stream's own tail, in caption ink,
+                            so two streams on one repository can be told apart
+                            without the tail reading as a wallet. */}
+                        <span className="ps-caption">
+                          {' '}· M{p.milestoneIndex} · {p.address.slice(2, 6)}…{p.address.slice(-4)}
                         </span>
                       </a>
                     ))}

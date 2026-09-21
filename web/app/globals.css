@@ -4034,3 +4034,131 @@ input[type='range'].ps-range:disabled {
     min-height: 44px;
   }
 }
+
+/* A finished stream on the ledger strip. Green fill with ink on top, which is
+   the law for released USDC: this money was unlocked by the agent and has
+   since been taken. Same pill radius as a chip. */
+.ps-fold-done {
+  display: inline-block;
+  padding: 2px var(--ps-2);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  background: var(--ps-green);
+  color: var(--ps-on-green);
+  border: var(--ps-bw-hair) solid var(--ps-green-deep);
+  border-radius: var(--ps-r-1);
+}
+
+/* The passkey sweep: address, then the share drawer, then one full-width
+   button. Stacked at every width, because the input and the button were two
+   different lengths side by side and it showed most on a phone. */
+.ps-earner-actions > .ps-input {
+  width: 100%;
+}
+
+.ps-sweep-shares {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ps-2);
+  width: 100%;
+}
+
+.ps-sweep-share {
+  min-width: 56px;
+  justify-content: center;
+}
+
+/* The share in force is the pressed key: inverted, like the kind band. */
+.ps-sweep-share-on {
+  background: var(--ps-invert-bg);
+  color: var(--ps-invert-ink);
+  border-color: var(--ps-rule);
+}
+
+.ps-sweep-amount {
+  margin-left: auto;
+}
+
+.ps-sweep-go {
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .ps-sweep-amount {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+/* The PAID TO index, second pass: a header row on the same grid as the rows,
+   and streams as chips named by repository rather than as address chips that
+   read as wallets. */
+.ps-bound-head {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--ps-2) var(--ps-3);
+  padding: var(--ps-1) 0;
+  color: var(--ps-ink-dim);
+}
+
+.ps-bound-head > span:first-child {
+  /* As wide as the wallet chip below it, so the two columns line up. */
+  min-width: 144px;
+}
+
+.ps-bound-row > span:first-child {
+  min-width: 144px;
+}
+
+.ps-bound-stream {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-1);
+  padding: var(--ps-1) var(--ps-2);
+  font-size: var(--ps-size-label);
+  text-decoration: none;
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+  color: var(--ps-ink);
+}
+
+.ps-bound-stream:hover {
+  border-color: var(--ps-rule);
+}
+
+.ps-bound-stream .ps-caption {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .ps-bound-head {
+    display: none;
+  }
+  .ps-bound-row > span:first-child {
+    min-width: 0;
+  }
+}
+
+/* The sweep amount and its shares, side by side; the shares fill the box. */
+.ps-sweep-row {
+  display: grid;
+  grid-template-columns: 1fr max-content;
+  align-items: center;
+  gap: var(--ps-2) var(--ps-3);
+  width: 100%;
+}
+
+.ps-sweep-input {
+  font-variant-numeric: tabular-nums;
+}
+
+.ps-sweep-shares {
+  width: auto;
+}
+
+@media (max-width: 560px) {
+  .ps-sweep-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -54,7 +54,12 @@ export function EarningsStream({ position: p, login }: { position: Position; log
               <span className="ps-caption">TO TAKE</span>
             </>
           ) : paid > 0n ? (
-            <span className="ps-caption">PAID OUT</span>
+            // Green fill, ink on top. Lawful: this is USDC the agent released
+            // and the clock delivered, now landed in a wallet. Withdrawn money
+            // is a fact about unlocked money, not a different kind, and a
+            // finished stream should be findable at a glance the way an owed
+            // one is.
+            <span className="ps-fold-done">PAID OUT</span>
           ) : (
             <span className="ps-caption">NOTHING OWED</span>
           )}
