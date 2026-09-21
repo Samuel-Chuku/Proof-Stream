@@ -129,6 +129,11 @@ export const env = {
   /// once at startup and never again, which is how this behaved before the
   /// loop existed.
   reconcileEveryMinutes: Number(process.env.RECONCILE_EVERY_MINUTES || 15),
+  /// Whether the sweep also resumes certifications the policy clipped. On by
+  /// default because leaving it off is what refunded 67 USDC of agreed work
+  /// to an employer; `off` is the kill switch, since this sends transactions
+  /// with no merge behind them.
+  resumeClipped: (process.env.RESUME_CLIPPED || 'on') !== 'off',
   webhookSecret: required('GITHUB_WEBHOOK_SECRET'),
 
   // --- Inference provider --------------------------------------------------

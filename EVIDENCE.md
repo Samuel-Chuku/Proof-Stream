@@ -17,8 +17,8 @@ Every hash below is a real transaction on Arc Testnet (chain `5042002`).
 
 | Stream | Repo | Certified | Released | Paid out | Held |
 | --- | --- | --- | --- | --- | --- |
-| [`0xdE72C79b…d036F5`](https://testnet.arcscan.app/address/0xdE72C79b2546EeBD99d987f3803f78F7A6d036F5) | cofxctor/ProofStream-live-test | 100% | 40 | 0 | 40 |
-| [`0xcFfA2c4E…9262c9`](https://testnet.arcscan.app/address/0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9) | cofxctor/ProofStream-live-test | 95% | 32.027777 | 0 | 50 |
+| [`0xdE72C79b…d036F5`](https://testnet.arcscan.app/address/0xdE72C79b2546EeBD99d987f3803f78F7A6d036F5) | cofxctor/ProofStream-live-test | 100% | 40 | 40 | 0 |
+| [`0xcFfA2c4E…9262c9`](https://testnet.arcscan.app/address/0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9) | cofxctor/ProofStream-live-test | 95% | 47.5 | 47.5 | 0 |
 | [`0x11370A9E…8B696e`](https://testnet.arcscan.app/address/0x11370A9E34E2dcaD4eEb9433Ee8386aF168B696e) | Samuel-Chuku/proofstream-agent-test | 50% | 15 | 15 | 0 |
 | [`0x0684D1CC…4b5E7f`](https://testnet.arcscan.app/address/0x0684D1CC230719F40fEE35D87Dfb5C913F4b5E7f) | Samuel-Chuku/proofstream-agent-test | 100% | 30 | 30 | 0 |
 | [`0x26B8379c…a8dcE8`](https://testnet.arcscan.app/address/0x26B8379cCB664f94fCAC4837D0FcB62136a8dcE8) | Samuel-Chuku/proofstream-townhall | 100% | 40 | 40 | 0 |
@@ -53,8 +53,8 @@ Every transaction these contracts have ever recorded, read from their own event
 logs. Deploying, announcing, funding, certifying, withdrawing and closing are
 all here, whoever sent them.
 
-**Count: 128** across 24 streams —
-24 registrations and 104 against the
+**Count: 135** across 24 streams —
+24 registrations and 111 against the
 streams themselves, of which **25** were sent by the agent's own wallet with no human
 in the loop.
 
@@ -68,6 +68,10 @@ cofxctor/ProofStream-live-test · employer [`0x4B11611C…Bf37c2`](https://testn
 | 2026-09-19 07:23:12 | fund | employer | 40 | [`0xd40e85cd…35e8c2`](https://testnet.arcscan.app/tx/0xd40e85cd0d8c01b3bfc554583d65980d55c2d0f8bd10afdba11f76bee735e8c2) |
 | 2026-09-19 07:51:14 | certify | agent | — | [`0xc789d088…e4833e`](https://testnet.arcscan.app/tx/0xc789d0887599a2c3a48813b3c684b4a49ec14bddb4fcda13c467e26c52e4833e) |
 | 2026-09-19 08:05:13 | certify | agent | — | [`0x30d2caf2…a2909a`](https://testnet.arcscan.app/tx/0x30d2caf21dd468d132a48afe9664a5a087d4b19e6ff6f975e53e7ba69ba2909a) |
+| 2026-09-20 07:49:52 | bind payee | earner | — | [`0x865cb1bb…ec2956`](https://testnet.arcscan.app/tx/0x865cb1bb24618211719608cf4305d8385dbaf3435ddcad02b9c60f4e7dec2956) |
+| 2026-09-21 06:40:44 | pay earner | earner | 20 | [`0x2b18d83f…3af654`](https://testnet.arcscan.app/tx/0x2b18d83ff78dabb473007c005d5481100c11656e73266740184de8cc0d3af654) |
+| 2026-09-21 06:50:40 | bind payee | earner | — | [`0x38239f0a…19331d`](https://testnet.arcscan.app/tx/0x38239f0ac59ad5813dee576bcf9f29e91b253a72d018de219eef46355419331d) |
+| 2026-09-21 06:52:52 | pay earner | earner | 20 | [`0xa96adaab…21610b`](https://testnet.arcscan.app/tx/0xa96adaab09902a87bae9830e4db2cf607be4c445e642e5ab1bea0a7d9e21610b) |
 
 #### [`0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9`](https://testnet.arcscan.app/address/0xcFfA2c4EfEC19aB6aebb484ECfF15d52449262c9)
 
@@ -78,6 +82,9 @@ cofxctor/ProofStream-live-test · employer [`0x4B11611C…Bf37c2`](https://testn
 | 2026-09-19 06:30:51 | deploy / open milestone | employer | 50 | [`0xd2c658cf…e6fa19`](https://testnet.arcscan.app/tx/0xd2c658cf7983b625c0573f59a662db72f1df470fb8b9f67475d6140630e6fa19) |
 | 2026-09-19 06:31:05 | fund | employer | 50 | [`0xad298e76…f852f9`](https://testnet.arcscan.app/tx/0xad298e76fab42a1bc8107ca2559cbbd3a66bd3ee13ee78ffbb75ea4c8bf852f9) |
 | 2026-09-19 06:53:25 | certify | agent | — | [`0xa68301b3…fde371`](https://testnet.arcscan.app/tx/0xa68301b336f63a3ff43918a89b9b8d7d247d19bf656e37ca3ce888a928fde371) |
+| 2026-09-21 05:29:37 | bind payee | earner | — | [`0x2d1f3f52…305748`](https://testnet.arcscan.app/tx/0x2d1f3f52c923f76c88ba3e821205158f8fab8b2c046a1debb511c6accb305748) |
+| 2026-09-21 05:30:06 | pay earner | earner | 47.5 | [`0xf4ddbdd2…790f0e`](https://testnet.arcscan.app/tx/0xf4ddbdd212f320cdeac22bdc8fe68b16da41a90f0d8024536624708aa6790f0e) |
+| 2026-09-21 06:52:58 | close milestone | employer | 2.5 | [`0x4c1f0c03…153ab2`](https://testnet.arcscan.app/tx/0x4c1f0c0336693a214d12a261728c1991cd6ba5d2527f4ba03ddc60a066153ab2) |
 
 #### [`0x11370A9E34E2dcaD4eEb9433Ee8386aF168B696e`](https://testnet.arcscan.app/address/0x11370A9E34E2dcaD4eEb9433Ee8386aF168B696e)
 
