@@ -105,11 +105,11 @@ export function PasskeySweep() {
         HOLDS <Amount raw={held} size="m" />
       </p>
 
-      <p className="ps-body">
-        This wallet is held by the passkey on this device and can only be operated from this site.
-        There is no seed phrase to import into another wallet, so money left here depends on this
-        site staying up. Move it somewhere you control whenever you like: gas is sponsored, so it
-        costs you nothing.
+      {/* ONE LINE, AND THE REST BEHIND A FOLD. The warning matters and the
+          paragraph was not read; a person with money in front of them reads
+          the number and the button. */}
+      <p className="ps-caption">
+        ONLY THIS SITE AND THIS DEVICE CAN SPEND FROM IT. MOVE IT TO A WALLET YOU HOLD.
       </p>
 
       <div className="ps-repoint-row">
@@ -140,9 +140,14 @@ export function PasskeySweep() {
           </a>
         </p>
       )}
-      <p className="ps-caption">
-        CHECK THE ADDRESS. A TRANSFER CANNOT BE UNDONE, AND AN ADDRESS NOBODY HOLDS LOSES THE MONEY.
-      </p>
+      <details className="ps-never-more">
+        <summary className="ps-caption">WHY, AND WHAT TO CHECK ▾</summary>
+        <p className="ps-caption">
+          A PASSKEY WALLET HAS NO SEED PHRASE: THE KEY NEVER LEAVES THIS DEVICE, SO NO OTHER APP CAN
+          DRIVE IT. GAS IS SPONSORED, SO MOVING IT COSTS NOTHING. CHECK THE ADDRESS FIRST: A TRANSFER
+          CANNOT BE UNDONE.
+        </p>
+      </details>
     </section>
   );
 }

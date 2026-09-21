@@ -2748,22 +2748,8 @@ a.ps-stream-row:hover {
    these rules handle what genuinely does not fit once a phone reports its real
    width. */
 @media (max-width: 560px) {
-  /* The nav is a wordmark, three links and a wallet. At this width they cannot
-     share a row, so the links wrap under and the wallet stays beside the mark
-     where a thumb expects it. */
-  .ps-nav-inner {
-    flex-wrap: wrap;
-    gap: var(--ps-2) var(--ps-3);
-    padding: var(--ps-2) var(--ps-3);
-  }
-
-  .ps-nav-links {
-    order: 3;
-    flex-basis: 100%;
-    gap: var(--ps-3);
-  }
-
-  .ps-nav-actions { gap: var(--ps-1); }
+  /* The nav itself is handled by the drawer rules at the end of this file;
+     what remains here is the wallet cluster, which is shown inside it. */
 
   /* The wallet cluster is the widest thing on the page. The address is
      identity and the balance is the number that decides whether the next
@@ -3845,4 +3831,206 @@ input[type='range'].ps-range:disabled {
 .ps-button-primary .ps-amount-fraction,
 .ps-button-primary .ps-amount-suffix {
   color: var(--ps-on-green);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PHONES. One deliberate step down, never a fluid one: the pixel faces keep
+   their edges only at whole sizes, so every value here is a size the scale
+   already has. Desktop is untouched: nothing below applies above 720px, and
+   the nav drawer is `display: contents` there, so the strip is the strip.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ---- The nav becomes a bar and a drawer --------------------------------- */
+
+.ps-nav-menu {
+  display: none;
+}
+
+.ps-nav-drawer {
+  display: contents;
+}
+
+.ps-nav-backdrop {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .ps-nav {
+    position: relative;
+  }
+
+  .ps-nav-inner {
+    padding: var(--ps-2) var(--ps-3);
+    gap: var(--ps-3);
+    /* Bar height is the one fixed thing on the page: 56px, a size a thumb
+       already knows. */
+    min-height: 56px;
+  }
+
+  .ps-nav-menu {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    min-height: 44px;
+    padding: 0 var(--ps-3);
+    font: inherit;
+    font-size: var(--ps-size-label);
+    letter-spacing: var(--ps-track-label);
+    background: var(--ps-surface);
+    color: var(--ps-ink);
+    border: var(--ps-bw-struct) solid var(--ps-rule);
+    border-radius: var(--ps-r-0);
+    box-shadow: var(--ps-shadow-1);
+    cursor: pointer;
+  }
+
+  .ps-nav-menu:active {
+    transform: translate(2px, 2px);
+    box-shadow: var(--ps-shadow-pressed);
+  }
+
+  /* The drawer: below the bar, full width, the same surface and rule as the
+     bar so it reads as the bar unfolding rather than a second panel. */
+  .ps-nav-drawer {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    flex-direction: column;
+    gap: var(--ps-4);
+    padding: var(--ps-4) var(--ps-3) var(--ps-5);
+    background: var(--ps-surface);
+    border-bottom: var(--ps-bw-struct) solid var(--ps-rule);
+    box-shadow: var(--ps-shadow-2);
+  }
+
+  .ps-nav-open .ps-nav-drawer {
+    display: flex;
+  }
+
+  .ps-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  /* Links stack, one per row, each a full-width 44px target. */
+  .ps-nav-links {
+    flex-direction: column;
+    gap: 0;
+    flex: none;
+  }
+
+  .ps-nav-link {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0;
+    font-size: var(--ps-size-label);
+    border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+  }
+
+  .ps-nav-link-active {
+    background: none;
+    border: 0;
+    border-bottom: var(--ps-bw-hair) solid var(--ps-border);
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+    color: var(--ps-ink);
+  }
+
+  .ps-nav-link-active::before {
+    content: '\25CF';
+    margin-right: var(--ps-2);
+  }
+
+  .ps-nav-actions {
+    margin-left: 0;
+    flex-wrap: wrap;
+    gap: var(--ps-3);
+  }
+
+  .ps-nav-actions .ps-button {
+    min-height: 44px;
+  }
+
+  body.ps-menu-open {
+    overflow: hidden;
+  }
+}
+
+/* ---- Type steps down one notch ------------------------------------------ */
+
+@media (max-width: 720px) {
+  :root {
+    --ps-size-display-xl: 32px;  --ps-lh-display-xl: 36px;
+    --ps-size-display-l:  24px;  --ps-lh-display-l:  28px;
+    --ps-size-data-xl:    32px;  --ps-lh-data-xl:    36px;
+    --ps-size-data-m:     16px;  --ps-lh-data-m:     20px;
+    --ps-size-body:       15px;  --ps-lh-body:       24px;
+    --ps-size-detail:     14px;  --ps-lh-detail:     20px;
+    --ps-size-section:    14px;  --ps-lh-section:    20px;
+    --ps-size-label:      12px;  --ps-lh-label:      16px;
+  }
+
+  /* The masthead subtitle wraps rather than running off the edge. */
+  .ps-masthead-meta {
+    flex-wrap: wrap;
+    row-gap: var(--ps-1);
+  }
+
+  /* Inline code and hashes break rather than push the page sideways. This was
+     the one real horizontal overflow on the site, on /docs. */
+  code {
+    overflow-wrap: anywhere;
+  }
+
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  /* Section rules: the label may be long, the dashes take what is left. */
+  .ps-section-rule {
+    margin-top: var(--ps-5);
+  }
+}
+
+/* ---- Touch targets -------------------------------------------------------
+   Decided by the pointer, not the width: a tablet in landscape is wide and
+   still tapped. 44px is the floor every platform guideline agrees on. Chips
+   are the exception: they sit inside data rows, so they get more hit area
+   rather than a full 44px, and their spacing does the rest. */
+@media (pointer: coarse) {
+  .ps-button,
+  .ps-input,
+  .ps-gatekind-panel,
+  .ps-kindmenu-item,
+  .ps-modal-option {
+    min-height: 44px;
+  }
+
+  .ps-chip {
+    min-height: 32px;
+    padding: var(--ps-1) var(--ps-3);
+  }
+
+  .ps-stream-fold > summary,
+  .ps-step-fold > summary,
+  .ps-verdict > summary,
+  .ps-notice > summary,
+  .ps-never-more > summary {
+    min-height: 44px;
+  }
+
+  .ps-earners-row > span,
+  .ps-tx-row {
+    min-height: 44px;
+  }
 }
