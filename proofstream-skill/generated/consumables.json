@@ -79,6 +79,7 @@
     "test:poll",
     "test:reconcile",
     "test:repo",
+    "test:resume",
     "test:sandbox",
     "test:serialize",
     "test:suite-cache",

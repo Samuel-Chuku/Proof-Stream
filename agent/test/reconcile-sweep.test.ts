@@ -57,6 +57,7 @@ test('the first sweep runs before the loop returns, so startup can report it', a
     async () => {
       swept += 1;
     },
+    () => {},
   );
   // No streams are known in this process, so `reconcile` finds nothing to
   // process — what is asserted is that the sweep RAN and was counted.
@@ -67,7 +68,7 @@ test('the first sweep runs before the loop returns, so startup can report it', a
 
 test('RECONCILE_EVERY_MINUTES=0 sweeps once and schedules nothing', async () => {
   const logged: string[] = [];
-  await startReconcileLoop((e) => logged.push(String(e.event)), async () => {});
+  await startReconcileLoop((e) => logged.push(String(e.event)), async () => {}, () => {});
   assert.ok(logged.includes('reconcile_loop_disabled'), 'it says so rather than looking alive');
   assert.equal(sweepStatus().everyMinutes, 0);
 });

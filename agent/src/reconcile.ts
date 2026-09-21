@@ -24,6 +24,7 @@ import { env, ledgerPath } from './env';
 import type { Evidence } from './adjudicate';
 import type { MergedPr } from './github';
 import { knownStreams } from './registry';
+import { resumeClipped } from './resume';
 
 const LOG_PATH = ledgerPath('verdicts.jsonl');
 
@@ -303,6 +304,8 @@ export function sweepStatus(): { everyMinutes: number; sweeps: number; lastSweep
 export async function startReconcileLoop(
   log: Logger,
   process: (pr: MergedPr) => Promise<unknown>,
+  /** The verdict ledger, for resumed certifications. */
+  record: Logger,
 ): Promise<void> {
   const everyMinutes = Number(env.reconcileEveryMinutes);
 
@@ -317,6 +320,9 @@ export async function startReconcileLoop(
     sweeping = true;
     try {
       await reconcile(log, process);
+      // After the missed merges, the clipped ones: a certification the policy
+      // cut short climbs one step toward what the agents concluded.
+      await resumeClipped(log, record);
       sweeps += 1;
       lastSweepAt = new Date().toISOString();
     } finally {

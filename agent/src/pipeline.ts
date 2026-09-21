@@ -304,6 +304,11 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     title: pr.title,
     commitSha: pr.commitSha,
     milestone: stream.milestone,
+    // Which milestone, exactly, so a clipped judgment can be resumed against
+    // the milestone it was about and never against a later one that happens
+    // to reuse the text. See resume.ts.
+    milestoneHash: stream.milestoneHash,
+    milestoneIndex: Number(stream.milestoneIndex),
     // On a public stream the chain records only a hash of who earned it. The
     // dashboard maps that hash back to a person through these two fields, and
     // this row is the only place the pairing exists.

@@ -171,8 +171,8 @@ createServer((req, res) => {
   // a restart that nobody has a reason to perform. Runs after the fleet is
   // known, and deliberately does not block startup — the webhook endpoint is
   // already accepting deliveries by now.
-  console.log(`  reconcile:    every ${env.reconcileEveryMinutes} min, ${env.reconcileLookbackHours}h lookback`);
-  startReconcileLoop(registryLog, processPr).catch((err) =>
+  console.log(`  reconcile:    every ${env.reconcileEveryMinutes} min, ${env.reconcileLookbackHours}h lookback, resume ${env.resumeClipped ? 'on' : 'off'}`);
+  startReconcileLoop(registryLog, processPr, log).catch((err) =>
     registryLog({ event: 'reconcile_failed', message: err instanceof Error ? err.message : String(err) }),
   );
 });

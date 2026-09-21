@@ -379,6 +379,25 @@ export async function signPayeeBinding(
   return signature as `0x${string}`;
 }
 
+/// What the daily cap still allows today, read the way `certify` checks it:
+/// `unlockedToday` only counts if `dayBucket` is the current UTC day. A resume
+/// that ignores this reverts DailyCapExceeded and burns the gas for nothing.
+export async function readDailyHeadroom(streamAddress: `0x${string}`, dailyUnlockCap: bigint): Promise<bigint> {
+  const read = <T>(functionName: ReadFn) =>
+    withRetry(
+      () =>
+        publicClient.readContract({
+          address: streamAddress,
+          abi: WORK_STREAM_ABI,
+          functionName: functionName as never,
+        }) as Promise<T>,
+    );
+  const [dayBucket, unlockedToday] = await Promise.all([read<bigint>('dayBucket'), read<bigint>('unlockedToday')]);
+  const today = BigInt(Math.floor(Date.now() / 1000)) / 86_400n;
+  const spent = dayBucket === today ? unlockedToday : 0n;
+  return dailyUnlockCap > spent ? dailyUnlockCap - spent : 0n;
+}
+
 /// The two facts a binding request is checked against before anything is
 /// signed: whether the stream is public at all, and whether this earner has
 /// already chosen. `isPublic()` does not exist before v3, and a stream that
