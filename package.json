@@ -51,6 +51,7 @@
     "test:ago": "tsx --test web/test/ago.test.ts",
     "test:sweep": "tsx --test agent/test/reconcile-sweep.test.ts",
     "test:resume": "tsx --test agent/test/resume.test.ts",
+    "test:alerts": "tsx --test agent/test/alerts.test.ts",
     "watch": "tsx --env-file-if-exists=.env scripts/watch.ts",
     "stream:status": "tsx --env-file=.env scripts/stream-status.ts",
     "skill:generate": "pnpm --filter proofstream-integration-skill generate",

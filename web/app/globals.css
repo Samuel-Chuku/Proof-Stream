@@ -4162,3 +4162,9 @@ input[type='range'].ps-range:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* The one line that offers alerts. A caption with a link, under the watch
+   notice and above the money, so it is seen once and never competes. */
+.ps-follow {
+  margin: 0 0 var(--ps-3);
+}

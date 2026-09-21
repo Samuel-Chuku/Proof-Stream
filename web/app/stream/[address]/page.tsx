@@ -183,6 +183,22 @@ export default async function StreamPage({
             settled={stream.milestoneClosed}
           />
 
+          {/* One link, only when there is a bot to link to. Tapping it makes
+              the PERSON message the bot with this stream's address, which is
+              the whole subscription: their consent arrives with their chat id. */}
+          {process.env.NEXT_PUBLIC_TELEGRAM_BOT && (
+            <p className="ps-caption ps-follow">
+              <a
+                href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT}?start=${stream.address}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                FOLLOW THIS STREAM ON TELEGRAM ↗
+              </a>{' '}
+              · CERTIFICATIONS, REFUSALS, AND THE MILESTONE'S LAST HOURS
+            </p>
+          )}
+
           <LockedFigure stream={stream} agreedFraction={agreedFraction} />
 
           <SectionRule>YOUR ACTIONS</SectionRule>

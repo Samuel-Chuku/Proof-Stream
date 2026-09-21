@@ -4,7 +4,9 @@ import { handleBind } from './bind';
 import { env, ledgerPath } from './env';
 import { parseMergedPr, verifySignature, webhookSecretFor } from './github';
 import { log, processPr } from './pipeline';
+import { startAlerts } from './alerts';
 import { startReconcileLoop, sweepStatus } from './reconcile';
+import { startTelegram } from './telegram';
 import { isServed, knownStreams, startRegistry } from './registry';
 
 // Three ways in, and the difference between them is only WHICH SECRET signs the
@@ -154,6 +156,12 @@ createServer((req, res) => {
   console.log(`  ingress:      ${env.ingressUrl}`);
   console.log(`  model:        ${env.model}`);
   console.log(`  github app:   ${env.githubAppWebhookSecret ? 'POST /webhook/github' : 'not configured'}`);
+  console.log(`  telegram:     ${env.telegramBotToken ? 'alerts on' : 'not configured'}`);
+
+  // The bot and the clock, if there is a token. Neither touches the chain
+  // beyond reading end dates, and neither blocks anything else.
+  startTelegram(registryLog);
+  startAlerts(registryLog);
 
   // Discover the fleet before announcing readiness, so the startup banner shows
   // what this process will actually serve rather than an empty list.
