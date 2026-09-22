@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { readEarnings } from '../../lib/earnings';
 import { SESSION_COOKIE, readSession } from '../../lib/session';
 import { EarningsLedger } from '../earnings-ledger';
+import { FollowTelegram } from '../follow-telegram';
 import { Footer } from '../footer';
 
 // The session is a cookie and the position moves with the clock.
@@ -33,7 +34,8 @@ export default async function Earnings({
   // A session minted before the numeric id was stored proves a login but not
   // the number the contract's earner id is hashed from. Sign in again.
   const signedIn = session?.id ? session : null;
-  const github = signedIn ? await readEarnings(earnerId('github', signedIn.id as number), fresh) : [];
+  const id = signedIn ? earnerId('github', signedIn.id as number) : null;
+  const github = id ? await readEarnings(id, fresh) : [];
 
   return (
     <main>
@@ -52,6 +54,14 @@ export default async function Earnings({
         login={signedIn?.login ?? null}
         staleSession={!!session && !signedIn}
         fresh={fresh}
+        // Alerts for your own earnings, only once there is a GitHub identity
+        // and a stream that has credited it. The payload is the earner id the
+        // contract uses, without its 0x, which is what the bot expects.
+        follow={
+          id && github.length > 0 ? (
+            <FollowTelegram payload={id.slice(2)} label="ALERTS FOR MY EARNINGS" />
+          ) : null
+        }
       />
 
       {/* THE SECURITY CLAIM, SHORT ENOUGH TO READ. It was a paragraph, and a

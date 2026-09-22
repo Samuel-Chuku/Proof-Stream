@@ -112,6 +112,10 @@ export const env = {
   // together carrying `repository.full_name` — which is all the registry needs
   // to route them. Optional: without it the manual per-stream path still works.
   githubAppWebhookSecret: process.env.GITHUB_APP_WEBHOOK_SECRET,
+  /// Telegram alerts (telegram.ts, alerts.ts). Unset means none, said once.
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+  /// Where alerts send people. The app, not the agent.
+  appUrl: (process.env.PUBLIC_APP_URL || 'https://app.proofstream.site').replace(/\/$/, ''),
 
   // --- missed-webhook recovery -------------------------------------------
   // GitHub discards a delivery after a few failed retries, so a PR merged

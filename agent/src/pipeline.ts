@@ -9,6 +9,7 @@ import { evidenceImproved } from './adjudicate';
 import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
 import { fetchCommitMessages, fetchDiff, fetchSourceFiles, mergeParentSha, userId, type MergedPr } from './github';
+import { onLedgerRow } from './alerts';
 import { agentsDisagree, meterCertification, requiredConfidence } from './metering';
 import { buySecondOpinion } from './pay';
 import { lastEvidence } from './reconcile';
@@ -22,6 +23,9 @@ export function log(entry: Record<string, unknown>) {
   const line = { at: new Date().toISOString(), ...entry };
   appendFileSync(LOG_PATH, `${JSON.stringify(line)}\n`);
   console.log(JSON.stringify(line));
+  // Subscribers hear what the ledger records, from the one place it is
+  // recorded. Never awaited: a notification is not part of a judgment.
+  onLedgerRow((e) => console.log(JSON.stringify({ at: new Date().toISOString(), ...e })), line);
 }
 
 export type PipelineOutcome =

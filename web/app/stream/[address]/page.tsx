@@ -8,6 +8,7 @@ import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
 import { Ago } from '../../ago';
 import { AgentMark } from '../../agent-mark';
+import { FollowTelegram } from '../../follow-telegram';
 import { Footer } from '../../footer';
 import { Amount } from '../../amount';
 import { HumanMark } from '../../human-mark';
@@ -182,6 +183,8 @@ export default async function StreamPage({
             branch={parseRepoSpec(stream.repo).branch}
             settled={stream.milestoneClosed}
           />
+
+          <FollowTelegram payload={stream.address} label="FOLLOW ON TELEGRAM" />
 
           <LockedFigure stream={stream} agreedFraction={agreedFraction} />
 

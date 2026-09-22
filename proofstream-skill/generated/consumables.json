@@ -65,6 +65,7 @@
     "sweep",
     "sync:artifacts",
     "test:ago",
+    "test:alerts",
     "test:allowlist",
     "test:amounts",
     "test:bind",

@@ -4162,3 +4162,27 @@ input[type='range'].ps-range:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* The one control that offers alerts: a chip with the plane, under the watch
+   notice and above the money, seen once and never competing with it. */
+.ps-follow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-2);
+  margin: 0 0 var(--ps-3);
+  padding: var(--ps-1) var(--ps-2);
+  font-size: var(--ps-size-label);
+  letter-spacing: var(--ps-track-label);
+  text-decoration: none;
+  color: var(--ps-ink);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+}
+
+.ps-follow:hover {
+  border-color: var(--ps-rule);
+}
+
+.ps-telegram-mark {
+  flex: 0 0 auto;
+}
