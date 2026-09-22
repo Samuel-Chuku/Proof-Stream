@@ -19,12 +19,15 @@
 //
 // TELEGRAM_BOT_TOKEN off means none of this runs, and the agent says so once.
 import { env } from './env';
-import { subscribe, subscribersOf, subscriptions, unsubscribe } from './subscriptions';
+import { adoptEarnerFollows, earnerFollows, followEarner, streamsCrediting, subscribe, subscribersOf, subscriptions, unsubscribe } from './subscriptions';
 
 type Logger = (entry: Record<string, unknown>) => void;
 
 const API = () => `https://api.telegram.org/bot${env.telegramBotToken}`;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+/// An earner id arrives WITHOUT its 0x: Telegram allows a start payload of 64
+/// characters, and a bytes32 is exactly 64 hex digits.
+const EARNER = /^[0-9a-fA-F]{64}$/;
 
 /// One message to one chat. Plain text: Telegram's markdown modes turn an
 /// underscore in a repository name into formatting, and a stream address is
@@ -63,6 +66,18 @@ export function reply(chatId: string, text: string): { text: string; act?: () =>
       act: () => subscribe(chatId, arg),
     };
   }
+  if (command === '/start' && arg && EARNER.test(arg)) {
+    const earner = `0x${arg.toLowerCase()}`;
+    return {
+      text: 'Following your earnings. You will hear whenever a stream certifies work of yours, and about that stream from then on. /stop to leave everything, /list to see what you follow.',
+      act: () => {
+        followEarner(chatId, earner);
+        // Streams that already credited them: subscribe now, not at the next
+        // certification, so the grace alerts on a finished milestone arrive.
+        for (const stream of streamsCrediting(earner)) adoptEarnerFollows(stream, earner);
+      },
+    };
+  }
   if (command === '/start') {
     return {
       text: `ProofStream alerts. Open a stream on ${env.appUrl} and use its Telegram link to follow it here, or send /start followed by the stream address.`,
@@ -76,9 +91,12 @@ export function reply(chatId: string, text: string): { text: string; act?: () =>
   }
   if (command === '/list') {
     const mine = subscriptions().filter((s) => s.chatId === chatId);
-    return {
-      text: mine.length === 0 ? 'You follow no streams.' : `You follow:\n${mine.map((s) => `${s.stream}\n${env.appUrl}/stream/${s.stream}`).join('\n\n')}`,
-    };
+    const me = earnerFollows().some((f) => f.chatId === chatId);
+    const lines = [
+      ...(me ? [`Your own earnings: ${env.appUrl}/earnings`] : []),
+      ...mine.map((s) => `${s.stream}\n${env.appUrl}/stream/${s.stream}`),
+    ];
+    return { text: lines.length === 0 ? 'You follow nothing yet.' : `You follow:\n${lines.join('\n\n')}` };
   }
   return { text: 'Commands: /start <stream>, /stop <stream>, /stop, /list.' };
 }

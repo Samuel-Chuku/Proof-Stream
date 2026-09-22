@@ -118,3 +118,29 @@ test('the bot understands its four commands and nothing else', () => {
   assert.ok(reply('7', 'hello').text.includes('/list'));
   assert.ok(reply('7', `/start@ProofStreamBot ${A}`).act, 'the @bot suffix groups add is stripped');
 });
+
+// --- following a person, not a stream ------------------------------------------
+
+const { adoptEarnerFollows, followEarner, foldEarners } = await import('../src/subscriptions');
+const EARNER = `0x${'ab'.repeat(32)}`;
+
+test('an earner follow is taken, and /stop for all ends it', () => {
+  const rows = [{ event: 'subscribed', channel: 'telegram', chatId: '7', earner: EARNER }];
+  assert.equal(foldEarners(rows).length, 1);
+  assert.equal(foldEarners([...rows, { event: 'unsubscribed', channel: 'telegram', chatId: '7', stream: '*' }]).length, 0);
+  assert.equal(foldEarners([...rows, { event: 'unsubscribed', channel: 'telegram', chatId: '7', stream: A }]).length, 1, 'leaving one stream is not leaving yourself');
+});
+
+test('a certification that credits the earner folds their followers into the stream, once', () => {
+  followEarner('11', EARNER);
+  assert.equal(adoptEarnerFollows(A, EARNER), 1);
+  assert.equal(adoptEarnerFollows(A, EARNER), 0, 'idempotent');
+  assert.equal(subscriptions().some((s) => s.chatId === '11' && s.stream === A.toLowerCase()), true);
+  assert.equal(adoptEarnerFollows(B, `0x${'cd'.repeat(32)}`), 0, 'somebody else\'s credit adopts nobody');
+  unsubscribe('11', '*');
+});
+
+test('the bot takes an earner id as the 64 hex digits the deep link can carry', () => {
+  assert.ok(reply('7', `/start ${'ab'.repeat(32)}`).act, 'sixty-four hex digits is an earner');
+  assert.equal(reply('7', `/start ${'ab'.repeat(31)}`).act, undefined, 'sixty-two is nothing');
+});

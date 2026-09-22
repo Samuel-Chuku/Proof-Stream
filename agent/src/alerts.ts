@@ -17,7 +17,7 @@
 // repeat it.
 import { readIdentity } from './chain';
 import { env } from './env';
-import { alertsSentFor, markAlerted, subscribedStreams } from './subscriptions';
+import { adoptEarnerFollows, alertsSentFor, markAlerted, subscribedStreams } from './subscriptions';
 import { broadcast } from './telegram';
 
 type Logger = (entry: Record<string, unknown>) => void;
@@ -123,6 +123,12 @@ export function judgmentText(entry: Record<string, unknown>, link: string): stri
 /// Called by the ledger writer for every row it writes.
 export function onLedgerRow(log: Logger, entry: Record<string, unknown>): void {
   if (!env.telegramBotToken || typeof entry.workStream !== 'string') return;
+  // A certification that credits somebody makes their followers this
+  // stream's followers, BEFORE the broadcast, so the message that says they
+  // were paid is the first one they get.
+  if (entry.event === 'unlocked' && typeof entry.earnerId === 'string') {
+    adoptEarnerFollows(entry.workStream, entry.earnerId);
+  }
   const text = judgmentText(entry, `${env.appUrl}/stream/${entry.workStream}`);
   if (text) void broadcast(log, entry.workStream, text);
 }

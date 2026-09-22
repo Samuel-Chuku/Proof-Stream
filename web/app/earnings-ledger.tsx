@@ -31,6 +31,7 @@ export function EarningsLedger({
   login,
   staleSession,
   fresh,
+  follow,
 }: {
   github: Position[];
   /** Null when not signed in with GitHub. */
@@ -38,6 +39,8 @@ export function EarningsLedger({
   /** Signed in before the numeric id was stored: proves a login, not the id. */
   staleSession: boolean;
   fresh: boolean;
+  /** The alerts control, rendered by the page, shown under the total. */
+  follow?: React.ReactNode;
 }) {
   const { address: browserAddress, isConnected } = useAccount();
   const [passkeyAddress, setPasskeyAddress] = useState<`0x${string}` | null>(null);
@@ -256,6 +259,7 @@ export function EarningsLedger({
               READY TO WITHDRAW · ACROSS {positions.length} STREAM{positions.length === 1 ? '' : 'S'}
               {stillReading && ' · STILL READING'}
             </p>
+            {follow}
           </div>
           {positions.map((p) => (
             <EarningsStream key={`${p.address}:${p.earnerId ?? 'named'}`} position={p} login={login} />

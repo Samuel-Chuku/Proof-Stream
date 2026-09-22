@@ -8,6 +8,7 @@ import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
 import { Ago } from '../../ago';
 import { AgentMark } from '../../agent-mark';
+import { FollowTelegram } from '../../follow-telegram';
 import { Footer } from '../../footer';
 import { Amount } from '../../amount';
 import { HumanMark } from '../../human-mark';
@@ -183,21 +184,7 @@ export default async function StreamPage({
             settled={stream.milestoneClosed}
           />
 
-          {/* One link, only when there is a bot to link to. Tapping it makes
-              the PERSON message the bot with this stream's address, which is
-              the whole subscription: their consent arrives with their chat id. */}
-          {process.env.NEXT_PUBLIC_TELEGRAM_BOT && (
-            <p className="ps-caption ps-follow">
-              <a
-                href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT}?start=${stream.address}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                FOLLOW THIS STREAM ON TELEGRAM ↗
-              </a>{' '}
-              · CERTIFICATIONS, REFUSALS, AND THE MILESTONE'S LAST HOURS
-            </p>
-          )}
+          <FollowTelegram payload={stream.address} label="FOLLOW ON TELEGRAM" />
 
           <LockedFigure stream={stream} agreedFraction={agreedFraction} />
 

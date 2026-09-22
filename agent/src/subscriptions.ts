@@ -5,8 +5,16 @@
 // subscription list for a handful of streams does not need a database. Rows:
 //
 //   { event: 'subscribed',   channel, chatId, stream }
+//   { event: 'subscribed',   channel, chatId, earner }      follow ME, not a stream
 //   { event: 'unsubscribed', channel, chatId, stream }     stream '*' = all
 //   { event: 'alerted',      stream, kind }                 a timed alert sent
+//
+// AN EARNER FOLLOW is how the earnings page subscribes: not to a stream but to
+// a person, by the same opaque id the contract credits. Whenever a
+// certification credits that id, the chat is folded into that stream's
+// subscribers (`adoptEarnerFollows`), so they hear the judgment that paid them
+// and every alert about that stream afterwards, including streams that do not
+// exist yet. Everything an earner follow can reveal is on chain already.
 //
 // `alerted` rows are what make the timed alerts fire once and survive a
 // restart: a stream ending at 18:00 must not announce it again at 18:01
@@ -15,6 +23,7 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { ledgerPath } from './env';
 
 export type Subscription = { channel: 'telegram'; chatId: string; stream: string };
+export type EarnerFollow = { channel: 'telegram'; chatId: string; earner: string };
 
 type Row = Record<string, unknown>;
 
@@ -59,6 +68,66 @@ export function fold(all: readonly Row[]): Subscription[] {
 }
 
 export const subscriptions = (): Subscription[] => fold(rows());
+
+/// The live earner follows. `/stop` (all) ends these too.
+export function foldEarners(all: readonly Row[]): EarnerFollow[] {
+  const live = new Map<string, EarnerFollow>();
+  for (const r of all) {
+    if (r.channel !== 'telegram' || typeof r.chatId !== 'string') continue;
+    if (r.event === 'subscribed' && typeof r.earner === 'string') {
+      const earner = r.earner.toLowerCase();
+      live.set(`${r.chatId}:${earner}`, { channel: 'telegram', chatId: r.chatId, earner });
+    } else if (r.event === 'unsubscribed' && r.stream === '*') {
+      for (const key of [...live.keys()]) if (key.startsWith(`${r.chatId}:`)) live.delete(key);
+    }
+  }
+  return [...live.values()];
+}
+
+export const earnerFollows = (): EarnerFollow[] => foldEarners(rows());
+
+export function followEarner(chatId: string, earner: string): void {
+  append({ event: 'subscribed', channel: 'telegram', chatId, earner: earner.toLowerCase() });
+}
+
+/// Fold everyone following this earner into this stream's subscribers. Called
+/// when a certification credits the earner, and when the follow is first
+/// taken, for streams that already credited them. Idempotent: an existing
+/// subscription is not written again.
+export function adoptEarnerFollows(stream: string, earner: string): number {
+  const all = rows();
+  const already = new Set(fold(all).map((s) => `${s.chatId}:${s.stream}`));
+  let adopted = 0;
+  for (const f of foldEarners(all)) {
+    if (f.earner !== earner.toLowerCase()) continue;
+    if (already.has(`${f.chatId}:${stream.toLowerCase()}`)) continue;
+    subscribe(f.chatId, stream);
+    adopted += 1;
+  }
+  return adopted;
+}
+
+/// Streams that have credited this earner, from the verdict ledger: every
+/// `unlocked` row carrying the id. Read on demand; it is a few hundred lines.
+export function streamsCrediting(earner: string): string[] {
+  const out = new Set<string>();
+  try {
+    for (const line of readFileSync(ledgerPath('verdicts.jsonl'), 'utf8').split('\n')) {
+      if (!line) continue;
+      try {
+        const r = JSON.parse(line) as Row;
+        if (r.event === 'unlocked' && typeof r.earnerId === 'string' && typeof r.workStream === 'string' && r.earnerId.toLowerCase() === earner.toLowerCase()) {
+          out.add(r.workStream.toLowerCase());
+        }
+      } catch {
+        // a truncated final line is normal mid-write
+      }
+    }
+  } catch {
+    // no ledger yet
+  }
+  return [...out];
+}
 
 export function subscribersOf(stream: string): Subscription[] {
   return subscriptions().filter((s) => s.stream === stream.toLowerCase());
