@@ -4186,3 +4186,14 @@ input[type='range'].ps-range:disabled {
 .ps-telegram-mark {
   flex: 0 0 auto;
 }
+
+/* The way out when a repository is not in the list. A caption under the
+   picker, not a panel: it is the answer to a question most people never ask,
+   and it must not compete with the control above it. */
+.ps-repo-missing {
+  margin-top: var(--ps-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ps-1) var(--ps-2);
+}

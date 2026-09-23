@@ -16,7 +16,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    return NextResponse.json({ login: session.login, repos: await grantedRepos(session.token) });
+    const { repos, installations } = await grantedRepos(session.token);
+    // The installations travel with the repositories so the picker can send
+    // somebody straight to the screen that adds one, rather than to the App's
+    // front page.
+    return NextResponse.json({ login: session.login, repos, installations });
   } catch (err) {
     // A revoked or expired token looks like any other API failure; say so
     // plainly so the UI can offer to reconnect rather than showing an empty list.
