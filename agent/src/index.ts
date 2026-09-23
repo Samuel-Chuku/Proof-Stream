@@ -5,7 +5,7 @@ import { env, ledgerPath } from './env';
 import { parseMergedPr, verifySignature, webhookSecretFor } from './github';
 import { log, processPr } from './pipeline';
 import { startAlerts } from './alerts';
-import { actOnToken, requestSubscription } from './email';
+import { actOnToken, requestSubscription, type Proof } from './email';
 import { startReconcileLoop, sweepStatus } from './reconcile';
 import { startTelegram } from './telegram';
 import { isServed, knownStreams, startRegistry } from './registry';
@@ -101,12 +101,31 @@ createServer((req, res) => {
     });
     req.on('end', async () => {
       try {
-        const { address, kind, id } = JSON.parse(raw || '{}') as { address?: string; kind?: string; id?: string };
+        const { address, kind, id, proof } = JSON.parse(raw || '{}') as {
+          address?: string;
+          kind?: string;
+          id?: string;
+          proof?: Record<string, unknown>;
+        };
         if (typeof address !== 'string' || (kind !== 'stream' && kind !== 'earner') || typeof id !== 'string') {
           res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: false, message: 'an address and a target are required' }));
           return;
         }
-        const out = await requestSubscription(registryLog, address, { kind, id });
+        // The proof decides WHICH SIDE they are on, and whether they may have
+        // email at all. Shape-checked here; verified in email.ts against
+        // GitHub or against the contract's own employer.
+        const p = proof as Proof | undefined;
+        const shaped =
+          p?.role === 'employer'
+            ? typeof p.address === 'string' && typeof p.signature === 'string' && typeof p.issuedAt === 'number'
+            : p?.role === 'contributor' && typeof p.githubToken === 'string';
+        if (!shaped) {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(
+            JSON.stringify({ ok: false, message: 'Email alerts need proof that you contribute to this stream or own it. Telegram alerts are open to anyone.' }),
+          );
+          return;
+        }
+        const out = await requestSubscription(registryLog, address, { kind, id }, p as Proof);
         res.writeHead(out.ok ? 200 : 400, { 'content-type': 'application/json' }).end(JSON.stringify(out));
       } catch {
         res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: false, message: 'body must be JSON' }));

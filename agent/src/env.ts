@@ -125,11 +125,11 @@ export const env = {
   /// The day's send ceiling across every stream, kept under a free tier's
   /// limit on purpose.
   emailDailyMax: Number(process.env.EMAIL_DAILY_MAX || 80),
-  /// And per stream per day, so one busy stream cannot spend the whole budget
-  /// and leave another stream's deadline unannounced. Four covers the three
-  /// timed alerts plus one judgment; a stream with more judgments than that in
-  /// a day is having a busy day on Telegram.
-  emailMaxPerStreamPerDay: Number(process.env.EMAIL_MAX_PER_STREAM_PER_DAY || 4),
+  /// CERTIFICATIONS ONLY, per stream per day. The four timed alerts are exempt:
+  /// each is the reason somebody subscribed and there are exactly four in a
+  /// stream's life, so a counter must never be what drops a deadline. A stream
+  /// certifying all day says so on Telegram after this many emails.
+  emailMaxJudgmentsPerStreamPerDay: Number(process.env.EMAIL_MAX_CERTIFICATIONS_PER_STREAM_PER_DAY || 3),
 
   // --- missed-webhook recovery -------------------------------------------
   // GitHub discards a delivery after a few failed retries, so a PR merged

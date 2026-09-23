@@ -16,7 +16,7 @@
 // kind fires once, recorded in the subscriptions ledger so a restart does not
 // repeat it.
 import { readIdentity } from './chain';
-import { EMAIL_JUDGMENT_EVENTS, EMAIL_TIMED_KINDS, emailBody, emailSubject, emailWindowKey, sendEmail, stopUrl } from './email';
+import { EMAIL_JUDGMENT_EVENTS, EMAIL_TIMED_KINDS, emailBody, emailSubject, emailWindowKey, renderHtml, rolesFor, sendEmail, stopUrl } from './email';
 import { env } from './env';
 import {
   adoptEarnerFollows,
@@ -25,6 +25,7 @@ import {
   emailRecipients,
   emailsSentToday,
   emailsSentTodayFor,
+  judgmentEmailsSentTodayFor,
   markAlerted,
   markEmailed,
   subscribedStreams,
@@ -99,17 +100,23 @@ async function email(
     return;
   }
 
-  const recipients = emailRecipients(stream, earnersCreditedBy(stream));
+  // ADDRESSED, not broadcast. Each kind goes to the side it is for: a
+  // contributor is told the grace window opened, an employer that it closed.
+  const roles = new Set(rolesFor(kind));
+  const recipients = emailRecipients(stream, earnersCreditedBy(stream)).filter((r) => roles.has(r.role));
   if (recipients.length === 0) return;
 
-  // TWO CEILINGS, and they answer different failures. The fleet-wide one keeps
-  // a free sending tier intact. The per-stream one is what stops a busy stream
-  // spending the whole day's budget, which would silently cost every OTHER
-  // stream its deadline warning: the alert people actually need.
-  const forThisStream = emailsSentTodayFor(stream);
-  if (forThisStream + recipients.length > env.emailMaxPerStreamPerDay) {
-    log({ event: 'email_held', stream, kind, sentToday: forThisStream, reason: `this stream's ceiling of ${env.emailMaxPerStreamPerDay} a day would be passed` });
-    return;
+  // TWO CEILINGS, AND THEY BIND DIFFERENT THINGS. The per-stream ration covers
+  // JUDGMENTS ONLY: a stream can certify all day, and after a couple of emails
+  // the rest is Telegram's job. The four timed alerts are exempt, because each
+  // one is the reason somebody subscribed and there are exactly four in a
+  // stream's whole life; a counter must never be what drops a deadline.
+  if (EMAIL_JUDGMENT_EVENTS.has(kind)) {
+    const judged = judgmentEmailsSentTodayFor(stream);
+    if (judged + recipients.length > env.emailMaxJudgmentsPerStreamPerDay) {
+      log({ event: 'email_held', stream, kind, sentToday: judged, reason: `this stream has already emailed ${judged} certifications today` });
+      return;
+    }
   }
   const sentToday = emailsSentToday();
   if (sentToday + recipients.length > env.emailDailyMax) {
@@ -124,6 +131,9 @@ async function email(
     const target = r.stream ? ({ kind: 'stream', id: r.stream } as const) : ({ kind: 'earner', id: r.earner as string } as const);
     const stop = stopUrl(target, r.address);
     try {
+      const whereLine = [where.repo, where.milestoneIndex !== undefined ? `milestone ${where.milestoneIndex}` : null]
+        .filter(Boolean)
+        .join(' · ');
       await sendEmail(
         r.address,
         emailSubject(kind, where.repo),
@@ -136,6 +146,17 @@ async function email(
           stopUrl: stop,
         }),
         stop,
+        renderHtml({
+          heading: emailHeading(kind),
+          sentence: sentence.replace(link, '').trim(),
+          where: whereLine || undefined,
+          action: { label: 'OPEN THE STREAM', href: link },
+          // Green only where it means what it means everywhere else: USDC the
+          // agent released. A deadline is ink.
+          accent: kind === 'unlocked',
+          footer: `You get this because you confirmed ${r.role === 'employer' ? 'owner' : 'contributor'} alerts about ${target.kind === 'stream' ? 'this stream' : 'your earnings'}.`,
+          stopUrl: stop,
+        }),
       );
       markEmailed(r.address, stream, kind);
     } catch (err) {
@@ -143,6 +164,24 @@ async function email(
     }
   }
   log({ event: 'emailed', stream, kind, recipients: recipients.length });
+}
+
+/// The heading on an HTML alert: what happened, in three or four words.
+function emailHeading(kind: string): string {
+  switch (kind) {
+    case 'unlocked':
+      return 'WORK CERTIFIED';
+    case 'ends-24h':
+      return '24 HOURS LEFT';
+    case 'ends-12h':
+      return '12 HOURS LEFT';
+    case 'ended':
+      return 'GRACE WINDOW OPEN';
+    case 'closable':
+      return 'GRACE WINDOW CLOSED';
+    default:
+      return 'PROOFSTREAM';
+  }
 }
 
 /// How often the clock is checked. The alerts are on the hour, so a minute is

@@ -1,4 +1,6 @@
 import { EXPLORER_URL, formatUsdc, parseRepoSpec, parseUsdcLoose } from '@proofstream/config';
+import { cookies } from 'next/headers';
+import { SESSION_COOKIE, readSession } from '../../../lib/session';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { readEarners } from '../../../lib/earners';
@@ -53,6 +55,9 @@ export default async function StreamPage({
 }) {
   const { address } = await params;
   const fresh = (await searchParams).fresh !== undefined;
+  // Only to decide whether the alerts modal offers the contributor's route or
+  // a sign-in link. The token itself never leaves the server.
+  const signedIn = Boolean(readSession((await cookies()).get(SESSION_COOKIE)?.value));
   const stream = await readStream(address);
   const logs = await readAgentLogs();
 
@@ -125,7 +130,7 @@ export default async function StreamPage({
                 <span>MILESTONE {stream.milestoneIndex}</span>
                 <StreamVersion version={stream.version} />
                 {stream.isPublic && <OpenChip />}
-                <GetUpdates target={stream.address} kind="stream" />
+                <GetUpdates target={stream.address} kind="stream" employer={stream.employer} signedIn={signedIn} />
               </>
             ) : (
               <span>ARC TESTNET · 5042002</span>

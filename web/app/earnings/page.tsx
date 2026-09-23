@@ -47,7 +47,7 @@ export default async function Earnings({
             <span>WHAT EVERY STREAM OWES YOU</span>
             {/* Alerts for your own earnings, only once there is a GitHub
                 identity and a stream that has credited it. */}
-            {id && github.length > 0 && <GetUpdates target={id} kind="earner" />}
+            {id && github.length > 0 && <GetUpdates target={id} kind="earner" signedIn />}
           </div>
         </div>
       </header>

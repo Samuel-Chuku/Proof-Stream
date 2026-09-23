@@ -24,8 +24,21 @@ Object.assign(process.env, {
   PUBLIC_APP_URL: 'https://app.example.test',
 });
 
-const { EMAIL_JUDGMENT_EVENTS, EMAIL_TIMED_KINDS, MAX_EMAILS_PER_STREAM, actOnToken, emailBody, emailSubject, emailWindowKey, looksLikeEmail, signToken, verifyToken } =
-  await import('../src/email');
+const {
+  EMAIL_JUDGMENT_EVENTS,
+  EMAIL_TIMED_KINDS,
+  MAX_EMAILS_PER_STREAM,
+  actOnToken,
+  emailBody,
+  emailSubject,
+  emailWindowKey,
+  employerMessage,
+  looksLikeEmail,
+  renderHtml,
+  rolesFor,
+  signToken,
+  verifyToken,
+} = await import('../src/email');
 const { countEmailSubscribers, emailRecipients, emailSubscriptions, emailsSentToday, emailsSentTodayFor, foldEmails } =
   await import('../src/subscriptions');
 
@@ -121,14 +134,88 @@ test("the day's count only counts today", () => {
 });
 
 test('EMAIL SAYS LESS THAN TELEGRAM, deliberately', () => {
-  assert.deepEqual([...EMAIL_TIMED_KINDS].sort(), ['ended', 'ends-12h', 'ends-24h']);
-  assert.deepEqual([...EMAIL_JUDGMENT_EVENTS].sort(), ['declined', 'unlocked']);
-  for (const noisy of ['grace-1h', 'grace-2h', 'closable']) {
+  assert.deepEqual([...EMAIL_TIMED_KINDS].sort(), ['closable', 'ended', 'ends-12h', 'ends-24h']);
+  assert.deepEqual([...EMAIL_JUDGMENT_EVENTS].sort(), ['unlocked'], 'accepted certifications only');
+  for (const noisy of ['grace-1h', 'grace-2h', 'grace-3h']) {
     assert.equal(EMAIL_TIMED_KINDS.has(noisy), false, `${noisy} is Telegram's alone`);
   }
-  for (const noisy of ['vetoed', 'escalated', 'unlock_failed']) {
+  for (const noisy of ['declined', 'vetoed', 'escalated', 'unlock_failed']) {
     assert.equal(EMAIL_JUDGMENT_EVENTS.has(noisy), false, `${noisy} is Telegram's alone`);
+    assert.deepEqual(rolesFor(noisy), [], `${noisy} is addressed to nobody`);
   }
+});
+
+// --- addressed to a side -------------------------------------------------------
+
+test('each kind goes to the side it is for', () => {
+  assert.deepEqual(rolesFor('unlocked').sort(), ['contributor', 'employer'], 'both, for opposite reasons');
+  assert.deepEqual(rolesFor('ends-12h'), ['contributor'], 'the last push is the contributor\'s');
+  assert.deepEqual(rolesFor('ended').sort(), ['contributor', 'employer']);
+  assert.deepEqual(rolesFor('closable'), ['employer'], 'closing and reclaiming is the owner\'s');
+});
+
+test('the role rides in the token, so the click does not need the proof again', () => {
+  const t = signToken('confirm', { kind: 'stream', id: A }, 'owner@example.com', soon(), 'employer');
+  const out = verifyToken(t);
+  assert.equal('error' in out ? '' : out.role, 'employer');
+  // And it is signed: flipping the role invalidates the token.
+  assert.ok('error' in verifyToken(t.replace('.employer.', '.contributor.')));
+});
+
+test('what an employer signs names the stream, the address and the moment', () => {
+  const m = employerMessage(A, '0xabc', 1_800_000_000);
+  assert.ok(m.includes(A.toLowerCase()), 'a signature for one stream is useless on another');
+  assert.ok(m.includes('0xabc'));
+  assert.ok(m.includes('1800000000'), 'and it goes stale');
+  assert.ok(/moves no money/i.test(m), 'a wallet prompt says what it is not');
+});
+
+// --- the html ------------------------------------------------------------------
+
+test('the html is one table, inline styles, and escapes what it is given', () => {
+  const html = renderHtml({
+    heading: 'WORK CERTIFIED',
+    sentence: 'Certified: PR #4 brings the milestone to 50%.',
+    where: 'owner/repo <script> · milestone 2',
+    action: { label: 'OPEN THE STREAM', href: 'https://app.example.test/stream/0xabc' },
+    accent: true,
+    footer: 'You get this because you confirmed contributor alerts.',
+    stopUrl: 'https://app.example.test/alerts/confirm?t=tok',
+  });
+  assert.ok(html.startsWith('<!doctype html>'));
+  assert.ok(!html.includes('<style'), 'no style block: several clients strip them');
+  assert.ok(!/display:\s*(flex|grid)/.test(html), 'no flexbox or grid in a mail client');
+  assert.ok(/background:#00FF00;color:#333333;border:2px solid/.test(html), 'a certification fills its button with the green');
+  assert.ok(html.includes('&lt;script&gt;'), 'anything interpolated is escaped');
+  assert.ok(html.includes('https://app.example.test/alerts/confirm?t=tok'), 'the way out is in the html too');
+});
+
+test('only a certification fills its button green; a deadline is ink', () => {
+  // THE MARK IS NOT AN EXCEPTION TO THE GREEN RULE, it is the rule: the two
+  // lower bars of the logo are released USDC, which is what they mean on
+  // every stream page. What must never go green is the CONTENT of a mail
+  // about a deadline, because no money moved.
+  const deadline = renderHtml({
+    heading: '24 HOURS LEFT',
+    sentence: 'x',
+    action: { label: 'OPEN', href: 'https://app.example.test' },
+    footer: 'y',
+  });
+  assert.ok(!/background:#00FF00;color:#333333;border:2px solid/.test(deadline), 'the button is ink on paper');
+  assert.equal((deadline.match(/#00FF00/g) ?? []).length, 2, 'exactly the logo bars, nothing else');
+});
+
+test('the logo is drawn in table cells, so it survives images being blocked', () => {
+  const html = renderHtml({
+    heading: 'X',
+    sentence: 'y',
+    action: { label: 'OPEN', href: 'https://app.example.test' },
+    footer: 'z',
+  });
+  assert.ok(!/<img/i.test(html), 'no remote image: most clients hide them on first open');
+  assert.ok(!/<svg/i.test(html), 'no inline svg: a major provider strips it');
+  assert.equal((html.match(/#333333;border:1px solid #333333/g) ?? []).length, 2, 'two ink bars');
+  assert.equal((html.match(/#00FF00;border:1px solid #00CC00/g) ?? []).length, 2, 'two released bars');
 });
 
 test('the fold is per address AND per target', () => {

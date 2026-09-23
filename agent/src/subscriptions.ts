@@ -25,7 +25,18 @@ import { ledgerPath } from './env';
 export type Subscription = { channel: 'telegram'; chatId: string; stream: string };
 /// An address that has CONFIRMED. Nothing unconfirmed is ever written here;
 /// see email.ts for why the pending state is a signed token instead.
-export type EmailSubscription = { channel: 'email'; address: string; stream?: string; earner?: string };
+export type EmailRole = 'contributor' | 'employer';
+export type EmailSubscription = {
+  channel: 'email';
+  address: string;
+  /// WHICH SIDE THEY ARE ON, and therefore which alerts reach them. A
+  /// contributor wants the deadline that ends their chance to be paid; an
+  /// employer wants the moment they may close and reclaim. Both want a
+  /// certification, for opposite reasons.
+  role: EmailRole;
+  stream?: string;
+  earner?: string;
+};
 export type EarnerFollow = { channel: 'telegram'; chatId: string; earner: string };
 
 type Row = Record<string, unknown>;
@@ -174,6 +185,7 @@ export function markAlerted(stream: string, kind: string): void {
 // rather than in a store of its own: one question, one source of truth.
 
 type EmailTarget = { kind: 'stream' | 'earner'; id: string };
+const asRole = (v: unknown): EmailRole => (v === 'employer' ? 'employer' : 'contributor');
 
 const emailKey = (address: string, t: EmailTarget) => `${address.toLowerCase()}:${t.kind}:${t.id.toLowerCase()}`;
 
@@ -186,7 +198,12 @@ export function foldEmails(all: readonly Row[]): EmailSubscription[] {
     const id = String(kind === 'stream' ? r.stream : r.earner).toLowerCase();
     const key = emailKey(r.address, { kind, id });
     if (r.event === 'subscribed') {
-      live.set(key, { channel: 'email', address: r.address.toLowerCase(), ...(kind === 'stream' ? { stream: id } : { earner: id }) });
+      live.set(key, {
+        channel: 'email',
+        address: r.address.toLowerCase(),
+        role: asRole(r.role),
+        ...(kind === 'stream' ? { stream: id } : { earner: id }),
+      });
     } else if (r.event === 'unsubscribed') {
       live.delete(key);
     }
@@ -208,11 +225,12 @@ export function emailRecipients(stream: string, creditedEarners: readonly string
 export const countEmailSubscribers = (stream: string): number =>
   emailSubscriptions().filter((s) => s.stream === stream.toLowerCase()).length;
 
-export function emailSubscribe(address: string, target: EmailTarget): void {
+export function emailSubscribe(address: string, target: EmailTarget, role: EmailRole): void {
   append({
     event: 'subscribed',
     channel: 'email',
     address: address.toLowerCase(),
+    role,
     ...(target.kind === 'stream' ? { stream: target.id.toLowerCase() } : { earner: target.id.toLowerCase() }),
   });
 }
@@ -252,6 +270,25 @@ export function earnersCreditedBy(stream: string): string[] {
 /// rather than discovered from a rejection.
 export function emailsSentToday(all: readonly Row[] = rows(), today = new Date().toISOString().slice(0, 10)): number {
   return all.filter((r) => r.event === 'emailed' && typeof r.at === 'string' && r.at.startsWith(today)).length;
+}
+
+/// Judgments only: the timed alerts are exempt from the per-stream ration.
+/// There are exactly four of them in a stream's life and each one is the
+/// reason somebody subscribed, so a counter must never be what drops them.
+export function judgmentEmailsSentTodayFor(
+  stream: string,
+  all: readonly Row[] = rows(),
+  today = new Date().toISOString().slice(0, 10),
+): number {
+  return all.filter(
+    (r) =>
+      r.event === 'emailed' &&
+      r.kind === 'unlocked' &&
+      typeof r.at === 'string' &&
+      r.at.startsWith(today) &&
+      typeof r.stream === 'string' &&
+      r.stream.toLowerCase() === stream.toLowerCase(),
+  ).length;
 }
 
 /// And how many of those were about ONE stream. The fleet-wide ceiling alone

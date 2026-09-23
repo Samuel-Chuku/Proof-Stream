@@ -398,6 +398,20 @@ export async function readDailyHeadroom(streamAddress: `0x${string}`, dailyUnloc
   return dailyUnlockCap > spent ? dailyUnlockCap - spent : 0n;
 }
 
+/// Who deployed and funds this stream. The employer is immutable, so proving
+/// control of that address is proof of a stake in the stream that never goes
+/// stale. Used to gate email alerts; see email.ts.
+export async function readEmployer(streamAddress: `0x${string}`): Promise<`0x${string}`> {
+  return withRetry(
+    () =>
+      publicClient.readContract({
+        address: streamAddress,
+        abi: WORK_STREAM_ABI,
+        functionName: 'employer' as never,
+      }) as Promise<`0x${string}`>,
+  );
+}
+
 /// The two facts a binding request is checked against before anything is
 /// signed: whether the stream is public at all, and whether this earner has
 /// already chosen. `isPublic()` does not exist before v3, and a stream that
