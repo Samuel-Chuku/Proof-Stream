@@ -76,6 +76,10 @@ a {
   font-size: var(--ps-size-body);
   line-height: var(--ps-lh-body);
   max-width: 72ch;
+  /* Prose is never shouted, wherever it lands. Inside a `ps-label` region this
+     inherited the caps and read the person's own email address back to them in
+     capitals. */
+  text-transform: none;
 }
 
 /* ---- Amount ---------------------------------------------- */
@@ -4203,6 +4207,41 @@ input[type='range'].ps-range:disabled {
     width: 44px;
     height: 32px;
   }
+}
+
+/* A channel somebody is already on. Full ink and a solid edge, against the
+   dim outline of one nobody uses: the difference has to be readable at 14px
+   in a strip, which rules out anything subtler. Not green: a subscription is
+   not released USDC. */
+.ps-updates-mark-on {
+  color: var(--ps-ink);
+  border-color: var(--ps-rule);
+  background: var(--ps-sunk);
+}
+
+/* Who is already listening, at the top of the modal. */
+.ps-updates-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-1) var(--ps-3);
+  align-items: center;
+  margin: 0;
+}
+
+.ps-updates-state span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-1);
+}
+
+/* The choices. `ps-modal-option` is a left-aligned flex row because it was
+   built to carry a wallet's logo beside its name; these carry a sentence and
+   nothing else, so they centre. Brackets are dropped here alone: the label sits
+   inside a bordered button and the two frames read as one control stuttering. */
+.ps-updates-choice {
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
 }
 
 /* The way out when a repository is not in the list. A caption under the

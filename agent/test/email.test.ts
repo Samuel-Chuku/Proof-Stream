@@ -27,7 +27,6 @@ Object.assign(process.env, {
 const {
   EMAIL_JUDGMENT_EVENTS,
   EMAIL_TIMED_KINDS,
-  MAX_EMAILS_PER_STREAM,
   actOnToken,
   emailBody,
   emailSubject,
@@ -39,7 +38,7 @@ const {
   signToken,
   verifyToken,
 } = await import('../src/email');
-const { countEmailSubscribers, emailRecipients, emailSubscriptions, emailsSentToday, emailsSentTodayFor, foldEmails } =
+const { MAX_EMAILS_PER_STREAM, alertAudience, countEmailSubscribers, emailRecipients, emailSubscriptions, emailsSentToday, emailsSentTodayFor, foldEmails, subscribe } =
   await import('../src/subscriptions');
 
 const A = '0x26B8379cCB664f94fCAC4837D0FcB62136a8dcE8';
@@ -99,6 +98,17 @@ test('two addresses per stream, and the third is told plainly', () => {
   assert.equal(third.ok, false);
   assert.ok(/full/i.test(third.title));
   assert.equal(countEmailSubscribers(A), MAX_EMAILS_PER_STREAM);
+});
+
+// THE COUNTS THE PAGE SHOWS. A number is the whole answer: the stream page has
+// to be able to say "your alerts are on" and "one place left", and must not be
+// able to say who.
+test('the audience is counts and places left, and never an identity', () => {
+  subscribe('4242', A);
+  const seen = alertAudience(A);
+  assert.deepEqual(seen, { telegram: 1, email: MAX_EMAILS_PER_STREAM, emailSlots: 0 });
+  assert.equal(JSON.stringify(seen).includes('@'), false, 'no address leaks through');
+  assert.equal(JSON.stringify(seen).includes('4242'), false, 'no chat id leaks through');
 });
 
 test('a stop link removes one subscription and nothing else', () => {

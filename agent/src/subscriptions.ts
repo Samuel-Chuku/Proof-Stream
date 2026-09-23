@@ -222,6 +222,26 @@ export function emailRecipients(stream: string, creditedEarners: readonly string
   );
 }
 
+/// WHO IS LISTENING TO THIS STREAM, in numbers only.
+///
+/// Counts, never addresses or chat ids: the page needs to say "your alerts are
+/// on" and "one place left", and nothing it shows should let a stranger learn
+/// who follows a stream. Everything the contract holds is already public; who
+/// asked to be told about it is not.
+export function alertAudience(stream: string): { telegram: number; email: number; emailSlots: number } {
+  const email = countEmailSubscribers(stream);
+  return {
+    telegram: subscribersOf(stream).length,
+    email,
+    emailSlots: Math.max(0, MAX_EMAILS_PER_STREAM - email),
+  };
+}
+
+/// At most this many addresses per stream, so one stream cannot spend the
+/// day's whole send budget. It lives here, beside the count it bounds, because
+/// two places now read it.
+export const MAX_EMAILS_PER_STREAM = 2;
+
 export const countEmailSubscribers = (stream: string): number =>
   emailSubscriptions().filter((s) => s.stream === stream.toLowerCase()).length;
 

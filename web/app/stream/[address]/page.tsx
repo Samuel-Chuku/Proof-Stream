@@ -2,6 +2,7 @@ import { EXPLORER_URL, formatUsdc, parseRepoSpec, parseUsdcLoose } from '@proofs
 import { cookies } from 'next/headers';
 import { SESSION_COOKIE, readSession } from '../../../lib/session';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
+import { readAlertStatus } from '../../../lib/alert-status';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { readEarners } from '../../../lib/earners';
 import { readStreamTransactions } from '../../../lib/onchain';
@@ -64,7 +65,11 @@ export default async function StreamPage({
   // Whether the agent is ACTUALLY watching this stream. Everything else on this
   // page describes the contract; this is the only thing that says whether
   // anyone is listening.
-  const [health, allStreams] = await Promise.all([readAgentHealth(), listStreams()]);
+  const [health, allStreams, alerts] = await Promise.all([
+    readAgentHealth(),
+    listStreams(),
+    readAlertStatus(address),
+  ]);
 
   // BOTH logs are fleet-wide, and both must be filtered. Passing the reviews
   // through unfiltered made a brand-new stream report the whole fleet's
@@ -130,7 +135,13 @@ export default async function StreamPage({
                 <span>MILESTONE {stream.milestoneIndex}</span>
                 <StreamVersion version={stream.version} />
                 {stream.isPublic && <OpenChip />}
-                <GetUpdates target={stream.address} kind="stream" employer={stream.employer} signedIn={signedIn} />
+                <GetUpdates
+                  target={stream.address}
+                  kind="stream"
+                  employer={stream.employer}
+                  signedIn={signedIn}
+                  status={alerts}
+                />
               </>
             ) : (
               <span>ARC TESTNET · 5042002</span>
