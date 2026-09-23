@@ -141,11 +141,25 @@ export async function currentUser(token: string): Promise<{ id: number; login: s
   return { id: user.id, login: user.login, avatarUrl: user.avatar_url };
 }
 
-/// Every repository the user granted this App, across all their installations.
-/// Only these are selectable — a stream cannot be pointed at a repo the agent
-/// has not been given access to read.
-export async function grantedRepos(token: string): Promise<Repo[]> {
-  const { installations } = await gh<{ installations: { id: number }[] }>('/user/installations', token);
+/** One installation of the App, and where its repository access is edited.
+ *
+ *  THE ID IS THE POINT. Sending somebody to the App's own page makes them find
+ *  the right account, then the right screen, then the repository picker; the
+ *  installation's own settings URL opens on that picker directly. Adding a
+ *  repository at the moment you discover it is missing should be one click,
+ *  not a hunt through GitHub's settings.
+ */
+export type Installation = { id: number; account: string; settingsUrl: string };
+
+/// Every repository the user granted this App, across all their installations,
+/// and the installations themselves. Only these repositories are selectable: a
+/// stream cannot be pointed at a repo the agent has not been given access to
+/// read.
+export async function grantedRepos(token: string): Promise<{ repos: Repo[]; installations: Installation[] }> {
+  const { installations } = await gh<{ installations: { id: number; account?: { login?: string } }[] }>(
+    '/user/installations',
+    token,
+  );
 
   const repos: Repo[] = [];
   for (const installation of installations) {
@@ -158,5 +172,12 @@ export async function grantedRepos(token: string): Promise<Repo[]> {
     }
   }
 
-  return repos.sort((a, b) => a.fullName.localeCompare(b.fullName));
+  return {
+    repos: repos.sort((a, b) => a.fullName.localeCompare(b.fullName)),
+    installations: installations.map((i) => ({
+      id: i.id,
+      account: i.account?.login ?? 'your account',
+      settingsUrl: `https://github.com/settings/installations/${i.id}`,
+    })),
+  };
 }

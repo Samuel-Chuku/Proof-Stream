@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AuthorAllowlist } from './author-allowlist';
 import { KindGate, KindLine } from './stream-kind';
 import { isAddress } from 'viem';
@@ -34,6 +34,10 @@ export default function NewStream() {
   const { address, isConnected } = useAccount();
 
   const [repos, setRepos] = useState<Repo[] | null>(null);
+  /// The App's installations, so "my repository is not here" is one click
+  /// rather than a hunt through GitHub's settings.
+  const [installs, setInstalls] = useState<{ id: number; account: string; settingsUrl: string }[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   // Authorized is not the same as installed: the first says who you are, the
   // second grants the agent read access to specific repositories. Conflating
   // them left an authorized user staring at "connect GitHub" forever.
@@ -101,15 +105,37 @@ export default function NewStream() {
 
   // The repo list only exists once GitHub is connected; a 401 here is the
   // normal not-yet-connected state, not a failure worth shouting about.
-  useEffect(() => {
-    fetch('/api/github/repos')
-      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((body) => {
-        setConnected(true);
-        setRepos(body.repos);
-      })
-      .catch(() => setRepos([]));
+  //
+  // Pulled out and reusable, because granting a repository happens in ANOTHER
+  // TAB: somebody comes back to this form expecting the new repository to be
+  // there, and a page reload would cost them everything they have typed.
+  const loadRepos = useCallback(async () => {
+    try {
+      const res = await fetch('/api/github/repos', { cache: 'no-store' });
+      if (!res.ok) throw new Error(String(res.status));
+      const body = (await res.json()) as {
+        repos: Repo[];
+        installations?: { id: number; account: string; settingsUrl: string }[];
+      };
+      setConnected(true);
+      setRepos(body.repos);
+      setInstalls(body.installations ?? []);
+    } catch {
+      setRepos([]);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadRepos();
+  }, [loadRepos]);
+
+  // Coming back from GitHub's own tab is the moment the list is stale, and
+  // the browser tells us: the tab regained focus.
+  useEffect(() => {
+    const onFocus = () => void loadRepos();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadRepos]);
 
   // Branches of whichever repo is selected. Reloaded on every change, and reset
   // first so a stale list from the previous repo can never be submitted.
@@ -359,6 +385,37 @@ export default function NewStream() {
               </option>
             ))}
           </select>
+          {/* THE ESCAPE HATCH, where the gap is discovered. A repository the
+              App was never granted simply is not in this list, and until now
+              the only way out was to leave, find the App in GitHub's settings,
+              add it, and start the form again. This links straight to the
+              installation's own repository picker, and the list refreshes by
+              itself when the tab comes back. */}
+          <p className="ps-caption ps-repo-missing">
+            REPOSITORY NOT LISTED? THE AGENT CAN ONLY READ WHAT THE APP WAS GRANTED.{' '}
+            {installs.length > 0 ? (
+              installs.map((i) => (
+                <a key={i.id} href={i.settingsUrl} target="_blank" rel="noreferrer">
+                  ADD ONE ON {i.account.toUpperCase()} ↗{' '}
+                </a>
+              ))
+            ) : (
+              <a href="/api/github/login?install=1">CHOOSE REPOSITORIES ↗</a>
+            )}
+            <button
+              type="button"
+              className="ps-chip"
+              disabled={refreshing}
+              onClick={async () => {
+                setRefreshing(true);
+                await loadRepos();
+                setRefreshing(false);
+              }}
+            >
+              {refreshing ? 'REFRESHING…' : 'REFRESH LIST'}
+            </button>
+          </p>
+
           {terms.repo !== '' && (
             <div style={{ marginTop: 'var(--ps-3)' }}>
               <label className="ps-label" htmlFor="branch">
