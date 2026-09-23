@@ -48,6 +48,7 @@
     "test:resume": "tsx --test agent/test/resume.test.ts",
     "test:alerts": "tsx --test agent/test/alerts.test.ts",
     "test:email": "tsx --test agent/test/email.test.ts",
+    "test:notify": "tsx --test agent/test/notify.test.ts",
     "watch": "tsx --env-file-if-exists=.env scripts/watch.ts",
     "stream:status": "tsx --env-file=.env scripts/stream-status.ts",
     "skill:generate": "pnpm --filter proofstream-integration-skill generate",

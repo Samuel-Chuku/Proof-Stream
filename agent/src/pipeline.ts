@@ -11,6 +11,7 @@ import { env, ledgerPath } from './env';
 import { fetchCommitMessages, fetchDiff, fetchSourceFiles, mergeParentSha, userId, type MergedPr } from './github';
 import { onLedgerRow } from './alerts';
 import { agentsDisagree, meterCertification, requiredConfidence } from './metering';
+import { notifyCertified } from './notify';
 import { buySecondOpinion } from './pay';
 import { lastEvidence } from './reconcile';
 import { resolveStreams, type StreamEntry } from './registry';
@@ -586,6 +587,13 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
     errorReason: result.errorReason,
     explorer: result.txHash ? `https://testnet.arcscan.app/tx/${result.txHash}` : undefined,
   });
+
+  // Tell the person, once, where the pull request already is. After the
+  // ledger row, and never awaited: the certification is done whether or not
+  // GitHub takes the comment.
+  if (outcome === 'unlocked') {
+    void notifyCertified(log, want.repo, pr.number, streamAddress);
+  }
 
   return outcome;
 }
