@@ -130,6 +130,13 @@ export const env = {
   /// stream's life, so a counter must never be what drops a deadline. A stream
   /// certifying all day says so on Telegram after this many emails.
   emailMaxJudgmentsPerStreamPerDay: Number(process.env.EMAIL_MAX_CERTIFICATIONS_PER_STREAM_PER_DAY || 3),
+  /// For posting as the App rather than as a person: the one comment a
+  /// certification leaves on its pull request (notify.ts). Both optional; with
+  /// either missing the agent says so once and posts nothing.
+  githubAppId: process.env.GITHUB_APP_ID,
+  githubAppPrivateKeyPath: process.env.GITHUB_APP_PRIVATE_KEY_PATH,
+  /// The comment itself. `off` posts nothing.
+  notifyGithub: (process.env.NOTIFY_GITHUB || 'on') !== 'off',
 
   // --- missed-webhook recovery -------------------------------------------
   // GitHub discards a delivery after a few failed retries, so a PR merged

@@ -78,6 +78,7 @@
     "test:failover",
     "test:json",
     "test:metering",
+    "test:notify",
     "test:poll",
     "test:reconcile",
     "test:repo",
