@@ -116,6 +116,20 @@ export const env = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   /// Where alerts send people. The app, not the agent.
   appUrl: (process.env.PUBLIC_APP_URL || 'https://app.proofstream.site').replace(/\/$/, ''),
+  /// Email alerts (email.ts). Any provider taking {from,to,subject,text}
+  /// works; no provider name belongs in this repository. All three unset
+  /// means no email, said once.
+  emailApiUrl: process.env.EMAIL_API_URL,
+  emailApiKey: process.env.EMAIL_API_KEY,
+  emailFrom: process.env.EMAIL_FROM,
+  /// The day's send ceiling across every stream, kept under a free tier's
+  /// limit on purpose.
+  emailDailyMax: Number(process.env.EMAIL_DAILY_MAX || 80),
+  /// And per stream per day, so one busy stream cannot spend the whole budget
+  /// and leave another stream's deadline unannounced. Four covers the three
+  /// timed alerts plus one judgment; a stream with more judgments than that in
+  /// a day is having a busy day on Telegram.
+  emailMaxPerStreamPerDay: Number(process.env.EMAIL_MAX_PER_STREAM_PER_DAY || 4),
 
   // --- missed-webhook recovery -------------------------------------------
   // GitHub discards a delivery after a few failed retries, so a PR merged

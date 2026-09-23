@@ -16,8 +16,20 @@
 // kind fires once, recorded in the subscriptions ledger so a restart does not
 // repeat it.
 import { readIdentity } from './chain';
+import { EMAIL_JUDGMENT_EVENTS, EMAIL_TIMED_KINDS, emailBody, emailSubject, emailWindowKey, sendEmail, stopUrl } from './email';
 import { env } from './env';
-import { adoptEarnerFollows, alertsSentFor, markAlerted, subscribedStreams } from './subscriptions';
+import {
+  adoptEarnerFollows,
+  alertsSentFor,
+  earnersCreditedBy,
+  emailRecipients,
+  emailsSentToday,
+  emailsSentTodayFor,
+  markAlerted,
+  markEmailed,
+  subscribedStreams,
+  emailSubscriptions,
+} from './subscriptions';
 import { broadcast } from './telegram';
 
 type Logger = (entry: Record<string, unknown>) => void;
@@ -64,6 +76,75 @@ export function dueAlerts(
   });
 }
 
+/// EMAIL, WHICH IS RATIONED. Telegram is free and instant, so it says
+/// everything; email costs and lands in a place people guard, so it says less:
+/// only the kinds in EMAIL_TIMED_KINDS and EMAIL_JUDGMENT_EVENTS, at most one
+/// per stream per hour, and never past the day's ceiling. When the window has
+/// already been used, the alert is simply not emailed; Telegram still carried
+/// it, and a second email an hour later saying the same thing is what makes
+/// people unsubscribe.
+async function email(
+  log: Logger,
+  stream: string,
+  kind: string,
+  sentence: string,
+  where: { repo?: string; milestoneIndex?: number },
+): Promise<void> {
+  if (!env.emailApiUrl) return;
+  if (!EMAIL_TIMED_KINDS.has(kind) && !EMAIL_JUDGMENT_EVENTS.has(kind)) return;
+
+  const window = emailWindowKey();
+  if (alertsSentFor(stream).has(window)) {
+    log({ event: 'email_coalesced', stream, kind, reason: 'this stream already sent an email this hour' });
+    return;
+  }
+
+  const recipients = emailRecipients(stream, earnersCreditedBy(stream));
+  if (recipients.length === 0) return;
+
+  // TWO CEILINGS, and they answer different failures. The fleet-wide one keeps
+  // a free sending tier intact. The per-stream one is what stops a busy stream
+  // spending the whole day's budget, which would silently cost every OTHER
+  // stream its deadline warning: the alert people actually need.
+  const forThisStream = emailsSentTodayFor(stream);
+  if (forThisStream + recipients.length > env.emailMaxPerStreamPerDay) {
+    log({ event: 'email_held', stream, kind, sentToday: forThisStream, reason: `this stream's ceiling of ${env.emailMaxPerStreamPerDay} a day would be passed` });
+    return;
+  }
+  const sentToday = emailsSentToday();
+  if (sentToday + recipients.length > env.emailDailyMax) {
+    log({ event: 'email_held', stream, kind, sentToday, reason: `the daily ceiling of ${env.emailDailyMax} across all streams would be passed` });
+    return;
+  }
+
+  // Marked before sending, so a crash cannot turn one alert into a repeat.
+  markAlerted(stream, window);
+  const link = `${env.appUrl}/stream/${stream}`;
+  for (const r of recipients) {
+    const target = r.stream ? ({ kind: 'stream', id: r.stream } as const) : ({ kind: 'earner', id: r.earner as string } as const);
+    const stop = stopUrl(target, r.address);
+    try {
+      await sendEmail(
+        r.address,
+        emailSubject(kind, where.repo),
+        emailBody({
+          sentence,
+          repo: where.repo,
+          milestoneIndex: where.milestoneIndex,
+          link,
+          because: target.kind === 'stream' ? 'this stream' : 'your earnings',
+          stopUrl: stop,
+        }),
+        stop,
+      );
+      markEmailed(r.address, stream, kind);
+    } catch (err) {
+      log({ event: 'email_failed', stream, kind, message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  log({ event: 'emailed', stream, kind, recipients: recipients.length });
+}
+
 /// How often the clock is checked. The alerts are on the hour, so a minute is
 /// plenty and the window above is a few of them.
 const TICK_MS = 60_000;
@@ -71,11 +152,16 @@ const WINDOW_SECONDS = 5 * 60;
 
 /// Check every followed stream's clock, for ever. Returns at once.
 export function startAlerts(log: Logger): void {
-  if (!env.telegramBotToken) return;
+  if (!env.telegramBotToken && !env.emailApiUrl) return;
 
   const tick = async () => {
     const now = Math.floor(Date.now() / 1000);
-    for (const stream of subscribedStreams()) {
+    // Every stream anybody follows, on either channel.
+    const streams = new Set([
+      ...subscribedStreams(),
+      ...emailSubscriptions().flatMap((s) => (s.stream ? [s.stream] : [])),
+    ]);
+    for (const stream of streams) {
       try {
         const identity = await readIdentity(stream as `0x${string}`);
         if (identity.closed) continue;
@@ -85,6 +171,7 @@ export function startAlerts(log: Logger): void {
           // alert into a repeat. A lost alert is cheaper than a nagging one.
           markAlerted(stream, a.kind);
           await broadcast(log, stream, a.text(link));
+          await email(log, stream, a.kind, a.text(link), { repo: identity.repo });
           log({ event: 'alerted', stream, kind: a.kind });
         }
       } catch (err) {
@@ -122,7 +209,7 @@ export function judgmentText(entry: Record<string, unknown>, link: string): stri
 
 /// Called by the ledger writer for every row it writes.
 export function onLedgerRow(log: Logger, entry: Record<string, unknown>): void {
-  if (!env.telegramBotToken || typeof entry.workStream !== 'string') return;
+  if ((!env.telegramBotToken && !env.emailApiUrl) || typeof entry.workStream !== 'string') return;
   // A certification that credits somebody makes their followers this
   // stream's followers, BEFORE the broadcast, so the message that says they
   // were paid is the first one they get.
@@ -130,5 +217,10 @@ export function onLedgerRow(log: Logger, entry: Record<string, unknown>): void {
     adoptEarnerFollows(entry.workStream, entry.earnerId);
   }
   const text = judgmentText(entry, `${env.appUrl}/stream/${entry.workStream}`);
-  if (text) void broadcast(log, entry.workStream, text);
+  if (!text) return;
+  void broadcast(log, entry.workStream, text);
+  void email(log, entry.workStream, String(entry.event), text, {
+    repo: typeof entry.repo === 'string' ? entry.repo : undefined,
+    milestoneIndex: typeof entry.milestoneIndex === 'number' ? entry.milestoneIndex : undefined,
+  });
 }

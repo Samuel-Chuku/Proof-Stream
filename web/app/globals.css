@@ -4163,26 +4163,44 @@ input[type='range'].ps-range:disabled {
   }
 }
 
-/* The one control that offers alerts: a chip with the plane, under the watch
-   notice and above the money, seen once and never competing with it. */
-.ps-follow {
+/* GET UPDATES, on the masthead strip. A label and two marks, sized to the
+   strip's own label text so the line height never moves. The marks are the
+   only bought icons in the app: they are other people's marks, and a person
+   finds the plane and the envelope faster than any word we could write. */
+.ps-updates {
   display: inline-flex;
   align-items: center;
   gap: var(--ps-2);
-  margin: 0 0 var(--ps-3);
-  padding: var(--ps-1) var(--ps-2);
-  font-size: var(--ps-size-label);
-  letter-spacing: var(--ps-track-label);
-  text-decoration: none;
-  color: var(--ps-ink);
-  border: var(--ps-bw-hair) solid var(--ps-border);
-  border-radius: var(--ps-r-1);
 }
 
-.ps-follow:hover {
+.ps-updates-label {
+  color: var(--ps-ink-dim);
+}
+
+.ps-updates-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  color: var(--ps-ink-dim);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  border-radius: var(--ps-r-1);
+  cursor: pointer;
+}
+
+.ps-updates-mark:hover {
+  color: var(--ps-ink);
   border-color: var(--ps-rule);
 }
 
-.ps-telegram-mark {
-  flex: 0 0 auto;
+@media (pointer: coarse) {
+  /* A mark in a strip is still a tap target. Wider rather than taller, so the
+     masthead line does not grow on a phone. */
+  .ps-updates-mark {
+    width: 44px;
+    height: 32px;
+  }
 }

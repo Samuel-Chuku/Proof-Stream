@@ -5,6 +5,7 @@ import { env, ledgerPath } from './env';
 import { parseMergedPr, verifySignature, webhookSecretFor } from './github';
 import { log, processPr } from './pipeline';
 import { startAlerts } from './alerts';
+import { actOnToken, requestSubscription } from './email';
 import { startReconcileLoop, sweepStatus } from './reconcile';
 import { startTelegram } from './telegram';
 import { isServed, knownStreams, startRegistry } from './registry';
@@ -64,6 +65,12 @@ createServer((req, res) => {
         streams: knownStreams().map((s) => ({ stream: s.stream, repo: s.repo })),
         // Whether the sweep is alive, without reading the journal.
         reconcile: sweepStatus(),
+        // And whether the two alert channels are configured, so this is one
+        // curl rather than a journal search.
+        alerts: {
+          telegram: Boolean(env.telegramBotToken),
+          email: Boolean(env.emailApiUrl && env.emailApiKey && env.emailFrom),
+        },
       }),
     );
     return;
@@ -81,6 +88,37 @@ createServer((req, res) => {
         payouts: readLog('payouts.jsonl', limit),
       }),
     );
+    return;
+  }
+
+  // EMAIL ALERTS. Two routes, both fronted by the app so the links people
+  // click are on the domain they already trust; see web/app/api/alerts.
+  if (req.method === 'POST' && url === '/email/subscribe') {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+      if (raw.length > 2048) req.destroy();
+    });
+    req.on('end', async () => {
+      try {
+        const { address, kind, id } = JSON.parse(raw || '{}') as { address?: string; kind?: string; id?: string };
+        if (typeof address !== 'string' || (kind !== 'stream' && kind !== 'earner') || typeof id !== 'string') {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: false, message: 'an address and a target are required' }));
+          return;
+        }
+        const out = await requestSubscription(registryLog, address, { kind, id });
+        res.writeHead(out.ok ? 200 : 400, { 'content-type': 'application/json' }).end(JSON.stringify(out));
+      } catch {
+        res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: false, message: 'body must be JSON' }));
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && url.startsWith('/email/act')) {
+    const token = new URL(url, 'http://x').searchParams.get('t') ?? '';
+    const out = actOnToken(registryLog, token);
+    res.writeHead(out.ok ? 200 : 400, { 'content-type': 'application/json' }).end(JSON.stringify(out));
     return;
   }
 
@@ -157,6 +195,7 @@ createServer((req, res) => {
   console.log(`  model:        ${env.model}`);
   console.log(`  github app:   ${env.githubAppWebhookSecret ? 'POST /webhook/github' : 'not configured'}`);
   console.log(`  telegram:     ${env.telegramBotToken ? 'alerts on' : 'not configured'}`);
+  console.log(`  email:        ${env.emailApiUrl && env.emailApiKey && env.emailFrom ? `on, up to ${env.emailDailyMax}/day` : 'not configured'}`);
 
   // The bot and the clock, if there is a token. Neither touches the chain
   // beyond reading end dates, and neither blocks anything else.
