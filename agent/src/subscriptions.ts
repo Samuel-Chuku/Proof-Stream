@@ -23,6 +23,20 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { ledgerPath } from './env';
 
 export type Subscription = { channel: 'telegram'; chatId: string; stream: string };
+/// An address that has CONFIRMED. Nothing unconfirmed is ever written here;
+/// see email.ts for why the pending state is a signed token instead.
+export type EmailRole = 'contributor' | 'employer';
+export type EmailSubscription = {
+  channel: 'email';
+  address: string;
+  /// WHICH SIDE THEY ARE ON, and therefore which alerts reach them. A
+  /// contributor wants the deadline that ends their chance to be paid; an
+  /// employer wants the moment they may close and reclaim. Both want a
+  /// certification, for opposite reasons.
+  role: EmailRole;
+  stream?: string;
+  earner?: string;
+};
 export type EarnerFollow = { channel: 'telegram'; chatId: string; earner: string };
 
 type Row = Record<string, unknown>;
@@ -163,4 +177,138 @@ export const alertsSentFor = (stream: string) => alertsSent(rows(), stream);
 
 export function markAlerted(stream: string, kind: string): void {
   append({ event: 'alerted', stream: stream.toLowerCase(), kind });
+}
+
+// ----------------------------------------------------------------- email
+//
+// Same ledger, same fold, a different channel. Kept beside the Telegram rows
+// rather than in a store of its own: one question, one source of truth.
+
+type EmailTarget = { kind: 'stream' | 'earner'; id: string };
+const asRole = (v: unknown): EmailRole => (v === 'employer' ? 'employer' : 'contributor');
+
+const emailKey = (address: string, t: EmailTarget) => `${address.toLowerCase()}:${t.kind}:${t.id.toLowerCase()}`;
+
+export function foldEmails(all: readonly Row[]): EmailSubscription[] {
+  const live = new Map<string, EmailSubscription>();
+  for (const r of all) {
+    if (r.channel !== 'email' || typeof r.address !== 'string') continue;
+    const kind = typeof r.stream === 'string' ? 'stream' : typeof r.earner === 'string' ? 'earner' : null;
+    if (!kind) continue;
+    const id = String(kind === 'stream' ? r.stream : r.earner).toLowerCase();
+    const key = emailKey(r.address, { kind, id });
+    if (r.event === 'subscribed') {
+      live.set(key, {
+        channel: 'email',
+        address: r.address.toLowerCase(),
+        role: asRole(r.role),
+        ...(kind === 'stream' ? { stream: id } : { earner: id }),
+      });
+    } else if (r.event === 'unsubscribed') {
+      live.delete(key);
+    }
+  }
+  return [...live.values()];
+}
+
+export const emailSubscriptions = (): EmailSubscription[] => foldEmails(rows());
+
+/// Everyone who will get an email about this stream: the addresses subscribed
+/// to it, plus the addresses of earners it has credited.
+export function emailRecipients(stream: string, creditedEarners: readonly string[] = []): EmailSubscription[] {
+  const wanted = new Set(creditedEarners.map((e) => e.toLowerCase()));
+  return emailSubscriptions().filter(
+    (s) => s.stream === stream.toLowerCase() || (s.earner !== undefined && wanted.has(s.earner)),
+  );
+}
+
+export const countEmailSubscribers = (stream: string): number =>
+  emailSubscriptions().filter((s) => s.stream === stream.toLowerCase()).length;
+
+export function emailSubscribe(address: string, target: EmailTarget, role: EmailRole): void {
+  append({
+    event: 'subscribed',
+    channel: 'email',
+    address: address.toLowerCase(),
+    role,
+    ...(target.kind === 'stream' ? { stream: target.id.toLowerCase() } : { earner: target.id.toLowerCase() }),
+  });
+}
+
+export function emailUnsubscribe(address: string, target: EmailTarget): void {
+  append({
+    event: 'unsubscribed',
+    channel: 'email',
+    address: address.toLowerCase(),
+    ...(target.kind === 'stream' ? { stream: target.id.toLowerCase() } : { earner: target.id.toLowerCase() }),
+  });
+}
+
+/// Every earner id a stream has credited, from the verdict ledger. Used to
+/// find the earner-followers of a stream whose milestone is ending.
+export function earnersCreditedBy(stream: string): string[] {
+  const out = new Set<string>();
+  try {
+    for (const line of readFileSync(ledgerPath('verdicts.jsonl'), 'utf8').split('\n')) {
+      if (!line) continue;
+      try {
+        const r = JSON.parse(line) as Row;
+        if (r.event === 'unlocked' && typeof r.earnerId === 'string' && typeof r.workStream === 'string' && r.workStream.toLowerCase() === stream.toLowerCase()) {
+          out.add(r.earnerId.toLowerCase());
+        }
+      } catch {
+        // a truncated final line is normal mid-write
+      }
+    }
+  } catch {
+    // no ledger yet
+  }
+  return [...out];
+}
+
+/// How many emails have gone out today, so a free sending tier is respected
+/// rather than discovered from a rejection.
+export function emailsSentToday(all: readonly Row[] = rows(), today = new Date().toISOString().slice(0, 10)): number {
+  return all.filter((r) => r.event === 'emailed' && typeof r.at === 'string' && r.at.startsWith(today)).length;
+}
+
+/// Judgments only: the timed alerts are exempt from the per-stream ration.
+/// There are exactly four of them in a stream's life and each one is the
+/// reason somebody subscribed, so a counter must never be what drops them.
+export function judgmentEmailsSentTodayFor(
+  stream: string,
+  all: readonly Row[] = rows(),
+  today = new Date().toISOString().slice(0, 10),
+): number {
+  return all.filter(
+    (r) =>
+      r.event === 'emailed' &&
+      r.kind === 'unlocked' &&
+      typeof r.at === 'string' &&
+      r.at.startsWith(today) &&
+      typeof r.stream === 'string' &&
+      r.stream.toLowerCase() === stream.toLowerCase(),
+  ).length;
+}
+
+/// And how many of those were about ONE stream. The fleet-wide ceiling alone
+/// lets a busy stream spend the whole day's budget and leave every other
+/// stream's deadline unannounced, which is the alert that matters most.
+export function emailsSentTodayFor(
+  stream: string,
+  all: readonly Row[] = rows(),
+  today = new Date().toISOString().slice(0, 10),
+): number {
+  return all.filter(
+    (r) =>
+      r.event === 'emailed' &&
+      typeof r.at === 'string' &&
+      r.at.startsWith(today) &&
+      typeof r.stream === 'string' &&
+      r.stream.toLowerCase() === stream.toLowerCase(),
+  ).length;
+}
+
+export function markEmailed(address: string, stream: string, kind: string): void {
+  append({ event: 'emailed', channel: 'email', address: address.toLowerCase(), stream: stream.toLowerCase(), kind });
 }

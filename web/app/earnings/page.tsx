@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { readEarnings } from '../../lib/earnings';
 import { SESSION_COOKIE, readSession } from '../../lib/session';
 import { EarningsLedger } from '../earnings-ledger';
-import { FollowTelegram } from '../follow-telegram';
+import { GetUpdates } from '../get-updates';
 import { Footer } from '../footer';
 
 // The session is a cookie and the position moves with the clock.
@@ -45,6 +45,9 @@ export default async function Earnings({
           <div className="ps-masthead-meta ps-label">
             <span>ARC TESTNET · 5042002</span>
             <span>WHAT EVERY STREAM OWES YOU</span>
+            {/* Alerts for your own earnings, only once there is a GitHub
+                identity and a stream that has credited it. */}
+            {id && github.length > 0 && <GetUpdates target={id} kind="earner" signedIn />}
           </div>
         </div>
       </header>
@@ -54,14 +57,6 @@ export default async function Earnings({
         login={signedIn?.login ?? null}
         staleSession={!!session && !signedIn}
         fresh={fresh}
-        // Alerts for your own earnings, only once there is a GitHub identity
-        // and a stream that has credited it. The payload is the earner id the
-        // contract uses, without its 0x, which is what the bot expects.
-        follow={
-          id && github.length > 0 ? (
-            <FollowTelegram payload={id.slice(2)} label="ALERTS FOR MY EARNINGS" />
-          ) : null
-        }
       />
 
       {/* THE SECURITY CLAIM, SHORT ENOUGH TO READ. It was a paragraph, and a

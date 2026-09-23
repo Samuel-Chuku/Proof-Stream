@@ -1,4 +1,6 @@
 import { EXPLORER_URL, formatUsdc, parseRepoSpec, parseUsdcLoose } from '@proofstream/config';
+import { cookies } from 'next/headers';
+import { SESSION_COOKIE, readSession } from '../../../lib/session';
 import { diagnose, readAgentHealth } from '../../../lib/agent-health';
 import { readAgentLogs, totalSpend, type AgentEvent } from '../../../lib/events';
 import { readEarners } from '../../../lib/earners';
@@ -8,7 +10,7 @@ import { readStream } from '../../../lib/stream';
 import { AddressChip } from '../../address-chip';
 import { Ago } from '../../ago';
 import { AgentMark } from '../../agent-mark';
-import { FollowTelegram } from '../../follow-telegram';
+import { GetUpdates } from '../../get-updates';
 import { Footer } from '../../footer';
 import { Amount } from '../../amount';
 import { HumanMark } from '../../human-mark';
@@ -53,6 +55,9 @@ export default async function StreamPage({
 }) {
   const { address } = await params;
   const fresh = (await searchParams).fresh !== undefined;
+  // Only to decide whether the alerts modal offers the contributor's route or
+  // a sign-in link. The token itself never leaves the server.
+  const signedIn = Boolean(readSession((await cookies()).get(SESSION_COOKIE)?.value));
   const stream = await readStream(address);
   const logs = await readAgentLogs();
 
@@ -125,6 +130,7 @@ export default async function StreamPage({
                 <span>MILESTONE {stream.milestoneIndex}</span>
                 <StreamVersion version={stream.version} />
                 {stream.isPublic && <OpenChip />}
+                <GetUpdates target={stream.address} kind="stream" employer={stream.employer} signedIn={signedIn} />
               </>
             ) : (
               <span>ARC TESTNET · 5042002</span>
@@ -183,8 +189,6 @@ export default async function StreamPage({
             branch={parseRepoSpec(stream.repo).branch}
             settled={stream.milestoneClosed}
           />
-
-          <FollowTelegram payload={stream.address} label="FOLLOW ON TELEGRAM" />
 
           <LockedFigure stream={stream} agreedFraction={agreedFraction} />
 

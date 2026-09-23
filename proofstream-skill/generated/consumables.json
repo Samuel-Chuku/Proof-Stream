@@ -74,6 +74,7 @@
     "test:correctness",
     "test:create-stream",
     "test:earner",
+    "test:email",
     "test:failover",
     "test:json",
     "test:metering",
