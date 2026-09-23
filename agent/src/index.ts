@@ -9,6 +9,7 @@ import { actOnToken, requestSubscription, type Proof } from './email';
 import { startReconcileLoop, sweepStatus } from './reconcile';
 import { startTelegram } from './telegram';
 import { isServed, knownStreams, startRegistry } from './registry';
+import { alertAudience } from './subscriptions';
 
 // Three ways in, and the difference between them is only WHICH SECRET signs the
 // delivery. Routing to a stream is identical afterwards: by repository, through
@@ -131,6 +132,20 @@ createServer((req, res) => {
         res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: false, message: 'body must be JSON' }));
       }
     });
+    return;
+  }
+
+  // How many people this stream reaches, in numbers only. Public, because the
+  // page shows it to everyone and it names nobody.
+  if (req.method === 'GET' && url.startsWith('/alerts/status')) {
+    const stream = new URL(url, 'http://x').searchParams.get('stream') ?? '';
+    if (!/^0x[0-9a-fA-F]{40}$/.test(stream)) {
+      res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'a stream address is required' }));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'application/json' }).end(
+      JSON.stringify({ ...alertAudience(stream), channels: { telegram: Boolean(env.telegramBotToken), email: Boolean(env.emailApiUrl) } }),
+    );
     return;
   }
 

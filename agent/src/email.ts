@@ -21,6 +21,7 @@ import { env } from './env';
 import {
   alertsSentFor,
   countEmailSubscribers,
+  MAX_EMAILS_PER_STREAM,
   emailSubscribe,
   emailUnsubscribe,
   streamsCrediting,
@@ -32,10 +33,6 @@ type Logger = (entry: Record<string, unknown>) => void;
 /// How long a confirmation link lives. Long enough to find the email in a spam
 /// folder tomorrow, short enough that a leaked link is not a standing key.
 const TOKEN_TTL_SECONDS = 48 * 3600;
-
-/// At most this many addresses per stream, so one stream cannot spend the
-/// day's whole send budget.
-export const MAX_EMAILS_PER_STREAM = 2;
 
 const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
