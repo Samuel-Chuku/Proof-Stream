@@ -57,9 +57,13 @@ export function latestClipped(
   milestoneHash: string,
   milestoneIndex: number,
 ): Clipped | null {
+  // EITHER OUTCOME CAN BE CLIPPED. `unlocked` is a certification that landed
+  // short; `skipped` is one that could not land at all because the day's
+  // allowance was spent. Both mean the agents agreed more than the chain has
+  // taken, and both were paid for.
   const mine = rows.filter(
     (r) =>
-      r.event === 'unlocked' &&
+      (r.event === 'unlocked' || r.event === 'skipped') &&
       typeof r.workStream === 'string' &&
       r.workStream.toLowerCase() === streamAddress.toLowerCase() &&
       typeof r.milestoneHash === 'string' &&
@@ -99,22 +103,26 @@ function ledgerRows(): Record<string, unknown>[] {
 
 /// The step this sweep may take, or null if there is none to take.
 ///
-/// `meterCertification` applies `maxTranche`; the daily headroom is applied on
-/// top, in USDC, then converted back to basis points rounded DOWN so the step
-/// can never exceed what the contract will accept. Pure, so it is tested.
+/// `meterCertification` applies both caps now, so this no longer reimplements
+/// the daily one. What it still does is re-derive the tranche FROM the basis
+/// points, the way `certify` does:
+///
+///   uint256 added = ((cur.budget * a.certifiedBps) / BPS) - target();
+///
+/// Basis points are integers, so the figure the contract adds can be a hair
+/// under the figure the arithmetic clipped to. Deriving it the same way means
+/// the number logged is the number that lands.
 export function resumeStep(
   agreedFraction: number,
   stream: { budget: bigint; target: bigint; maxTranche: bigint; certifiedBps: bigint },
   dailyHeadroom: bigint,
 ): { certifiedBps: bigint; trancheAdded: bigint } | null {
-  const m = meterCertification(agreedFraction, stream);
+  const m = meterCertification(agreedFraction, { ...stream, dailyHeadroom });
   if (!m.raises) return null;
-  if (m.trancheAdded <= dailyHeadroom) return { certifiedBps: m.certifiedBps, trancheAdded: m.trancheAdded };
-  if (dailyHeadroom <= 0n) return null;
-  const target = stream.target + dailyHeadroom;
-  const certifiedBps = (target * FULL_BPS) / stream.budget;
-  if (certifiedBps <= stream.certifiedBps) return null;
-  return { certifiedBps, trancheAdded: (stream.budget * certifiedBps) / FULL_BPS - stream.target };
+  return {
+    certifiedBps: m.certifiedBps,
+    trancheAdded: (stream.budget * m.certifiedBps) / FULL_BPS - stream.target,
+  };
 }
 
 /// One pass over every served stream. Called from the sweep.
