@@ -89,18 +89,74 @@ sudo ufw allow OpenSSH
 sudo ufw --force enable
 ```
 
-## Operational note: the agent logs are append-only and tracked
+## Operational note: the agent logs are state, not source
 
-`agent/*.jsonl` are committed to the repository. They are both the dashboard's
-data source and the transaction evidence, and every judgment appends to them.
+`agent/*.jsonl` are the dashboard's data source and the transaction evidence,
+and every judgment appends to them. They were tracked in git until 2026-08-20,
+when a deploy overwrote `verdicts.jsonl` with the committed snapshot and
+destroyed eight days of decisions. They are gitignored now.
+
+Untracking stops `git pull` and `git checkout` from touching them. It does not
+stop `git clean -fdx`, a fresh clone, or an `rsync --delete`, because the files
+still sit inside the deploy directory. **Set `PROOFSTREAM_LOG_DIR` to a path
+outside the checkout on any deployed host.** That is the actual fix, and it is
+what makes the automatic updater below safe to leave running.
 
 **Run exactly one attestor instance.** Two instances writing the same
 append-only files produce two divergent histories that cannot be merged
-cleanly. To work with the logs elsewhere, copy them from the server rather than
-running a second agent:
+cleanly. To work with the logs elsewhere, copy them down rather than running a
+second agent:
 
 ```bash
-scp <user>@<server>:/opt/proofstream/agent/'*.jsonl' agent/
+pnpm logs:pull
 ```
 
 The seeder (`pnpm seed`) writes the same files and counts as a writer.
+
+## Deploying without logging in
+
+`proofstream-update.timer` pulls the server forward on its own. Every three
+minutes it fetches `main`, and if it moved, asks GitHub whether the `CI`
+workflow passed on that exact commit. Only then does it fast-forward, install
+if the lockfile changed, and restart the two services.
+
+```bash
+sudo cp deploy/proofstream-update.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now proofstream-update.timer
+```
+
+Nothing reaches in from outside. There is no deploy key, no inbound SSH, and no
+credential in GitHub: the server asks GitHub what the truth is and acts on it.
+A compromised GitHub account can merge bad code; it cannot reach the machine
+holding the signing wallet.
+
+The gate is the point. A commit CI has not passed is not deployed, a commit CI
+has not reported on yet is retried next tick, and a commit CI failed on leaves
+the server where it is. A red run on some *other* workflow does not block the
+deploy, because an unrelated failure must not strand the server on old code.
+
+```bash
+systemctl list-timers proofstream-update --no-pager
+journalctl -u proofstream-update -n 50 --no-pager
+```
+
+To deploy right now rather than waiting for the tick, or to see what it would
+do:
+
+```bash
+sudo systemctl start proofstream-update.service
+```
+
+To pin the server while working on something, stop the timer. It is a timer,
+not a daemon, so stopping it changes nothing else:
+
+```bash
+sudo systemctl stop proofstream-update.timer
+```
+
+Restarting is safe at any moment. The attestor's reconcile loop exists for
+exactly this case: a pull request judged but not yet settled when the process
+died is picked up on the next boot. The verifier is restarted first and waited
+for, because the attestor fails closed when it cannot buy a second opinion, and
+a merge landing in the gap would escalate rather than certify.

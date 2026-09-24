@@ -59,8 +59,8 @@ export function fenced(milestone: string): string {
 }
 
 /// Break at spaces, keeping the author's own line breaks. A word longer than
-/// the column count — a URL, a long identifier — is left whole rather than cut
-/// in half, because a broken identifier reads as a different identifier.
+/// the column count, such as a URL or a long identifier, is left whole rather
+/// than cut in half, because a broken identifier reads as a different one.
 function wrap(text: string): string {
   return text
     .split('\n')
