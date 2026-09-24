@@ -23,7 +23,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
+  # THE JOB NAME IS THE GATE. GitHub publishes a check run named after the JOB,
+  # not the workflow, and `deploy/update.sh` looks for one called exactly "CI".
+  # A second job added here is not gated unless it is named "CI" too, or
+  # PROOFSTREAM_GATE is pointed somewhere else.
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
