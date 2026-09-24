@@ -592,7 +592,7 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // ledger row, and never awaited: the certification is done whether or not
   // GitHub takes the comment.
   if (outcome === 'unlocked') {
-    void notifyCertified(log, want.repo, pr.number, streamAddress);
+    void notifyCertified(log, want.repo, pr.number, streamAddress, stream.milestone);
   }
 
   return outcome;

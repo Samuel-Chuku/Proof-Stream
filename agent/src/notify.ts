@@ -3,13 +3,17 @@
 // The earner page exists and nobody is told about it. A contributor whose merge
 // the agent accepted has money accruing and no signal, unless they already knew
 // to look. The place they already are is the pull request, so that is where the
-// one sentence goes.
+// notice goes.
 //
 // WHAT IT DELIBERATELY IS NOT. No amounts, no percentages, no verdict text, no
 // second comment on the same pull request, ever. A bot that posts figures on
 // other people's repositories is spam whatever it says, and a comment that
 // names a sum is a claim the chain may have moved past by the time it is read.
-// The comment says one thing: there may be something to collect, here.
+//
+// WHAT STOPS IT READING AS SPAM is that it is specific. A generic notice with
+// two links is a bot however politely it is worded; the same notice that quotes
+// the milestone this diff was actually judged against, and says what the agents
+// did to reach it, is a record of something that happened.
 //
 // POSTED AS THE APP, never as a person. The read token in GITHUB_TOKEN belongs
 // to a human account, and a comment from it would put words in their mouth.
@@ -27,16 +31,71 @@ type Logger = (entry: Record<string, unknown>) => void;
 /// means we have already spoken.
 export const MARKER = '<!-- proofstream:certified -->';
 
+/// Long enough for a real milestone, short enough that a comment stays a
+/// comment. The stream page has the whole thing, and it is linked below.
+const LIMIT = 400;
+
+/// Where the milestone is wrapped. A fenced block does not soft-wrap, so a
+/// milestone written as one long line gives the whole comment a horizontal
+/// scrollbar, which is the one thing that would make it look thrown together.
+const COLUMNS = 76;
+
+/// The milestone, fenced.
+///
+/// A FENCE, NOT A QUOTE, because the employer writes this text and we post it
+/// on somebody else's repository under our App's name. Inside a fence GitHub
+/// renders it verbatim: no links, no images, no headings, nothing that could
+/// turn our comment into someone else's message. The fence is made longer than
+/// the longest run of backticks in the text, which is the only way out of one.
+///
+/// Wrapping is the ONLY thing done to the words. They are broken at spaces and
+/// never rewritten, so the block still reads as the text that is on chain.
+export function fenced(milestone: string): string {
+  const trimmed = milestone.trim();
+  const text = wrap(trimmed.length > LIMIT ? `${trimmed.slice(0, LIMIT).trimEnd()}…` : trimmed);
+  const longest = Math.max(0, ...[...text.matchAll(/`+/g)].map((m) => m[0].length));
+  const fence = '`'.repeat(Math.max(3, longest + 1));
+  return `${fence}\n${text}\n${fence}`;
+}
+
+/// Break at spaces, keeping the author's own line breaks. A word longer than
+/// the column count — a URL, a long identifier — is left whole rather than cut
+/// in half, because a broken identifier reads as a different identifier.
+function wrap(text: string): string {
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .split(/\s+/)
+        .reduce<string[]>((out, word) => {
+          const last = out[out.length - 1];
+          if (last === undefined) return [word];
+          return last.length + 1 + word.length > COLUMNS ? [...out, word] : [...out.slice(0, -1), `${last} ${word}`];
+        }, [])
+        .join('\n'),
+    )
+    .join('\n');
+}
+
 /// The comment. Pure, so the tests can hold it to the rules above.
-export function commentBody(streamAddress: string): string {
+///
+/// ONE LINE PER PARAGRAPH. GitHub renders a single newline as a hard break, so
+/// prose split across source lines keeps those breaks in the rendered comment
+/// and will not reflow to the reader's width.
+export function commentBody(streamAddress: string, milestone: string): string {
   return [
     MARKER,
-    'This pull request was certified against a ProofStream milestone. If you wrote it, there may be something for you to collect.',
+    '### Certified on chain',
     '',
-    `Collect it: ${env.appUrl}/earnings`,
-    `The stream: ${env.appUrl}/stream/${streamAddress}`,
+    "An agent read this diff, judged it against the milestone below, paid a second agent for an independent review, and signed the attestation that raised the contributor's claim on the stream. No human approved it.",
     '',
-    '_Posted once per pull request. Nothing here asks for a signature or an approval._',
+    fenced(milestone),
+    '',
+    'If you wrote this, the claim is yours to collect.',
+    '',
+    `**[Collect it](${env.appUrl}/earnings)** · [The stream](${env.appUrl}/stream/${streamAddress})`,
+    '',
+    '<sub>ProofStream · one comment per pull request. Nothing here asks you to sign or approve anything.</sub>',
   ].join('\n');
 }
 
@@ -96,7 +155,13 @@ let saidNotConfigured = false;
 
 /// Leave the comment, once. Never throws: a failed comment is a log line, not
 /// a failed certification, and the certification has already happened.
-export async function notifyCertified(log: Logger, repo: string, prNumber: number, streamAddress: string): Promise<void> {
+export async function notifyCertified(
+  log: Logger,
+  repo: string,
+  prNumber: number,
+  streamAddress: string,
+  milestone: string,
+): Promise<void> {
   if (!env.notifyGithub) return;
   if (!env.githubAppId || !env.githubAppPrivateKeyPath) {
     if (!saidNotConfigured) {
@@ -118,7 +183,7 @@ export async function notifyCertified(log: Logger, repo: string, prNumber: numbe
     const res = await fetch(`${API}/repos/${repo}/issues/${prNumber}/comments`, {
       method: 'POST',
       headers: { ...headers(token), 'content-type': 'application/json' },
-      body: JSON.stringify({ body: commentBody(streamAddress) }),
+      body: JSON.stringify({ body: commentBody(streamAddress, milestone) }),
     });
     if (!res.ok) throw new Error(`comment refused: ${res.status} ${(await res.text()).slice(0, 200)}`);
     const { html_url } = (await res.json()) as { html_url?: string };
