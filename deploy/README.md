@@ -14,7 +14,7 @@ by the attestor, so it needs no inbound access.
 
 ## Requirements
 
-Node ≥ 22.13 and pnpm. Ubuntu's packaged Node is older than this:
+Node ≥ 22.23 and pnpm. Ubuntu's packaged Node is older than this:
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
