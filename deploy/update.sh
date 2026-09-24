@@ -28,11 +28,21 @@ GATE=${PROOFSTREAM_GATE:-CI}
 
 say() { echo "[update] $*"; }
 
+# EVERY GIT CALL RUNS AS THE REPOSITORY'S OWNER, never as root.
+#
+# This service runs as root so it can restart the two units, and git refuses to
+# work in a repository owned by somebody else: "detected dubious ownership",
+# exit 128. The fix is NOT `safe.directory`. That would silence the warning and
+# let root write to the checkout, and a root-owned file left in .git is a
+# repository the agent's own user can no longer pull. Dropping privileges is
+# both the safe answer and the correct one.
+g() { sudo -u "$RUNAS" git "$@"; }
+
 cd "$DIR"
 
-sudo -u "$RUNAS" git fetch --quiet origin "$BRANCH"
-have=$(git rev-parse HEAD)
-want=$(git rev-parse "origin/$BRANCH")
+g fetch --quiet origin "$BRANCH"
+have=$(g rev-parse HEAD)
+want=$(g rev-parse "origin/$BRANCH")
 
 if [ "$have" = "$want" ]; then
   exit 0
@@ -71,10 +81,10 @@ esac
 # minute of nothing, and a minute in which node_modules is half-written while
 # two live services are reading it.
 lockfile_changed=false
-git diff --quiet "$have" "$want" -- pnpm-lock.yaml || lockfile_changed=true
+g diff --quiet "$have" "$want" -- pnpm-lock.yaml || lockfile_changed=true
 
-sudo -u "$RUNAS" git merge --ff-only "origin/$BRANCH"
-say "now on $(git rev-parse --short HEAD)"
+g merge --ff-only "origin/$BRANCH"
+say "now on $(g rev-parse --short HEAD)"
 
 if [ "$lockfile_changed" = true ]; then
   say "the lockfile changed; installing"
