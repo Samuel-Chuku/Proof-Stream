@@ -1,0 +1,89 @@
+# THE GATE. Everything that can be checked without a chain, a key or a browser.
+#
+# This is also what the VPS updater waits for: `deploy/update.sh` reads this
+# workflow's conclusion for a commit and refuses to deploy one that did not
+# pass. So a red run here is not advisory. It keeps the change off the server.
+#
+# What is deliberately NOT here: anything needing a secret. No Circle key, no
+# LLM key, no RPC calls, no deploys to a chain. A fork's pull request runs this
+# in full, and the worst it can do is fail.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # A second push to the same branch makes the first run irrelevant.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # THE JOB NAME IS THE GATE. GitHub publishes a check run named after the JOB,
+  # not the workflow, and `deploy/update.sh` looks for one called exactly "CI".
+  # A second job added here is not gated unless it is named "CI" too, or
+  # PROOFSTREAM_GATE is pointed somewhere else.
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+          run_install: false
+
+      # FROM .nvmrc, NOT A LITERAL. Pinned to 22.13.1, this job tested a
+      # configuration nothing runs: the Circle SDK is a dual package whose
+      # `import` condition points at ESM with a .js extension, and Node only
+      # resolves its named exports from 22.23 on. Every suite that reaches
+      # agent/src/chain.ts failed on the pinned version and passed on the one
+      # the server actually runs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - run: pnpm install --frozen-lockfile
+
+      # The contracts first: everything else reads their ABI.
+      - name: Contracts
+        run: forge test --root contracts
+
+      # The generated ABIs must match the contracts they were generated from.
+      # They drift silently otherwise, and the agent reads a stale surface.
+      - name: Generated artifacts are current
+        run: |
+          pnpm sync:artifacts
+          git diff --exit-code config/src/artifacts.ts web/lib/bytecode.ts
+
+      - name: Tests
+        run: pnpm test
+
+      - name: Typecheck the agent
+        run: ./node_modules/.bin/tsc --noEmit -p agent
+
+      # This typechecks the web app too, so there is no separate tsc step: the
+      # web tsconfig includes `.next/types`, which does not exist until a build
+      # has generated it, and tsc run first fails on the missing files rather
+      # than on anything real.
+      #
+      # It also catches what tsc cannot: a server component reaching for a
+      # browser API, a route that will not render, a bad import boundary.
+      #
+      # It runs with placeholder values. Both are read at build time by pages
+      # that must still render without a configured backend, which is exactly
+      # the property worth proving.
+      - name: Build and typecheck the web app
+        run: pnpm --filter @proofstream/web exec next build
+        env:
+          NEXT_PUBLIC_CHAIN_ID: "5042002"
+          SESSION_SECRET: build-only-not-a-real-secret

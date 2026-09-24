@@ -1,0 +1,20 @@
+[Unit]
+Description=Pull ProofStream forward to the latest green main
+Documentation=https://github.com/Samuel-Chuku/Proof-Stream
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+# Root, because it restarts the two services. Everything that touches the
+# checkout drops to the proofstream user, so nothing in the working tree ends
+# up root-owned and unwritable by the agent that has to read it.
+ExecStart=/opt/proofstream/deploy/update.sh
+
+# A deploy that hangs must not block the next tick forever.
+TimeoutStartSec=600
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proofstream-update

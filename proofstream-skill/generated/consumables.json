@@ -64,6 +64,7 @@
     "stream:status",
     "sweep",
     "sync:artifacts",
+    "test",
     "test:ago",
     "test:alerts",
     "test:allowlist",

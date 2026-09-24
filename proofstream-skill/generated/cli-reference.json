@@ -21,6 +21,7 @@
     "web:build": "bash -c 'set -a; source .env; set +a; cd web && exec ./node_modules/.bin/next build'",
     "verdict:test": "tsx --env-file=.env scripts/test-verdict.ts",
     "review:test": "tsx --env-file=.env scripts/test-review.ts",
+    "test": "tsx --test agent/test/*.test.ts web/test/*.test.ts config/test/*.test.ts",
     "test:amounts": "tsx --test config/test/amounts.test.ts",
     "sync:artifacts": "tsx scripts/sync-artifacts.ts",
     "seed": "tsx --env-file=.env scripts/demo-seed.ts",

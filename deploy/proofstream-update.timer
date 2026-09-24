@@ -1,0 +1,18 @@
+[Unit]
+Description=Check for a deployable ProofStream main every few minutes
+
+[Timer]
+# Three minutes. The check costs one `git fetch` and, only when main has
+# actually moved, one GitHub API call. The unauthenticated limit is 60 calls an
+# hour and this spends one per merge, not one per tick.
+OnBootSec=2min
+OnUnitActiveSec=3min
+
+# Without this, every ProofStream server on earth asks GitHub at the same
+# second. There is one server, but the habit is free.
+RandomizedDelaySec=30
+
+Persistent=true
+
+[Install]
+WantedBy=timers.target

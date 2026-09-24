@@ -267,7 +267,7 @@ transfer receipts beside it. Do not add the second to a transaction count.
 
 ## Install and run
 
-Requires Node >= 22.13, pnpm, and [Foundry](https://getfoundry.sh).
+Requires Node >= 22.23, pnpm, and [Foundry](https://getfoundry.sh).
 
 ```bash
 pnpm install
