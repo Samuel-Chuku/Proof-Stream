@@ -434,7 +434,7 @@ export function renderHtml(o: {
     ${escape(o.footer)}${o.stopUrl ? `<br><a href="${escape(o.stopUrl)}" style="color:${DIM}">Stop these emails</a>` : ''}
   </td></tr>
 </table>
-<div style="max-width:560px;padding-top:12px;font:11px/1.5 ${MONO};color:${DIM};text-align:left">Arc Testnet · nothing here asks you to sign or approve anything.</div>
+<div style="max-width:560px;padding-top:12px;font:11px/1.5 ${MONO};color:${DIM};text-align:left">Nothing here asks you to sign or approve anything.</div>
 </td></tr></table></body></html>`;
 }
 
