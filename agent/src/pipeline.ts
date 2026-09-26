@@ -4,7 +4,7 @@
 // gates are the product.
 import { appendFileSync } from 'node:fs';
 import { allowedEarner, authorIsAllowed, coAuthorLogins, earnerId, formatUsdc, matchesRepoSpec, parseRepoSpec } from '@proofstream/config';
-import { readStream, sendCertification, signAttestation, type Attestation } from './chain';
+import { readDailyHeadroom, readStream, sendCertification, signAttestation, type Attestation } from './chain';
 import { evidenceImproved } from './adjudicate';
 import { checkCorrectness, type CorrectnessResult } from './correctness';
 import { env, ledgerPath } from './env';
@@ -497,8 +497,14 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // All of the certification arithmetic lives in `metering.ts` so it can be
   // tested without an .env or a chain (`pnpm test:metering`). It had none, and
   // it decides what a contributor is paid.
+  //
+  // TODAY'S REMAINING ALLOWANCE, read now rather than assumed. `dailyUnlockCap`
+  // is a rate the contract resets per UTC day, so what is left depends on what
+  // this stream already unlocked today, which only the chain knows.
+  const dailyHeadroom = await readDailyHeadroom(streamAddress, stream.dailyUnlockCap);
+
   const { desiredBps, certifiedBps, cappedTarget, trancheAdded, metered, raises } =
-    meterCertification(agreedFraction, stream);
+    meterCertification(agreedFraction, { ...stream, dailyHeadroom });
 
   // On-chain `certifiedBps` is monotonic, so a verdict at or below the standing
   // one reverts. Judging the same work twice — a redelivered webhook, a
@@ -515,17 +521,26 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   }
 
   // `meterCertification` clipped to the policy rather than letting the contract
-  // revert: `maxTranche` caps how much entitlement ONE attestation may create,
-  // and throwing the whole verdict away over it would be worse than certifying
-  // part of it, because certification is monotonic and the next judgment can
-  // add the remainder.
+  // revert, because certification is monotonic: part of the verdict landing is
+  // better than all of it being thrown away, and a later pass adds the rest.
+  //
+  // NO ROOM AT ALL IS STILL NOT A DROP. A day whose allowance is already spent
+  // leaves nothing to certify right now, but the agents have agreed and the
+  // verifier has been paid. Carrying `meteredByPolicy` on this row is what
+  // lets `latestClipped` find it and the sweep finish it once the bucket
+  // resets. Without it the verdict is bought and then discarded.
   if (!raises) {
+    const blocker =
+      dailyHeadroom < stream.maxTranche
+        ? `today's remaining allowance is ${formatUsdc(dailyHeadroom)} of a ${formatUsdc(stream.dailyUnlockCap)} daily cap`
+        : `policy maxTranche is ${formatUsdc(stream.maxTranche)}`;
     log({
       event: 'skipped',
       ...base,
       ...verification,
       agreedFraction,
-      reason: `policy maxTranche ${formatUsdc(stream.maxTranche)} leaves no room to raise certification above ${Number(stream.certifiedBps) / 100}%`,
+      meteredByPolicy: metered || undefined,
+      reason: `${blocker}, leaving no room to raise certification above ${Number(stream.certifiedBps) / 100}%`,
     });
     return 'skipped';
   }
@@ -559,12 +574,13 @@ async function judgeForStream(pr: MergedPr, entry: StreamEntry): Promise<Pipelin
   // untouched minutes later, so the policy was never what stood in the way.
   //
   // We can tell the difference, because the agent already read the caps. It
-  // METERS to `maxTranche`, so a per-certification violation is impossible by
-  // construction; and a step at or under the daily ceiling cannot be the first
-  // thing that day to breach it. When both hold, whatever refused this was not
-  // the mandate, and claiming otherwise turns the strongest demo in the product
-  // into a claim that does not survive being checked.
-  const withinKnownPolicy = trancheAdded <= stream.maxTranche && trancheAdded <= stream.dailyUnlockCap;
+  // METERS to BOTH of them, so neither a per-certification nor a per-day
+  // violation is possible by construction. The daily side compares against
+  // what is LEFT today, not the whole cap: the cap is what a day may unlock in
+  // total, and this stream may already have spent some of it. When both hold,
+  // whatever refused this was not the mandate, and claiming otherwise turns the
+  // strongest demo in the product into a claim that does not survive checking.
+  const withinKnownPolicy = trancheAdded <= stream.maxTranche && trancheAdded <= dailyHeadroom;
 
   log({
     event: outcome,

@@ -52,6 +52,21 @@ test('a clipped certification is picked up with the figure the agents concluded'
   assert.equal(c?.confidence, 0.9);
 });
 
+// A SPENT DAY IS THE ONE THAT USED TO BE DROPPED. Both agents agreed and the
+// verifier fee was already paid, but the day's allowance left no room, so the
+// pipeline logged `skipped` and nothing ever went looking for it again.
+test('a verdict blocked by a spent day is resumable, not lost', () => {
+  const c = latestClipped([row({ event: 'skipped', meteredByPolicy: true })], STREAM, HASH, 1);
+  assert.equal(c?.agreedFraction, 0.97, 'the concluded figure survives');
+  assert.equal(c?.pr, 4);
+});
+
+test('an ordinary skip is still nothing to resume', () => {
+  // Re-judging work already certified skips too, and must not be mistaken for
+  // a clip: nothing was bought and nothing is owed.
+  assert.equal(latestClipped([row({ event: 'skipped' })], STREAM, HASH, 1), null);
+});
+
 test('a certification the policy did not clip has nothing to resume', () => {
   assert.equal(latestClipped([row({})], STREAM, HASH, 1), null);
 });

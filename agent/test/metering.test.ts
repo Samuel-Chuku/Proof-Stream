@@ -5,11 +5,12 @@ import { meterCertification, type MeteringInputs } from '../src/metering';
 /** USDC is 6 decimals. Every amount below is raw units. */
 const usdc = (n: number) => BigInt(Math.round(n * 1_000_000));
 
-/** A stream with no policy throttle: `maxTranche` defaults to the whole budget. */
+/** A stream with no policy throttle: both caps default to the whole budget. */
 const stream = (over: Partial<MeteringInputs> = {}): MeteringInputs => ({
   budget: usdc(100),
   target: 0n,
   maxTranche: usdc(100),
+  dailyHeadroom: usdc(100),
   certifiedBps: 0n,
   ...over,
 });
@@ -46,6 +47,62 @@ test('THE 67 USDC BUG: a low maxTranche clips a nearly-finished milestone', () =
 
   // The gap that got refunded to the employer when the milestone closed.
   assert.equal(usdc(97) - m.cappedTarget, usdc(67));
+});
+
+// --- the daily cap ------------------------------------------------------------
+//
+// THE CAP THAT CAN ACTUALLY BITE. The constructor forbids `maxTranche` below
+// the budget, so that one can no longer clip anything. `dailyUnlockCap` can sit
+// far below the budget and still be legal, because the constructor only checks
+// it clears the budget across the WHOLE milestone:
+//
+//   if (_policy.dailyUnlockCap * daysLong < _budget) revert CapCannotStrandTheBudget();
+//
+// So a two-day, 100 USDC milestone may legally cap 50 a day, and work that
+// lands on day one scoring 100% asks the contract for 100.
+
+test('THE LOST PAYOUT: a day cap below the verdict clips instead of reverting', () => {
+  // Two days, budget 100, 50 a day. Both agents agree the whole thing is done
+  // on day one. Before this was modelled the agent signed for 100, `certify`
+  // reverted DailyCapExceeded, the sweep retried three times the same day, and
+  // the payout was lost: the resume pass could not pick it up either, because
+  // it keys on `metered` and nothing had been metered.
+  const m = meterCertification(1.0, stream({ dailyHeadroom: usdc(50) }));
+  assert.equal(m.cappedTarget, usdc(50), 'clipped to what today allows');
+  assert.equal(m.trancheAdded, usdc(50));
+  assert.equal(m.certifiedBps, 5_000n);
+  assert.equal(m.raises, true, 'it still moves the contributor forward');
+  assert.equal(m.metered, true, 'and says so, which is what the resume pass reads');
+});
+
+test('the rest arrives the next day, when the bucket has reset', () => {
+  const day2 = meterCertification(1.0, stream({ target: usdc(50), certifiedBps: 5_000n, dailyHeadroom: usdc(50) }));
+  assert.equal(day2.cappedTarget, usdc(100));
+  assert.equal(day2.trancheAdded, usdc(50));
+  assert.equal(day2.metered, false, 'nothing left to meter');
+  assert.equal(day2.raises, true);
+});
+
+test('the tighter of the two caps wins, whichever it is', () => {
+  const dayIsTighter = meterCertification(1.0, stream({ maxTranche: usdc(80), dailyHeadroom: usdc(30) }));
+  assert.equal(dayIsTighter.trancheAdded, usdc(30));
+  const trancheIsTighter = meterCertification(1.0, stream({ maxTranche: usdc(30), dailyHeadroom: usdc(80) }));
+  assert.equal(trancheIsTighter.trancheAdded, usdc(30));
+});
+
+test('a spent day certifies nothing and is not mistaken for finished work', () => {
+  // Nothing may land today. `raises` false stops the send, and `metered` true
+  // keeps the work on the resume pass's list rather than dropping it.
+  const m = meterCertification(1.0, stream({ dailyHeadroom: 0n }));
+  assert.equal(m.trancheAdded, 0n);
+  assert.equal(m.raises, false, 'nothing to send: the contract would revert NotAnIncrease');
+  assert.equal(m.metered, true, 'but the verdict is not thrown away');
+});
+
+test('a day cap wider than the work never clips', () => {
+  const m = meterCertification(0.4, stream({ dailyHeadroom: usdc(100) }));
+  assert.equal(m.trancheAdded, usdc(40));
+  assert.equal(m.metered, false);
 });
 
 test('a clipped certification climbs on the next judgment', () => {

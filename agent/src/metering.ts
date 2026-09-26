@@ -14,6 +14,10 @@ export type MeteringInputs = {
   target: bigint;
   /** The most one attestation may add to `target`. */
   maxTranche: bigint;
+  /** How much `dailyUnlockCap` still allows to be unlocked TODAY, in USDC, with
+   *  what has already gone out today subtracted. Read from the chain by
+   *  `readDailyHeadroom`, because it depends on the contract's day bucket. */
+  dailyHeadroom: bigint;
   /** The standing verdict, 0-10_000. Monotonic on chain. */
   certifiedBps: bigint;
 };
@@ -28,8 +32,9 @@ export type Metering = {
   /** What THIS attestation adds to that claim. **May be negative** — see the
    *  note below. Callers must check `raises` before spending it. */
   trancheAdded: bigint;
-  /** True when `maxTranche` clipped the verdict, so the agents agreed more than
-   *  this attestation can certify. The remainder needs another judgment. */
+  /** True when policy clipped the verdict, so the agents agreed more than this
+   *  attestation can certify. The remainder needs another judgment, or the
+   *  resume pass on a later day. */
   metered: boolean;
   /** True when this verdict actually raises the standing certification. False
    *  means there is nothing to send: the contract's `certifiedBps` is monotonic
@@ -41,21 +46,34 @@ export type Metering = {
 ///
 /// Two separate limits are at work and they are easy to confuse:
 ///   - `maxTranche` bounds ONE attestation. It is a step limit.
-///   - `dailyUnlockCap` bounds a UTC day. It is a rate limit, enforced on chain
-///     only, and deliberately not modelled here.
+///   - `dailyUnlockCap` bounds a UTC day. It is a rate limit.
 ///
-/// We meter to `maxTranche` rather than letting the contract revert, because
-/// certification is monotonic: a clipped verdict still moves the contributor
-/// forward, and the next judgment can add the rest. Reverting would throw the
-/// whole verdict away.
+/// BOTH ARE MODELLED HERE, and for one reason: certification is monotonic, so a
+/// clipped verdict still moves the contributor forward and a later judgment can
+/// add the rest, whereas a revert throws the whole verdict away along with the
+/// verifier fee already paid for it.
+///
+/// The daily cap used to be left to the chain, on the grounds that `maxTranche`
+/// was the cap that bit. CT-1 inverted that. The constructor now refuses a
+/// `maxTranche` below the budget, so that one can no longer clip anything,
+/// while `dailyUnlockCap` only has to clear the budget across the whole
+/// milestone:
+///
+///   if (_policy.dailyUnlockCap * daysLong < _budget) revert CapCannotStrandTheBudget();
+///
+/// A two-day, 100 USDC milestone may therefore cap 50 a day. Work landing on
+/// day one at 100% asked the contract for 100 and got `DailyCapExceeded`, three
+/// sweep retries inside the same day, and no payout at all.
 export function meterCertification(agreedFraction: number, stream: MeteringInputs): Metering {
   const desiredBps = BigInt(Math.round(agreedFraction * 10_000));
 
   // What the agents think is owed in total, ignoring policy.
   const fullTarget = (stream.budget * desiredBps) / 10_000n;
 
-  // What policy will admit: the standing claim plus one tranche.
-  const headroom = stream.target + stream.maxTranche;
+  // What policy will admit: the standing claim plus whichever cap is tighter
+  // right now. The day's headroom already has today's spend subtracted.
+  const step = stream.dailyHeadroom < stream.maxTranche ? stream.dailyHeadroom : stream.maxTranche;
+  const headroom = stream.target + step;
   const cappedTarget = fullTarget > headroom ? headroom : fullTarget;
 
   const certifiedBps = (cappedTarget * 10_000n) / stream.budget;
