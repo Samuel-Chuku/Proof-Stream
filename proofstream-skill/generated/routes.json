@@ -11,6 +11,7 @@
     "api/github/callback/route.ts",
     "api/github/login/route.ts",
     "api/github/repos/route.ts",
+    "api/stream/history/route.ts",
     "docs/page.tsx",
     "earnings/page.tsx",
     "landing/page.tsx",
