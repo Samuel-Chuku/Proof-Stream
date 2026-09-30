@@ -2,9 +2,12 @@
 
 import { EXPLORER_URL, parseRepoSpec } from '@proofstream/config';
 import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { AddressChip } from './address-chip';
 import { Amount } from './amount';
 import { EarnerActions } from './earner-actions';
+import { StreamHistory } from './stream-history';
+import type { Bucket } from '../lib/stream-history';
 import type { Position } from '../lib/earnings';
 
 /// Never rounded to a whole unit: an on-chain policy value a judge can read
@@ -27,12 +30,55 @@ export function EarningsStream({ position: p, login }: { position: Position; log
   const owed = p.earnings.reduce((sum, e) => sum + BigInt(e.withdrawable), 0n);
   const paid = p.earnings.reduce((sum, e) => sum + BigInt(e.paid), 0n);
 
+  // ON OPEN, ONCE, AND NEVER FOR A FOLD NOBODY TOUCHED. The history costs a
+  // contract read and a pass over the agent's ledger. Somebody with ten streams
+  // behind them opens one, and paying for ten is paying for nine nobody saw.
+  const [history, setHistory] = useState<{ budget: bigint; buckets: Bucket[] } | null>(null);
+  const [asked, setAsked] = useState(false);
+
+  const load = useCallback(async () => {
+    if (asked) return;
+    setAsked(true);
+    try {
+      const res = await fetch(`/api/stream/history?address=${p.address}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const body = (await res.json()) as {
+        budget: string;
+        buckets: { at: number; unlocked: string; arriving: string; uncertified: string }[];
+      };
+      setHistory({
+        budget: BigInt(body.budget),
+        buckets: body.buckets.map((b) => ({
+          at: b.at,
+          unlocked: BigInt(b.unlocked),
+          arriving: BigInt(b.arriving),
+          uncertified: BigInt(b.uncertified),
+        })),
+      });
+    } catch {
+      // A chart that cannot be drawn is not an error worth showing. Every
+      // figure on this page is already here without it.
+    }
+  }, [asked, p.address]);
+
+  // A FOLD THAT RENDERS OPEN NEVER TOGGLES. `onToggle` fires on a CHANGE, so a
+  // stream that owes money, which is the one that opens itself and the one
+  // somebody actually came here for, would never have asked for its history.
+  useEffect(() => {
+    if (owed > 0n) void load();
+  }, [owed, load]);
+
   return (
     // OPEN WHERE THERE IS MONEY, CLOSED WHERE THERE IS NOT. Somebody with ten
     // streams behind them is here for the one that owes them, and a page that
     // opens every stream in full makes them scroll past their own history to
     // find it. A settled stream still reads at a glance from its summary line.
-    <details className="ps-stream-fold" id={p.address} open={owed > 0n}>
+    <details
+      className="ps-stream-fold"
+      id={p.address}
+      open={owed > 0n}
+      onToggle={(e) => e.currentTarget.open && void load()}
+    >
       <summary>
         <span className="ps-stream-fold-who">
           <span className="ps-label">{spec.repo}</span>
@@ -117,6 +163,12 @@ export function EarningsStream({ position: p, login }: { position: Position; log
           )}
         </dl>
       </div>
+
+      {/* AFTER THE TERMS, NEVER BEFORE THEM. The terms are the thing a fake page
+          would have to fake chain state to reproduce, so they stay first and a
+          picture never pushes them down. This reads as "and here is how that
+          played out", which is what leads into the ledger below it. */}
+      {history && <StreamHistory buckets={history.buckets} budget={history.budget} />}
 
       <div className="ps-earners" role="table" aria-label="Your credit on this stream">
         <div className="ps-earners-head ps-label" role="row">

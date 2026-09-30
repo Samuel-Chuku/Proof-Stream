@@ -78,6 +78,15 @@ export type AgentEvent = {
   policyCouldExplain?: boolean;
   agreedFraction?: number;
   trancheUsdc?: string;
+  /** The CUMULATIVE claim after this certification, which is what the contract's
+   *  own `target()` holds. `trancheUsdc` is what this one attestation added, so
+   *  the two are not interchangeable: a chart that stepped by the tranche would
+   *  double-count every resumed certification. */
+  claimUsdc?: string;
+  /** Which milestone. The ledger is fleet-wide AND every stream numbers its own
+   *  milestones from the same start, so anything per-milestone must filter on
+   *  this together with `workStream`. */
+  milestoneIndex?: number;
   /** Circle's terminal state for the send. FAILED with no txHash means the node
    *  refused to estimate — which is what an on-chain policy revert looks like
    *  from here, because the transaction is never broadcast. */
@@ -122,26 +131,35 @@ function readJsonl<T>(relative: string): T[] {
 /// through the tunnel, not the bytes. So cache it briefly instead. Verdicts
 /// arrive minutes apart at best — a merged PR has to be judged first — so a few
 /// seconds of staleness is invisible, while the saving is a second per view.
-let logsCache: { at: number; value: { verdicts: AgentEvent[]; reviews: Review[] } } | null = null;
+let logsCache: { at: number; limit: number; value: { verdicts: AgentEvent[]; reviews: Review[] } } | null = null;
 const LOGS_TTL_MS = 15_000;
+
+/// What the FEED asks for. Enough to read as a feed, small enough to transfer.
+const FEED_LIMIT = 120;
+/// What anything reconstructing a HISTORY asks for, and the agent's own ceiling.
+/// A bounded window is fine for a feed, which only claims to show recent
+/// decisions. It is not fine for a chart, which claims to show all of them.
+export const HISTORY_LIMIT = 2000;
 
 /// One round trip for both logs. Verdicts come back newest-first, because the
 /// feed reads top-down as most-recent-decision-first.
-export async function readAgentLogs(): Promise<{ verdicts: AgentEvent[]; reviews: Review[] }> {
+export async function readAgentLogs(limit = FEED_LIMIT): Promise<{ verdicts: AgentEvent[]; reviews: Review[] }> {
   const endpoint = process.env.AGENT_EVENTS_URL;
 
   if (endpoint) {
-    if (logsCache && Date.now() - logsCache.at < LOGS_TTL_MS) return logsCache.value;
+    // Keyed by limit: a 120-row feed read must not satisfy a 2000-row history
+    // read from cache, or the chart silently gets the feed's window.
+    if (logsCache && logsCache.limit === limit && Date.now() - logsCache.at < LOGS_TTL_MS) return logsCache.value;
     try {
       // Bounded: the feed shows recent decisions, and the full log is 300KB+
       // of JSON that costs a second on every page view to transfer and parse.
       const url = new URL(endpoint);
-      if (!url.searchParams.has('limit')) url.searchParams.set('limit', '120');
+      if (!url.searchParams.has('limit')) url.searchParams.set('limit', String(limit));
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = (await res.json()) as { verdicts?: AgentEvent[]; reviews?: Review[] };
       const value = { verdicts: (body.verdicts ?? []).reverse(), reviews: body.reviews ?? [] };
-      logsCache = { at: Date.now(), value };
+      logsCache = { at: Date.now(), limit, value };
       return value;
     } catch {
       // A dashboard that 500s because the agent is briefly unreachable is worse

@@ -4254,3 +4254,78 @@ input[type='range'].ps-range:disabled {
   align-items: center;
   gap: var(--ps-1) var(--ps-2);
 }
+
+/* ---- Stream history: the bar's three states, across time ---------- */
+
+/* QUIETER THAN THE BAR, ON PURPOSE. The bar is the showpiece and wears a 2px
+   structural rule; this wears a hairline and sits inside a fold beneath it. If
+   the two ever read as equals, this one is wrong. */
+.ps-history {
+  margin: var(--ps-4) 0 0;
+}
+
+.ps-history-plot {
+  display: flex;
+  align-items: flex-end;
+  /* 2px, the mark spacer, not a layout dimension: the same exemption the 1px
+     and 2px border widths get. The bar's 4px cell gap would be wider than the
+     columns themselves at this count. */
+  gap: 2px;
+  height: 64px;
+  padding: var(--ps-1);
+  border: var(--ps-bw-hair) solid var(--ps-border);
+  background: var(--ps-surface);
+}
+
+/* Every column is the full height of the plot, because every column is the
+   whole budget. A column that sized itself to its own data would make two
+   moments impossible to compare, which is the one thing a time chart is for. */
+.ps-history-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.ps-history-seg {
+  display: block;
+  width: 100%;
+}
+
+.ps-history-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ps-1) var(--ps-2);
+  margin: var(--ps-1) 0 0;
+}
+
+.ps-history-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-1);
+}
+
+/* THE STRIP IN A CLOSED SUMMARY. No frame, no padding, no axis: at this height
+   it is a shape read in passing, and a border around it would turn a glance
+   into a panel. */
+.ps-history-compact {
+  margin: 0;
+}
+
+.ps-history-compact .ps-history-plot {
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+@media (max-width: 720px) {
+  /* The legend wraps to its own line before the dates collide with it. */
+  .ps-history-key {
+    order: 3;
+    width: 100%;
+  }
+}
