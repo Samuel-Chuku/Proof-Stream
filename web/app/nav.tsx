@@ -17,6 +17,23 @@ import { ThemeToggle } from './theme-toggle';
 /// with the page like the top of a printed sheet.
 // No HOME entry — the wordmark is the home link, which is the convention
 // every user already knows.
+/// ProofStream runs on two chains. Arc is this site; NEAR is a separate deployment with
+/// its own contract and enclave-verified agents. The switch says which one you are on.
+const NEAR_SITE = 'https://near.proofstream.site';
+
+function ChainSwitch() {
+  return (
+    <span className="ps-chain-switch" role="group" aria-label="Which chain">
+      <span className="ps-chip ps-chip-current" aria-current="true">
+        ARC
+      </span>
+      <a className="ps-chip ps-chip-link" href={NEAR_SITE}>
+        NEAR
+      </a>
+    </span>
+  );
+}
+
 const LINKS = [
   { href: '/streams', label: 'STREAMS' },
   { href: '/new', label: 'NEW STREAM' },
@@ -67,6 +84,7 @@ export function Nav({ landing = false }: { landing?: boolean }) {
           </span>
 
           <div className="ps-nav-actions">
+            <ChainSwitch />
             <a className="ps-button" href="/streams">
               [ GO TO APP ]
             </a>
@@ -117,6 +135,7 @@ export function Nav({ landing = false }: { landing?: boolean }) {
         {/* Connect sits in the nav so it is reachable from every page — a
             wallet button that only exists on one screen gets missed. */}
         <div className="ps-nav-actions">
+          <ChainSwitch />
           <Connect />
           <ThemeToggle />
         </div>

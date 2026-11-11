@@ -4329,3 +4329,18 @@ input[type='range'].ps-range:disabled {
     width: 100%;
   }
 }
+
+/* ---- Chain switch: Arc (this site) or NEAR ---------------- */
+
+.ps-chain-switch {
+  display: inline-flex;
+  gap: var(--ps-1);
+}
+
+/* The chain you are on: a raised chip, like the active nav item. */
+.ps-chip-current {
+  border-color: var(--ps-rule);
+  background: var(--ps-surface);
+  box-shadow: var(--ps-shadow-1);
+  cursor: default;
+}
